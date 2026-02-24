@@ -7,7 +7,8 @@
     "diagram": "./src/diagram.js"
   },
   "scripts": {
-    "test": "node src/diagram.js analyze ."
+    "test": "node src/diagram.js analyze .",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "diagrams",
@@ -22,5 +23,25 @@
     "chalk": "^4.1.2",
     "commander": "^12.0.0",
     "glob": "^10.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jscraik/diagram-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jscraik/diagram-cli/issues"
+  },
+  "homepage": "https://github.com/jscraik/diagram-cli#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "files": [
+    "src/diagram.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
   }
 }
