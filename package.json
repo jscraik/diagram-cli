@@ -1,0 +1,26 @@
+{
+  "name": "@jmc/diagram",
+  "version": "1.0.0",
+  "description": "Generate architecture diagrams from codebases",
+  "main": "src/diagram.js",
+  "bin": {
+    "diagram": "./src/diagram.js"
+  },
+  "scripts": {
+    "test": "node src/diagram.js analyze ."
+  },
+  "keywords": [
+    "diagrams",
+    "mermaid",
+    "architecture",
+    "code-analysis",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^12.0.0",
+    "glob": "^10.0.0"
+  }
+}
