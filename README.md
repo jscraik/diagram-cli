@@ -1,99 +1,87 @@
-# diagram
+# diagram-cli
 
-Generate architecture diagrams from codebases. No AI needed—just run a command.
+Generate codebase architecture diagrams from source files. No AI required.
 
-```bash
-$ diagram generate .
+## Table of Contents
 
-📐 Mermaid Diagram:
-
-```mermaid
-graph TD
-  subgraph src["src"]
-    App["App"]
-    Button["Button"]
-  end
-  App --> Button
-```
-
-🔗 Preview: https://mermaid.live/edit#pako:...
-```
+- [Install](#install)
+- [Quick start](#quick-start)
+- [Commands](#commands)
+- [Diagram types](#diagram-types)
+- [Output formats](#output-formats)
+- [Documentation](#documentation)
+- [Development](#development)
+- [License](#license)
 
 ## Install
 
 ```bash
-# Clone and link
-git clone <repo>
+# Clone and link locally
+git clone https://github.com/jscraik/diagram-cli.git
 cd diagram-cli
+npm install
 npm link
-
-# Or use npx (no install)
-npx diagram generate .
 ```
 
-## Usage
-
-### Quick Start
+## Quick start
 
 ```bash
-# Generate architecture diagram (default)
+# Analyze repository structure
+diagram analyze .
+
+# Generate architecture diagram (default type)
 diagram generate .
 
-# Analyze first
--diagram analyze .
+# Generate all diagram types into ./diagrams
+diagram all .
 ```
 
-### Commands
+## Commands
 
-#### `analyze [path]`
+### `diagram analyze [path]`
 
-Analyze codebase structure without generating diagrams.
+Analyze file structure and dependencies without rendering a diagram.
 
 ```bash
 diagram analyze ./my-project
-diagram analyze . --json                    # Output as JSON
-diagram analyze . --patterns "*.py,*.go"    # Custom file patterns
-diagram analyze . --max-files 200           # Analyze more files
+diagram analyze . --json
+diagram analyze . --patterns "**/*.py,**/*.go"
+diagram analyze . --max-files 200
 ```
 
 Options:
-- `-p, --patterns <list>` - File patterns (default: `**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs`)
-- `-e, --exclude <list>` - Exclude patterns 
-- `-m, --max-files <n>` - Max files to analyze (default: 100)
-- `-j, --json` - Output as JSON
 
-#### `generate [path]`
+- `-p, --patterns <list>` file patterns (default: `**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs`)
+- `-e, --exclude <list>` exclude patterns
+- `-m, --max-files <n>` max files to analyze (default: `100`)
+- `-j, --json` JSON output
 
-Generate a single diagram.
+### `diagram generate [path]`
+
+Generate one Mermaid diagram and print a preview URL.
 
 ```bash
-# Architecture diagram (default)
 diagram generate .
-
-# Other types
 diagram generate . --type sequence
-diagram generate . --type dependency
-diagram generate . --type class
-diagram generate . --type flow
-
-# Options
-diagram generate . --focus src/api           # Focus on module
-diagram generate . --output diagram.svg     # Save as SVG
-diagram generate . --theme dark             # Use dark theme
-diagram generate . --open                   # Open in browser
+diagram generate . --focus src/api
+diagram generate . --theme dark
+diagram generate . --output diagram.mmd
+diagram generate . --output diagram.svg
+diagram generate . --open
 ```
 
 Options:
-- `-t, --type <type>` - Diagram type: `architecture`, `sequence`, `dependency`, `class`, `flow` (default: `architecture`)
-- `-f, --focus <module>` - Focus on specific module/directory
-- `-o, --output <file>` - Save to file (SVG, PNG, or .mmd)
-- `-m, --max-files <n>` - Max files to analyze
-- `--theme <theme>` - Theme: `default`, `dark`, `forest`, `neutral`
-- `--open` - Open preview in browser
 
-#### `all [path]`
+- `-t, --type <type>` `architecture|sequence|dependency|class|flow` (default: `architecture`)
+- `-f, --focus <module>` focus on one module or directory
+- `-o, --output <file>` write `.mmd`, `.svg`, or `.png`
+- `-m, --max-files <n>` max files to analyze
+- `--theme <theme>` `default|dark|forest|neutral`
+- `--open` open generated preview URL
 
-Generate all diagram types at once.
+### `diagram all [path]`
+
+Generate all diagram types in one run.
 
 ```bash
 diagram all .
@@ -101,102 +89,48 @@ diagram all . --output-dir ./docs/diagrams
 ```
 
 Options:
-- `-o, --output-dir <dir>` - Output directory (default: `./diagrams`)
 
-## Diagram Types
+- `-o, --output-dir <dir>` output directory (default: `./diagrams`)
 
-| Type | Description | Best For |
-|------|-------------|----------|
-| `architecture` | Component hierarchy with directory grouping | Overall structure |
-| `sequence` | Service interaction flow | API/data flow |
-| `dependency` | Package imports (internal + external) | Dependency analysis |
-| `class` | OOP class structure | Object relationships |
-| `flow` | Control/data flow | Process visualization |
+## Diagram types
 
-## Examples
+| Type | Description | Best for |
+| --- | --- | --- |
+| `architecture` | Component hierarchy by directory | Overall structure |
+| `sequence` | Service or module interactions | API and flow analysis |
+| `dependency` | Internal and external imports | Dependency review |
+| `class` | Class-oriented relationships | OOP-heavy codebases |
+| `flow` | Process/data flow | Control-flow mapping |
 
-### React/Frontend Project
+## Output formats
 
-```bash
-# Focus on components only
-diagram generate . --type architecture --focus src/components
+- Terminal Mermaid output
+- `.mmd` Mermaid source files
+- `.svg`/`.png` rendered images (requires Mermaid CLI)
 
-# Check external dependencies
-diagram generate . --type dependency
+Install Mermaid CLI for image export:
 
-# Full documentation
-diagram all . --output-dir ./docs/architecture
-```
-
-### Backend/API Project
-
-```bash
-# API flow
-diagram generate . --type sequence --focus src/routes
-
-# Service dependencies
-diagram generate . --type dependency --focus src/services
-```
-
-### Monorepo
-
-```bash
-# Per-package diagrams
-for pkg in packages/*; do
-  diagram generate "$pkg" --output "docs/$(basename $pkg).svg"
-done
-```
-
-### CI/CD Integration
-
-```yaml
-# .github/workflows/docs.yml
-- name: Generate diagrams
-  run: |
-    npm install -g diagram
-    diagram all . --output-dir ./diagrams
-- name: Upload
-  uses: actions/upload-artifact@v3
-  with:
-    name: diagrams
-    path: ./diagrams/
-```
-
-## How It Works
-
-1. **Scan** - Finds source files matching your patterns
-2. **Parse** - Extracts imports, exports, and component types
-3. **Graph** - Builds dependency relationships
-4. **Generate** - Outputs Mermaid diagram syntax
-5. **Preview** - Provides live link to mermaid.live
-
-## Supported Languages
-
-- TypeScript / JavaScript
-- Python
-- Go
-- Rust
-- Java (basic)
-- Ruby / PHP (basic)
-
-## Output Formats
-
-- **Terminal** - Mermaid code you can copy
-- **.mmd files** - Save Mermaid syntax
-- **SVG/PNG** - Rendered images (requires `@mermaid-js/mermaid-cli`)
-
-Install mermaid-cli for image export:
 ```bash
 npm install -g @mermaid-js/mermaid-cli
 ```
 
-## Tips
+## Documentation
 
-- Use `--focus` for large codebases (1000+ files)
-- Start with `diagram analyze .` to understand the structure
-- The mermaid.live link lets you edit and download in any format
-- Pipe JSON output to other tools: `diagram analyze . --json | jq ...`
+- Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+- Support policy: [SUPPORT.md](SUPPORT.md)
+- Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Maintainer docs index: [docs/README.md](docs/README.md)
+- Release history: [CHANGELOG.md](CHANGELOG.md)
+
+## Development
+
+```bash
+npm install
+npm test
+node src/diagram.js --help
+```
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE).
