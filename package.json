@@ -38,6 +38,7 @@
   },
   "files": [
     "src/diagram.js",
+    "src/video.js",
     "README.md",
     "LICENSE"
   ],

@@ -7,6 +7,21 @@ const { glob } = require('glob');
 const chalk = require('chalk');
 const { execSync, spawn } = require('child_process');
 const os = require('os');
+const crypto = require('crypto');
+
+// Video generation (lazy loaded)
+let videoModule;
+function getVideoModule() {
+  if (!videoModule) {
+    try {
+      videoModule = require('./video.js');
+    } catch (e) {
+      console.error(chalk.red('❌ Video generation requires Playwright. Install with: npm install playwright'));
+      process.exit(1);
+    }
+  }
+  return videoModule;
+}
 
 const program = new Command();
 
@@ -15,7 +30,9 @@ function detectLanguage(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   const map = {
     '.ts': 'typescript', '.tsx': 'typescript',
+    '.mts': 'typescript', '.cts': 'typescript',
     '.js': 'javascript', '.jsx': 'javascript',
+    '.mjs': 'javascript', '.cjs': 'javascript',
     '.py': 'python', '.go': 'go', '.rs': 'rust',
     '.java': 'java', '.rb': 'ruby', '.php': 'php',
   };
@@ -35,10 +52,15 @@ function inferType(filePath, content) {
 function extractImports(content, lang) {
   const imports = [];
   if (lang === 'typescript' || lang === 'javascript') {
+    // ES6 imports
     const es6 = [...content.matchAll(/import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+)?["']([^"']+)["']/g)];
     es6.forEach(m => imports.push(m[1]));
+    // CommonJS requires
     const cjs = [...content.matchAll(/require\s*\(\s*["']([^"']+)["']\s*\)/g)];
     cjs.forEach(m => imports.push(m[1]));
+    // Dynamic imports
+    const dynamic = [...content.matchAll(/import\s*\(\s*["']([^"']+)["']\s*\)/g)];
+    dynamic.forEach(m => imports.push(m[1]));
   } else if (lang === 'python') {
     const py = [...content.matchAll(/(?:from|import)\s+([\w.]+)/g)];
     py.forEach(m => imports.push(m[1]));
@@ -50,23 +72,51 @@ function extractImports(content, lang) {
 }
 
 function sanitize(name) {
-  return name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]/, '_$&');
+  // Ensure unique, valid mermaid ID
+  const base = name.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]/, '_$&');
+  // Add hash suffix to prevent collisions
+  const hash = crypto.createHash('md5').update(name).digest('hex').slice(0, 6);
+  return `${base}_${hash}`;
 }
 
 function escapeMermaid(str) {
-  return str.replace(/"/g, '\\"');
+  if (!str) return '';
+  return str
+    .replace(/"/g, '\\"')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/#/g, '\\#')
+    .replace(/</g, '\\<')
+    .replace(/>/g, '\\>');
+}
+
+function normalizePath(inputPath) {
+  // Always use forward slashes for consistency
+  return inputPath.replace(/\\/g, '/');
 }
 
 // Analysis
 async function analyze(rootPath, options) {
+  // Validate maxFiles
+  let maxFiles = parseInt(options.maxFiles);
+  if (isNaN(maxFiles) || maxFiles < 1 || maxFiles > 10000) {
+    maxFiles = 100;
+  }
+  
   const patterns = options.patterns ? options.patterns.split(',') : ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.py', '**/*.go', '**/*.rs'];
   const exclude = options.exclude ? options.exclude.split(',') : ['node_modules/**', '.git/**', 'dist/**', 'build/**', '*.test.*', '*.spec.*'];
-  const maxFiles = parseInt(options.maxFiles) || 100;
 
   const files = [];
   for (const pattern of patterns) {
-    const matches = await glob(pattern, { cwd: rootPath, absolute: true, ignore: exclude });
-    files.push(...matches);
+    if (!pattern || pattern.trim() === '') continue;
+    try {
+      const matches = await glob(pattern.trim(), { cwd: rootPath, absolute: true, ignore: exclude });
+      files.push(...matches);
+    } catch (e) {
+      console.warn(chalk.yellow(`⚠️  Invalid pattern: ${pattern}`));
+    }
   }
 
   const uniqueFiles = [...new Set(files)].slice(0, maxFiles);
@@ -74,20 +124,39 @@ async function analyze(rootPath, options) {
   const languages = {};
   const directories = new Set();
   const entryPoints = [];
+  const seenNames = new Set();
 
   for (const filePath of uniqueFiles) {
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
       const lang = detectLanguage(filePath);
-      const rel = path.relative(rootPath, filePath);
+      let rel = normalizePath(path.relative(rootPath, filePath));
       const dir = path.dirname(rel);
+      if (dir === '.') {
+        rel = './' + rel;
+      }
 
       languages[lang] = (languages[lang] || 0) + 1;
       if (dir !== '.') directories.add(dir);
-      if (rel.match(/index\.(ts|js|tsx|jsx|py)$/)) entryPoints.push(rel);
+      
+      // Support more entry point patterns
+      if (rel.match(/\/(index|main|app|server)\.(ts|js|tsx|jsx|mts|mjs|py|go|rs)$/i)) {
+        entryPoints.push(rel);
+      }
+
+      // Handle duplicate names
+      let baseName = path.basename(filePath, path.extname(filePath));
+      let uniqueName = baseName;
+      let counter = 1;
+      while (seenNames.has(uniqueName)) {
+        uniqueName = `${baseName}_${counter}`;
+        counter++;
+      }
+      seenNames.add(uniqueName);
 
       components.push({
-        name: path.basename(filePath, path.extname(filePath)),
+        name: uniqueName,
+        originalName: baseName,
         filePath: rel,
         type: inferType(filePath, content),
         imports: extractImports(content, lang),
@@ -103,17 +172,22 @@ async function analyze(rootPath, options) {
     comp.dependencies = [];
     for (const imp of comp.imports) {
       if (imp.startsWith('.')) {
-        const resolved = path.posix.join(path.dirname(comp.filePath), imp);
+        const dirName = normalizePath(path.dirname(comp.filePath));
+        const resolved = normalizePath(path.join(dirName, imp));
         const dep = components.find(c => 
           c.filePath === resolved ||
           c.filePath === resolved + '.ts' ||
           c.filePath === resolved + '.tsx' ||
           c.filePath === resolved + '.js' ||
           c.filePath === resolved + '.jsx' ||
+          c.filePath === resolved + '.mjs' ||
+          c.filePath === resolved + '.mts' ||
           c.filePath === resolved + '/index.ts' ||
           c.filePath === resolved + '/index.tsx' ||
           c.filePath === resolved + '/index.js' ||
-          c.filePath === resolved + '/index.jsx'
+          c.filePath === resolved + '/index.jsx' ||
+          c.filePath === resolved + '/index.mjs' ||
+          c.filePath === resolved + '/index.mts'
         );
         if (dep) comp.dependencies.push(dep.name);
       }
@@ -126,7 +200,15 @@ async function analyze(rootPath, options) {
 // Diagram generators
 function generateArchitecture(data, focus) {
   const lines = ['graph TD'];
-  const comps = focus ? data.components.filter(c => c.filePath.includes(focus) || c.name.includes(focus)) : data.components;
+  const focusNorm = focus ? normalizePath(focus) : null;
+  const comps = focusNorm 
+    ? data.components.filter(c => c.filePath.includes(focusNorm) || c.name.includes(focusNorm)) 
+    : data.components;
+  
+  if (comps.length === 0) {
+    lines.push('  Note["No components found' + (focus ? ' for focus: ' + escapeMermaid(focus) : '') + '"]');
+    return lines.join('\n');
+  }
   
   const byDir = new Map();
   for (const c of comps) {
@@ -141,7 +223,7 @@ function generateArchitecture(data, focus) {
     for (const c of items) {
       const shape = c.type === 'service' ? '[[' : '[';
       const end = c.type === 'service' ? ']]' : ']';
-      lines.push(`    ${sanitize(c.name)}${shape}"${escapeMermaid(c.name)}"${end}`);
+      lines.push(`    ${sanitize(c.name)}${shape}"${escapeMermaid(c.originalName)}"${end}`);
     }
     lines.push('  end');
   }
@@ -154,9 +236,15 @@ function generateArchitecture(data, focus) {
     }
   }
 
+  // Track styled nodes to avoid duplicates
+  const styledNodes = new Set();
   for (const ep of data.entryPoints) {
-    const name = path.basename(ep, path.extname(ep));
-    lines.push(`  style ${sanitize(name)} fill:#4f46e5,color:#fff`);
+    const epName = path.basename(ep, path.extname(ep));
+    const comp = comps.find(c => c.originalName === epName);
+    if (comp && !styledNodes.has(comp.name)) {
+      lines.push(`  style ${sanitize(comp.name)} fill:#4f46e5,color:#fff`);
+      styledNodes.add(comp.name);
+    }
   }
 
   return lines.join('\n');
@@ -171,36 +259,72 @@ function generateSequence(data) {
     return lines.join('\n');
   }
 
-  for (const s of services) lines.push(`  participant ${sanitize(s.name)}`);
+  // Track used sanitized names to prevent collisions
+  const usedNames = new Map();
+  const getSafeName = (service) => {
+    const base = sanitize(service.name);
+    if (!usedNames.has(base)) {
+      usedNames.set(base, service.name);
+      return base;
+    }
+    // Collision - append number
+    let i = 1;
+    let newName = `${base}_${i}`;
+    while (usedNames.has(newName)) {
+      i++;
+      newName = `${base}_${i}`;
+    }
+    usedNames.set(newName, service.name);
+    return newName;
+  };
+
+  const safeNames = services.map(getSafeName);
+  
+  for (let i = 0; i < services.length; i++) {
+    lines.push(`  participant ${safeNames[i]} as ${escapeMermaid(services[i].originalName)}`);
+  }
+  
   for (let i = 0; i < services.length - 1; i++) {
-    lines.push(`  ${sanitize(services[i].name)}->>${sanitize(services[i+1].name)}: calls`);
+    lines.push(`  ${safeNames[i]}->>${safeNames[i+1]}: calls`);
   }
   return lines.join('\n');
 }
 
 function generateDependency(data, focus) {
   const lines = ['graph LR'];
-  const comps = focus ? data.components.filter(c => c.filePath.includes(focus)) : data.components;
+  const focusNorm = focus ? normalizePath(focus) : null;
+  const comps = focusNorm ? data.components.filter(c => c.filePath.includes(focusNorm)) : data.components;
+  
+  if (comps.length === 0) {
+    lines.push('  Note["No components found"]');
+    return lines.join('\n');
+  }
+  
   const external = new Set();
 
   for (const c of comps) {
     for (const imp of c.imports) {
       if (!imp.startsWith('.')) {
         const pkg = imp.split('/')[0];
-        external.add(pkg);
-        lines.push(`  ${sanitize(pkg)}["${escapeMermaid(pkg)}"] --> ${sanitize(c.name)}`);
+        if (pkg) {
+          external.add(pkg);
+          lines.push(`  ${sanitize(pkg)}["${escapeMermaid(pkg)}"] --> ${sanitize(c.name)}`);
+        }
       } else {
-        const basePath = path.posix.join(path.dirname(c.filePath), imp);
+        const dirName = normalizePath(path.dirname(c.filePath));
+        const basePath = normalizePath(path.join(dirName, imp));
         const resolved = comps.find(x => 
           x.filePath === basePath ||
           x.filePath === basePath + '.ts' ||
           x.filePath === basePath + '.tsx' ||
           x.filePath === basePath + '.js' ||
           x.filePath === basePath + '.jsx' ||
+          x.filePath === basePath + '.mjs' ||
           x.filePath === basePath + '/index.ts' ||
           x.filePath === basePath + '/index.tsx' ||
           x.filePath === basePath + '/index.js' ||
-          x.filePath === basePath + '/index.jsx'
+          x.filePath === basePath + '/index.jsx' ||
+          x.filePath === basePath + '/index.mjs'
         );
         if (resolved) lines.push(`  ${sanitize(c.name)} --> ${sanitize(resolved.name)}`);
       }
@@ -217,9 +341,14 @@ function generateClass(data) {
   const lines = ['classDiagram'];
   const classes = data.components.filter(c => c.type === 'class' || c.type === 'component').slice(0, 20);
   
+  if (classes.length === 0) {
+    lines.push('  note "No classes found"');
+    return lines.join('\n');
+  }
+  
   for (const c of classes) {
     lines.push(`  class ${sanitize(c.name)} {`);
-    lines.push(`    +${c.filePath}`);
+    lines.push(`    +${escapeMermaid(c.filePath)}`);
     lines.push('  }');
   }
   
@@ -235,15 +364,23 @@ function generateClass(data) {
 
 function generateFlow(data) {
   const lines = ['flowchart TD'];
-  lines.push('  Start([Start])');
+  lines.push('  Start(["Start"])');
   const comps = data.components.slice(0, 8);
+  
+  if (comps.length === 0) {
+    lines.push('  End(["End"])');
+    lines.push('  Start --> End');
+    return lines.join('\n');
+  }
+  
   let prev = 'Start';
   for (const c of comps) {
-    lines.push(`  ${sanitize(c.name)}["${escapeMermaid(c.name)}"]`);
-    lines.push(`  ${prev} --> ${sanitize(c.name)}`);
-    prev = sanitize(c.name);
+    const safeName = sanitize(c.name);
+    lines.push(`  ${safeName}["${escapeMermaid(c.originalName)}"]`);
+    lines.push(`  ${prev} --> ${safeName}`);
+    prev = safeName;
   }
-  lines.push('  End([End])');
+  lines.push('  End(["End"])');
   lines.push(`  ${prev} --> End`);
   return lines.join('\n');
 }
@@ -257,6 +394,41 @@ function generate(data, type, focus) {
     case 'flow': return generateFlow(data);
     default: return generateArchitecture(data, focus);
   }
+}
+
+// URL shortening for large diagrams
+function createMermaidUrl(mermaidCode) {
+  // If diagram is very large, provide text file instead
+  if (mermaidCode.length > 5000) {
+    return { url: null, large: true };
+  }
+  
+  try {
+    const encoded = Buffer.from(JSON.stringify({ code: mermaidCode })).toString('base64url');
+    const url = `https://mermaid.live/edit#pako:${encoded}`;
+    
+    // Check if URL is too long for browser
+    if (url.length > 8000) {
+      return { url: null, large: true };
+    }
+    return { url, large: false };
+  } catch (e) {
+    return { url: null, large: true };
+  }
+}
+
+// Safe file path escaping for shell commands
+function escapeShellArg(arg) {
+  // For cross-platform safety, wrap in quotes and escape inner quotes
+  if (process.platform === 'win32') {
+    // Windows: escape quotes by doubling them
+    return `"${arg.replace(/"/g, '""')}"`;
+  }
+  // Unix: use single quotes and escape single quotes
+  if (arg.includes("'")) {
+    return `"${arg.replace(/"/g, '\\"')}"`;
+  }
+  return `'${arg}'`;
 }
 
 // Commands
@@ -283,13 +455,16 @@ program
     } else {
       console.log(chalk.green('\n📊 Summary'));
       console.log(`  Files: ${data.components.length}`);
-      console.log(`  Languages: ${Object.entries(data.languages).map(([k,v]) => `${k}(${v})`).join(', ')}`);
+      console.log(`  Languages: ${Object.entries(data.languages).map(([k,v]) => `${k}(${v})`).join(', ') || 'none'}`);
       console.log(`  Entry points: ${data.entryPoints.join(', ') || 'none'}`);
       console.log(`\n${chalk.yellow('Components:')}`);
       data.components.slice(0, 15).forEach(c => {
         const deps = c.dependencies.length > 0 ? ` → ${c.dependencies.slice(0, 3).join(', ')}` : '';
-        console.log(`  ${c.name} (${c.type})${deps}`);
+        console.log(`  ${c.originalName} (${c.type})${deps}`);
       });
+      if (data.components.length > 15) {
+        console.log(chalk.gray(`  ... and ${data.components.length - 15} more`));
+      }
     }
   });
 
@@ -315,12 +490,11 @@ program
     console.log('```\n');
     
     // Preview URL
-    const encoded = Buffer.from(JSON.stringify({ code: mermaid })).toString('base64url');
-    const url = `https://mermaid.live/edit#pako:${encoded}`;
+    const { url, large } = createMermaidUrl(mermaid);
     
-    if (url.length > 8000) {
-      console.log(chalk.yellow('⚠️  Diagram is very large. Preview URL may not work in some browsers.'));
-      console.log(chalk.cyan('💾 Save to file instead:'), 'diagram generate . --output diagram.svg');
+    if (large || !url) {
+      console.log(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
+      console.log(chalk.cyan('💾 Save to file:'), 'diagram generate . --output diagram.svg');
     } else {
       console.log(chalk.cyan('🔗 Preview:'), url);
     }
@@ -335,8 +509,9 @@ program
         // Try to render
         try {
           const tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}.mmd`);
-          fs.writeFileSync(tempFile, `%%{init: {'theme': '${options.theme}'}}%%\n${mermaid}`);
-          execSync(`npx -y @mermaid-js/mermaid-cli mmdc -i ${tempFile} -o ${options.output} -b transparent`, { stdio: 'pipe' });
+          const theme = (options.theme || 'default').toLowerCase();
+          fs.writeFileSync(tempFile, `%%{init: {'theme': '${theme}'}}%%\n${mermaid}`);
+          execSync(`npx -y @mermaid-js/mermaid-cli mmdc -i ${escapeShellArg(tempFile)} -o ${escapeShellArg(options.output)} -b transparent`, { stdio: 'pipe' });
           fs.unlinkSync(tempFile);
           console.log(chalk.green('✅ Rendered to'), options.output);
         } catch (e) {
@@ -345,11 +520,14 @@ program
       }
     }
     
-    if (options.open) {
+    if (options.open && url) {
       const platform = process.platform;
       const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
-      const args = platform === 'win32' ? ['', url] : [url];
-      spawn(cmd, args, { stdio: 'ignore', detached: true });
+      const child = spawn(cmd, platform === 'win32' ? ['', url] : [url], { 
+        stdio: 'ignore', 
+        detached: true 
+      });
+      child.unref();
     }
   });
 
@@ -379,6 +557,56 @@ program
     }
     
     console.log(chalk.cyan('\n🔗 Preview all at: https://mermaid.live'));
+  });
+
+program
+  .command('video [path]')
+  .description('Generate an animated video of the diagram')
+  .option('-t, --type <type>', 'Diagram type', 'architecture')
+  .option('-o, --output <file>', 'Output file (.mp4, .webm, .mov)', 'diagram.mp4')
+  .option('-d, --duration <sec>', 'Video duration in seconds', '5')
+  .option('-f, --fps <n>', 'Frames per second', '30')
+  .option('--width <n>', 'Video width', '1280')
+  .option('--height <n>', 'Video height', '720')
+  .option('--theme <theme>', 'Theme: default, dark, forest, neutral', 'dark')
+  .option('-m, --max-files <n>', 'Max files to analyze', '100')
+  .action(async (targetPath, options) => {
+    const root = path.resolve(targetPath || '.');
+    console.log(chalk.blue('🎬 Generating video for'), root);
+    
+    const data = await analyze(root, options);
+    const mermaid = generate(data, options.type);
+    
+    const { generateVideo } = getVideoModule();
+    
+    await generateVideo(mermaid, path.resolve(options.output), {
+      duration: parseInt(options.duration) || 5,
+      fps: parseInt(options.fps) || 30,
+      width: parseInt(options.width) || 1280,
+      height: parseInt(options.height) || 720,
+      theme: (options.theme || 'dark').toLowerCase()
+    });
+  });
+
+program
+  .command('animate [path]')
+  .description('Generate animated SVG with CSS animations')
+  .option('-t, --type <type>', 'Diagram type', 'architecture')
+  .option('-o, --output <file>', 'Output file', 'diagram-animated.svg')
+  .option('--theme <theme>', 'Theme', 'dark')
+  .option('-m, --max-files <n>', 'Max files to analyze', '100')
+  .action(async (targetPath, options) => {
+    const root = path.resolve(targetPath || '.');
+    console.log(chalk.blue('✨ Generating animated SVG for'), root);
+    
+    const data = await analyze(root, options);
+    const mermaid = generate(data, options.type);
+    
+    const { generateAnimatedSVG } = getVideoModule();
+    
+    await generateAnimatedSVG(mermaid, path.resolve(options.output), {
+      theme: (options.theme || 'dark').toLowerCase()
+    });
   });
 
 program.parse();
