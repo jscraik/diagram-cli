@@ -161,6 +161,8 @@ if ! npm whoami >/dev/null 2>&1; then
   if [[ "$publish" == "true" ]]; then
     if [[ -n "${NPM_TOKEN:-}" || -n "${NODE_AUTH_TOKEN:-}" ]]; then
       echo "Warning: npm whoami unavailable; proceeding with token-based publish."
+    elif [[ "${NPM_TRUSTED_PUBLISHING:-}" == "true" && "${GITHUB_ACTIONS:-}" == "true" ]]; then
+      echo "Warning: npm whoami unavailable; proceeding with trusted publishing."
     else
       fail "npm authentication missing. Run npm login before publishing."
     fi

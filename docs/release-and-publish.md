@@ -55,6 +55,7 @@ You can run the automated release workflow from GitHub Actions:
 - Inputs:
   - `version`: semver version (`X.Y.Z`)
   - `initial_release`: `true` for first publish, otherwise `false`
+  - `auth_mode`: `trusted` (recommended) or `token`
 
 Recommended auth path is npm Trusted Publishing (OIDC). If not configured yet, set `NPM_TOKEN` as a fallback.
 

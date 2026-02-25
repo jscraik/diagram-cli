@@ -12,6 +12,14 @@ on:
         required: true
         type: boolean
         default: false
+      auth_mode:
+        description: "npm auth mode"
+        required: true
+        type: choice
+        default: trusted
+        options:
+          - trusted
+          - token
 
 permissions:
   contents: write
@@ -115,10 +123,21 @@ jobs:
           fi
 
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
+
+          if [ "${{ inputs.auth_mode }}" = "token" ]; then
+            if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+              echo "NPM_TOKEN secret is required when auth_mode=token."
+              exit 1
+            fi
+            export NODE_AUTH_TOKEN="${{ secrets.NPM_TOKEN }}"
+            echo "Using token auth mode."
+          else
+            unset NODE_AUTH_TOKEN
+            export NPM_TRUSTED_PUBLISHING=true
+            echo "Using trusted publishing mode."
+          fi
 
           if [ "${{ inputs.initial_release }}" = "true" ]; then
             npm run release:publish:initial -- "${{ inputs.version }}"
