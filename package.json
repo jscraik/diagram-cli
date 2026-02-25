@@ -1,5 +1,5 @@
 {
-  "name": "@jmc/diagram",
+  "name": "@brainwav/diagram",
   "version": "1.0.0",
   "description": "Generate architecture diagrams from codebases",
   "main": "src/diagram.js",

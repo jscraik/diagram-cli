@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for contributing to `@jmc/diagram`.
+Thanks for contributing to `@brainwav/diagram`.
 
 ## Table of Contents
 

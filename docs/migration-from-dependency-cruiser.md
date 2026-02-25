@@ -81,9 +81,9 @@ rules:
 
 1. **Install diagram-cli**
    ```bash
-   npm install -g @jmc/diagram
+   npm install -g @brainwav/diagram
    # or
-   npm install --save-dev @jmc/diagram
+   npm install --save-dev @brainwav/diagram
    ```
 
 2. **Generate starter config**

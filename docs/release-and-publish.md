@@ -79,11 +79,11 @@ npm run release:publish:initial -- X.Y.Z
 
 ## Post-publish checks
 
-1. Confirm package on npm: `@jmc/diagram`.
+1. Confirm package on npm: `@brainwav/diagram`.
 1. Verify install:
 
 ```bash
-npx @jmc/diagram --help
+npx @brainwav/diagram --help
 ```
 
 1. Create a GitHub release tag matching the version.

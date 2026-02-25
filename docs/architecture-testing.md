@@ -172,7 +172,7 @@ jobs:
 architecture-test:
   image: node:20
   script:
-    - npm install -g @jmc/diagram
+    - npm install -g @brainwav/diagram
     - diagram test --format junit --output results.xml
   artifacts:
     reports:
@@ -190,7 +190,7 @@ jobs:
       - image: cimg/node:20.0
     steps:
       - checkout
-      - run: npm install -g @jmc/diagram
+      - run: npm install -g @brainwav/diagram
       - run: diagram test
 ```
 
