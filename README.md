@@ -4,6 +4,7 @@ Generate codebase architecture diagrams from source files. No AI required.
 
 ## Table of Contents
 
+- [Upgrade notice](#upgrade-notice)
 - [Install](#install)
 - [Quick start](#quick-start)
 - [Commands](#commands)
@@ -14,6 +15,11 @@ Generate codebase architecture diagrams from source files. No AI required.
 - [Documentation](#documentation)
 - [Development](#development)
 - [License](#license)
+
+## Upgrade notice
+
+⚠️ `@brainwav/diagram@1.0.0` had a packaging regression and failed at runtime with
+`Cannot find module './utils/commands'`. Please use `@brainwav/diagram@1.0.1` or later.
 
 ## Install
 

@@ -12,6 +12,7 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - fix: include commands module in published package (f95066d)
+- Customer notice: `1.0.0` had a packaging regression; upgrade to `1.0.1+`.
 
 
 ## [1.0.0] - 2026-02-24
