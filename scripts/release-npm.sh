@@ -159,10 +159,14 @@ npm pack --dry-run
 
 if ! npm whoami >/dev/null 2>&1; then
   if [[ "$publish" == "true" ]]; then
-    fail "npm authentication missing. Run npm login before publishing."
+    if [[ -n "${NPM_TOKEN:-}" || -n "${NODE_AUTH_TOKEN:-}" ]]; then
+      echo "Warning: npm whoami unavailable; proceeding with token-based publish."
+    else
+      fail "npm authentication missing. Run npm login before publishing."
+    fi
+  else
+    echo "Warning: npm authentication not detected (run npm login before publish)."
   fi
-
-  echo "Warning: npm authentication not detected (run npm login before publish)."
 fi
 
 if [[ "$publish" != "true" ]]; then
