@@ -4,8 +4,9 @@
 
 - [Pre-release checklist](#pre-release-checklist)
 - [Preflight command](#preflight-command)
-- [First release (new package)](#first-release-new-package)
 - [Publish command](#publish-command)
+- [GitHub workflow release](#github-workflow-release)
+- [First release (new package)](#first-release-new-package)
 - [Post-publish checks](#post-publish-checks)
 
 ## Pre-release checklist
@@ -44,6 +45,23 @@ npm run release:publish -- X.Y.Z
 ```
 
 `release:publish` will run the same checks, then run `npm version X.Y.Z` (commit + tag) and `npm publish --access public`.
+
+## GitHub workflow release
+
+You can run the automated release workflow from GitHub Actions:
+
+- Workflow: `.github/workflows/release.yml`
+- Trigger: **Run workflow** on `main`
+- Inputs:
+  - `version`: semver version (`X.Y.Z`)
+  - `initial_release`: `true` for first publish, otherwise `false`
+
+The workflow will:
+
+1. Generate a new `CHANGELOG.md` entry for the release.
+2. Run the npm release scripts (`release:publish` or `release:publish:initial`).
+3. Push release commits/tags.
+4. Create a GitHub release for `vX.Y.Z`.
 
 ## First release (new package)
 

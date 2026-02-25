@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (semver X.Y.Z)"
+        required: true
+        type: string
+      initial_release:
+        description: "Set true for the very first npm publish"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish npm package and cut release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Enforce main branch
+        if: ${{ github.ref_name != 'main' }}
+        run: |
+          echo "Releases must be run from main. Current branch: ${{ github.ref_name }}"
+          exit 1
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Generate CHANGELOG entry
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          NEW_TAG="v${RELEASE_VERSION}"
+          PREVIOUS_TAG=""
+          while IFS= read -r tag; do
+            if [ "$tag" != "$NEW_TAG" ]; then
+              PREVIOUS_TAG="$tag"
+              break
+            fi
+          done < <(git tag --sort=-creatordate)
+
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CHANGES="$(git log --pretty=format:'- %s (%h)' "${PREVIOUS_TAG}..HEAD")"
+          else
+            CHANGES="$(git log --pretty=format:'- %s (%h)')"
+          fi
+
+          if [ -z "$CHANGES" ]; then
+            CHANGES="- Initial release"
+          fi
+
+          export CHANGES
+
+          node <<'NODE'
+          const fs = require("fs");
+
+          const version = process.env.RELEASE_VERSION;
+          const changes = process.env.CHANGES || "- Initial release";
+          const changelogPath = "CHANGELOG.md";
+          const unreleasedHeader = "## [Unreleased]";
+          const versionHeader = `## [${version}]`;
+          const date = new Date().toISOString().slice(0, 10);
+
+          const changelog = fs.readFileSync(changelogPath, "utf8");
+
+          if (changelog.includes(versionHeader)) {
+            console.log(`CHANGELOG already includes ${versionHeader}.`);
+            process.exit(0);
+          }
+
+          if (!changelog.includes(unreleasedHeader)) {
+            throw new Error('CHANGELOG.md must include "## [Unreleased]".');
+          }
+
+          const entry = `${versionHeader} - ${date}\n\n### Changed\n\n${changes}\n`;
+          const updated = changelog.replace(
+            unreleasedHeader,
+            `${unreleasedHeader}\n\n${entry}`
+          );
+
+          fs.writeFileSync(changelogPath, updated);
+          console.log(`Added changelog entry for ${versionHeader}.`);
+          NODE
+
+          if ! git diff --quiet -- CHANGELOG.md; then
+            git add CHANGELOG.md
+            git commit \
+              -m "docs: update changelog for v${RELEASE_VERSION}" \
+              -m "Co-authored-by: Codex <noreply@openai.com>"
+          fi
+
+      - name: Publish to npm
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            echo "NPM_TOKEN secret is required."
+            exit 1
+          fi
+
+          printf "//registry.npmjs.org/:_authToken=%s\n" "$NPM_TOKEN" > "$HOME/.npmrc"
+
+          if [ "${{ inputs.initial_release }}" = "true" ]; then
+            npm run release:publish:initial -- "${{ inputs.version }}"
+          else
+            npm run release:publish -- "${{ inputs.version }}"
+          fi
+
+      - name: Push commit and tags
+        run: git push origin HEAD:main --follow-tags
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          generate_release_notes: true

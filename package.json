@@ -4,7 +4,7 @@
   "description": "Generate architecture diagrams from codebases",
   "main": "src/diagram.js",
   "bin": {
-    "diagram": "./src/diagram.js"
+    "diagram": "src/diagram.js"
   },
   "scripts": {
     "test": "node src/diagram.js analyze .",
