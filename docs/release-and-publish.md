@@ -3,9 +3,9 @@
 ## Table of Contents
 
 - [Pre-release checklist](#pre-release-checklist)
-- [Version bump](#version-bump)
-- [Dry-run package check](#dry-run-package-check)
-- [Publish](#publish)
+- [Preflight command](#preflight-command)
+- [First release (new package)](#first-release-new-package)
+- [Publish command](#publish-command)
 - [Post-publish checks](#post-publish-checks)
 
 ## Pre-release checklist
@@ -18,32 +18,43 @@
 npm test
 ```
 
-## Version bump
+## Preflight command
 
-Update `package.json#version` to the target release version and commit the change.
-
-## Dry-run package check
-
-Validate the publish artifact before publishing:
+Run the release guard script with your target version:
 
 ```bash
-npm pack --dry-run
+npm run release:prepare -- X.Y.Z
 ```
 
-Confirm only intended files are included:
+This command validates:
 
-- `src/diagram.js`
-- `README.md`
-- `LICENSE`
+- branch is `main`
+- working tree is clean
+- target version is valid semver and greater than current
+- tag `vX.Y.Z` does not already exist
+- `npm test` passes
+- `npm pack --dry-run` includes expected files
 
-## Publish
+## Publish command
 
-Authenticate and publish:
+After preflight passes and npm auth is ready (`npm login`), publish:
 
 ```bash
-npm login
-npm publish --access public
+npm run release:publish -- X.Y.Z
 ```
+
+`release:publish` will run the same checks, then run `npm version X.Y.Z` (commit + tag) and `npm publish --access public`.
+
+## First release (new package)
+
+For the first publish of a brand-new package version already set in `package.json`:
+
+```bash
+npm run release:prepare:initial -- X.Y.Z
+npm run release:publish:initial -- X.Y.Z
+```
+
+`X.Y.Z` must exactly match `package.json#version` for initial publish mode.
 
 ## Post-publish checks
 

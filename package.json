@@ -9,7 +9,11 @@
   "scripts": {
     "test": "node src/diagram.js analyze .",
     "test:deep": "node scripts/deep-regression.js",
-    "prepublishOnly": "npm test"
+    "prepublishOnly": "npm test",
+    "release:prepare": "bash scripts/release-npm.sh",
+    "release:prepare:initial": "bash scripts/release-npm.sh --initial",
+    "release:publish": "bash scripts/release-npm.sh --publish",
+    "release:publish:initial": "bash scripts/release-npm.sh --publish --initial"
   },
   "keywords": [
     "diagrams",
