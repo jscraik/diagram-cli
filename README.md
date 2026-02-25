@@ -9,6 +9,8 @@ Generate codebase architecture diagrams from source files. No AI required.
 - [Commands](#commands)
 - [Diagram types](#diagram-types)
 - [Output formats](#output-formats)
+- [Video and animation prerequisites](#video-and-animation-prerequisites)
+- [Architecture Testing](#architecture-testing)
 - [Documentation](#documentation)
 - [Development](#development)
 - [License](#license)
@@ -92,6 +94,44 @@ Options:
 
 - `-o, --output-dir <dir>` output directory (default: `./diagrams`)
 
+### `diagram video [path]`
+
+Generate an animated video (`.mp4`, `.webm`, `.mov`) from a Mermaid diagram.
+
+```bash
+diagram video .
+diagram video . --type dependency --output architecture.mp4
+diagram video . --duration 8 --fps 60 --width 1920 --height 1080
+```
+
+Options:
+
+- `-t, --type <type>` `architecture|sequence|dependency|class|flow` (default: `architecture`)
+- `-o, --output <file>` output file (default: `diagram.mp4`)
+- `-d, --duration <sec>` video duration in seconds (default: `5`)
+- `-f, --fps <n>` frames per second (default: `30`)
+- `--width <n>` output width in pixels (default: `1280`)
+- `--height <n>` output height in pixels (default: `720`)
+- `--theme <theme>` `default|dark|forest|neutral` (default: `dark`)
+- `-m, --max-files <n>` max files to analyze (default: `100`)
+
+### `diagram animate [path]`
+
+Generate an animated SVG with CSS animations.
+
+```bash
+diagram animate .
+diagram animate . --type sequence --output sequence-animated.svg
+diagram animate . --theme forest
+```
+
+Options:
+
+- `-t, --type <type>` `architecture|sequence|dependency|class|flow` (default: `architecture`)
+- `-o, --output <file>` output file (default: `diagram-animated.svg`)
+- `--theme <theme>` `default|dark|forest|neutral` (default: `dark`)
+- `-m, --max-files <n>` max files to analyze (default: `100`)
+
 ## Diagram types
 
 | Type | Description | Best for |
@@ -107,11 +147,131 @@ Options:
 - Terminal Mermaid output
 - `.mmd` Mermaid source files
 - `.svg`/`.png` rendered images (requires Mermaid CLI)
+- `.mp4`/`.webm`/`.mov` video export (requires Playwright + ffmpeg)
+- Animated `.svg` export (requires Playwright)
 
 Install Mermaid CLI for image export:
 
 ```bash
 npm install -g @mermaid-js/mermaid-cli
+```
+
+## Video and animation prerequisites
+
+Install Playwright browser dependencies:
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+Install ffmpeg for `diagram video`:
+
+```bash
+brew install ffmpeg
+```
+
+Quick verification:
+
+```bash
+diagram video . --duration 2 --output smoke-test.mp4
+diagram animate . --output smoke-test-animated.svg
+```
+
+## Architecture Testing
+
+Validate codebase architecture against declarative YAML rules
+to prevent architectural drift.
+
+### Architecture test quick start
+
+```bash
+# Generate starter configuration
+diagram test --init
+
+# Run validation
+diagram test
+
+# Preview file matching without validating
+diagram test --dry-run
+
+# CI-friendly output
+diagram test --format junit --output test-results.xml
+```
+
+### Configuration (`.architecture.yml`)
+
+```yaml
+version: "1.0"
+
+rules:
+  - name: "Domain isolation"
+    description: "Domain logic should not depend on UI"
+    layer: "src/domain"
+    must_not_import_from: ["src/ui", "src/components"]
+
+  - name: "API contract"
+    description: "API routes only use domain and shared"
+    layer: "src/api"
+    may_import_from: ["src/domain", "src/shared", "src/types"]
+    must_not_import_from: ["src/ui"]
+
+  - name: "Test independence"
+    description: "Tests should not import other tests"
+    layer: "**/*.test.ts"
+    must_not_import_from: ["**/*.test.ts", "**/*.spec.ts"]
+```
+
+### Rule types
+
+| Constraint | Description |
+| --- | --- |
+| `must_not_import_from` | Forbidden import patterns |
+| `may_import_from` | Whitelist of allowed imports |
+| `must_import_from` | Required import patterns |
+
+### Command options
+
+```bash
+diagram test [path] [options]
+
+Options:
+  -c, --config <file>    Config file (default: ".architecture.yml")
+  -f, --format <format>  Output: console, json, junit
+  -o, --output <file>    Write output to file
+  --dry-run              Preview file matching
+  --verbose              Show detailed output
+  --init                 Generate starter config
+```
+
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | All rules passed |
+| 1 | One or more rules failed |
+| 2 | Configuration error |
+
+### CI Integration
+
+```yaml
+# .github/workflows/architecture.yml
+name: Architecture
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm install -g @jmc/diagram
+      - run: diagram test --format junit --output architecture-results.xml
+      - uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Architecture Tests
+          path: architecture-results.xml
+          reporter: java-junit
 ```
 
 ## Documentation
