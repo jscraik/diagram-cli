@@ -154,8 +154,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-      - run: npm install -g @jmc/diagram
-      - run: diagram test --format junit --output results.xml
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:deep
+      - run: node src/diagram.js test . --format junit --output results.xml
       - uses: dorny/test-reporter@v1
         if: success() || failure()
         with:

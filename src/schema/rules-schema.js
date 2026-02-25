@@ -60,7 +60,7 @@ const ruleSchema = z.object({
 // Full configuration schema
 const configSchema = z.object({
   version: z.string()
-    .regex(/^\d+\.\d+$/, 'Version must be in format "X.Y"')
+    .regex(/^[0-9]+\.[0-9]+$/, 'Version must be in format "X.Y"')
     .default('1.0'),
   
   extends: z.string()
@@ -69,7 +69,7 @@ const configSchema = z.object({
   
   rules: z.array(ruleSchema)
     .min(1, 'At least one rule is required'),
-}).strict();
+}).strict(); // Reject unknown properties for safety
 
 /**
  * Validate configuration against schema
@@ -83,7 +83,7 @@ function validateConfig(config) {
     const errors = result.error.issues.map(err => ({
       path: err.path.join('.'),
       message: err.message,
-      value: err.received
+      value: String(err.received).slice(0, 100) // Truncate large values
     }));
     
     return {

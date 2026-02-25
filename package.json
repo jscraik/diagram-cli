@@ -8,6 +8,7 @@
   },
   "scripts": {
     "test": "node src/diagram.js analyze .",
+    "test:deep": "node scripts/deep-regression.js",
     "prepublishOnly": "npm test"
   },
   "keywords": [

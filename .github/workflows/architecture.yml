@@ -21,11 +21,17 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install diagram-cli
-        run: npm install -g @jmc/diagram
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run smoke test
+        run: npm test
+
+      - name: Run deep regression suite
+        run: npm run test:deep
 
       - name: Run architecture tests
-        run: diagram test --format junit --output architecture-results.xml
+        run: node src/diagram.js test . --format junit --output architecture-results.xml
         continue-on-error: true
 
       - name: Upload test results
@@ -46,7 +52,7 @@ jobs:
       - name: Check test status
         run: |
           if [ -f architecture-results.xml ]; then
-            failures=$(grep -o 'failures="[0-9]*"' architecture-results.xml | head -1 | grep -o '[0-9]*')
+            failures=$(node -e "const fs=require('fs');const xml=fs.readFileSync('architecture-results.xml','utf8');const m=xml.match(/failures=\"(\\d+)\"/);console.log(m?m[1]:'0');")
             if [ "$failures" != "0" ] && [ -n "$failures" ]; then
               echo "❌ Architecture tests failed with $failures violations"
               exit 1

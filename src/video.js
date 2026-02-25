@@ -2,8 +2,11 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const crypto = require('crypto');
+const { execFileSync } = require('child_process');
+const { pathToFileURL } = require('url');
 const chalk = require('chalk');
+const { getFfmpegCommandCandidates } = require('./utils/commands');
 
 // Escape HTML to prevent injection
 function escapeHtml(str) {
@@ -14,18 +17,6 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-// Safe shell argument escaping (Windows)
-function escapeShellArg(arg) {
-  if (process.platform === 'win32') {
-    // Escape % to prevent batch variable expansion, and " by doubling
-    return `"${arg.replace(/%/g, '%%').replace(/"/g, '""')}"`;
-  }
-  if (arg.includes("'")) {
-    return `"${arg.replace(/"/g, '\\"')}"`;
-  }
-  return `'${arg}'`;
 }
 
 async function generateVideo(mermaidCode, outputPath, options = {}) {
@@ -69,7 +60,6 @@ async function generateVideo(mermaidCode, outputPath, options = {}) {
   fs.mkdirSync(framesDir, { recursive: true });
 
   let browser = null;
-  let tempFiles = [tempDir];
 
   try {
     console.log(chalk.blue('🎬 Starting video generation...'));
@@ -136,7 +126,6 @@ ${escapeHtml(mermaidCode)}
 
     const htmlPath = path.join(tempDir, 'diagram.html');
     fs.writeFileSync(htmlPath, htmlContent);
-    tempFiles.push(htmlPath);
 
     // Launch browser with timeout
     console.log(chalk.blue('🌐 Launching browser...'));
@@ -145,8 +134,7 @@ ${escapeHtml(mermaidCode)}
       viewport: { width, height }
     });
 
-    // Handle Windows paths correctly using URL API
-    const fileUrl = new URL('file://' + (process.platform === 'win32' ? '/' : '') + htmlPath.replace(/\\/g, '/')).href;
+    const fileUrl = pathToFileURL(htmlPath).href;
     await page.goto(fileUrl, { timeout: 30000 });
 
     // Wait for mermaid to render
@@ -158,19 +146,22 @@ ${escapeHtml(mermaidCode)}
     console.log(chalk.blue('📸 Capturing frames...'));
     
     const totalFrames = duration * fps;
+    const showProgress = !!process.stdout.isTTY;
     
     for (let i = 0; i < totalFrames; i++) {
       const framePath = path.join(framesDir, `frame-${String(i).padStart(4, '0')}.png`);
       await page.screenshot({ path: framePath, type: 'png' });
       
       // Progress indicator
-      if (i % fps === 0 || i === totalFrames - 1) {
+      if (showProgress && (i % fps === 0 || i === totalFrames - 1)) {
         const progress = Math.round(((i + 1) / totalFrames) * 100);
         process.stdout.write(`\r   ${progress}% (${i + 1}/${totalFrames} frames)`);
       }
     }
     
-    console.log(''); // New line after progress
+    if (showProgress) {
+      console.log(''); // New line after progress
+    }
     await browser.close();
     browser = null;
 
@@ -180,59 +171,45 @@ ${escapeHtml(mermaidCode)}
     const ext = path.extname(outputPath).toLowerCase();
     
     // Find ffmpeg FIRST (moved before codec detection)
-    let ffmpegCmd = 'ffmpeg';
-    try {
-      execSync('which ffmpeg', { stdio: 'pipe' });
-    } catch (e) {
-      // Try common paths
-      const possiblePaths = [
-        '/usr/bin/ffmpeg',
-        '/usr/local/bin/ffmpeg',
-        '/opt/homebrew/bin/ffmpeg',
-        '/opt/homebrew/opt/ffmpeg/bin/ffmpeg',
-        path.join(os.homedir(), '.local/share/mise/installs/ffmpeg/current/bin/ffmpeg'),
-        path.join(os.homedir(), '.local/share/mise/installs/ffmpeg/8.0.1/bin/ffmpeg')
-      ];
-      for (const p of possiblePaths) {
-        if (fs.existsSync(p)) {
-          ffmpegCmd = p;
-          break;
-        }
-      }
-    }
-    
-    // Verify ffmpeg exists using execFileSync
-    try {
-      execFileSync(ffmpegCmd, ['-version'], { stdio: 'pipe' });
-    } catch (e) {
-      throw new Error(`ffmpeg not found. Install with: brew install ffmpeg (Mac) or apt install ffmpeg (Linux)`);
-    }
-    
-    // Auto-detect available codec using execFileSync
-    let codec = 'libx264';
-    try {
-      // Check if libx264 is available
-      execFileSync(ffmpegCmd, ['-encoders'], { stdio: 'pipe' });
-      // If we get here, assume libx264 is available
-    } catch (e) {
-      // Try hardware encoders
+    let ffmpegCmd = null;
+    const possiblePaths = getFfmpegCommandCandidates(process.platform, os.homedir());
+    for (const candidate of possiblePaths) {
       try {
-        execFileSync(ffmpegCmd, ['-encoders'], { stdio: 'pipe' });
-        codec = 'h264_videotoolbox';
-      } catch (e2) {
-        // Fall back to mpeg4 which is usually available
-        codec = 'mpeg4';
+        execFileSync(candidate, ['-version'], { stdio: 'pipe', windowsHide: true });
+        ffmpegCmd = candidate;
+        break;
+      } catch (e) {
+        // Keep searching
       }
     }
+    if (!ffmpegCmd) {
+      throw new Error('ffmpeg not found. Install with: brew install ffmpeg (Mac) or apt install ffmpeg (Linux)');
+    }
     
-    if (ext === '.webm') {
+    // Auto-detect available codec using ffmpeg encoder list
+    let codec = 'mpeg4';
+    let encodersOutput = '';
+    try {
+      encodersOutput = execFileSync(ffmpegCmd, ['-encoders'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        windowsHide: true
+      });
+    } catch (e) {
+      // Keep mpeg4 fallback
+    }
+
+    if (ext === '.webm' && /libvpx-vp9/.test(encodersOutput)) {
       codec = 'libvpx-vp9';
+    } else if (/libx264/.test(encodersOutput)) {
+      codec = 'libx264';
+    } else if (/h264_videotoolbox/.test(encodersOutput)) {
+      codec = 'h264_videotoolbox';
     }
     
     const pixFmt = 'yuv420p';
     
     // Build ffmpeg command safely using execFileSync
-    const { execFileSync } = require('child_process');
     const args = [
       '-y',
       '-framerate', String(fps),
@@ -251,7 +228,10 @@ ${escapeHtml(mermaidCode)}
     
     args.push(outputPath);
     
-    execFileSync(ffmpegCmd, args, { stdio: 'pipe' });
+    execFileSync(ffmpegCmd, args, { stdio: 'pipe', windowsHide: true });
+    if (!fs.existsSync(outputPath)) {
+      throw new Error('Video file was not created');
+    }
     
     console.log(chalk.green('✅ Video saved:'), outputPath);
     
@@ -315,7 +295,7 @@ ${escapedCode}
   <script>
     mermaid.initialize({
       startOnLoad: true,
-      theme: '${theme}',
+      theme: '${safeTheme}',
       securityLevel: 'loose'
     });
   </script>
@@ -333,7 +313,7 @@ ${escapedCode}
     tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}-${randomId}.html`);
     fs.writeFileSync(tempFile, htmlContent);
     
-    const fileUrl = 'file://' + (process.platform === 'win32' ? '/' : '') + tempFile.replace(/\\/g, '/');
+    const fileUrl = pathToFileURL(tempFile).href;
     await page.goto(fileUrl, { timeout: 30000 });
     await page.waitForSelector('.mermaid svg', { timeout: 30000 });
     await page.waitForTimeout(500);

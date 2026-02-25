@@ -242,6 +242,7 @@ Options:
   --dry-run              Preview file matching
   --verbose              Show detailed output
   --init                 Generate starter config
+  --force                Overwrite existing config when used with --init
 ```
 
 ### Exit codes
@@ -264,8 +265,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-      - run: npm install -g @jmc/diagram
-      - run: diagram test --format junit --output architecture-results.xml
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:deep
+      - run: node src/diagram.js test . --format junit --output architecture-results.xml
       - uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
@@ -288,6 +291,7 @@ jobs:
 ```bash
 npm install
 npm test
+npm run test:deep
 node src/diagram.js --help
 ```
 

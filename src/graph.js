@@ -131,57 +131,82 @@ class ComponentGraph {
    */
   findCycles() {
     const cycles = [];
-    const visited = new Set();
-    const MAX_DEPTH = 1000; // Prevent stack overflow
+    const state = new Map(); // 0/undefined=unvisited, 1=visiting, 2=done
+    const MAX_DEPTH = 1000;
+    const seenCycles = new Set();
+
+    const canonicalizeCycle = (cycle) => {
+      const nodes = cycle.slice(0, -1); // remove repeated end node
+      if (nodes.length === 0) return '';
+      let minIndex = 0;
+      for (let i = 1; i < nodes.length; i++) {
+        if (nodes[i] < nodes[minIndex]) {
+          minIndex = i;
+        }
+      }
+      const rotated = nodes.slice(minIndex).concat(nodes.slice(0, minIndex));
+      return rotated.join('->');
+    };
 
     for (const startComponent of this.components) {
-      if (!startComponent.name || visited.has(startComponent.name)) {
-        continue;
-      }
+      if (!startComponent.name) continue;
+      if (state.get(startComponent.name) === 2) continue;
 
-      // Iterative DFS with explicit stack to avoid recursion limits
-      const stack = [{ name: startComponent.name, path: [], depth: 0 }];
-      const recursionStack = new Set();
+      const stack = [{
+        name: startComponent.name,
+        deps: this.getDependencies(startComponent.name).map(dep => dep.name).filter(Boolean),
+        nextIndex: 0
+      }];
+      const path = [];
 
       while (stack.length > 0) {
-        const { name, path, depth } = stack.pop();
-        
-        if (depth > MAX_DEPTH) {
+        if (stack.length > MAX_DEPTH) {
           console.warn(`Warning: Dependency depth exceeds ${MAX_DEPTH}, possible cycle or deep graph`);
+          break;
+        }
+
+        const frame = stack[stack.length - 1];
+        const node = frame.name;
+        const nodeState = state.get(node) || 0;
+
+        if (nodeState === 0) {
+          state.set(node, 1);
+          path.push(node);
+        }
+
+        if (frame.nextIndex >= frame.deps.length) {
+          state.set(node, 2);
+          stack.pop();
+          path.pop();
           continue;
         }
 
-        if (recursionStack.has(name)) {
-          // Found a cycle
-          const cycleStart = path.indexOf(name);
+        const dep = frame.deps[frame.nextIndex++];
+        if (!dep || !this._componentByName.has(dep)) {
+          continue;
+        }
+
+        const depState = state.get(dep) || 0;
+        if (depState === 0) {
+          stack.push({
+            name: dep,
+            deps: this.getDependencies(dep).map(d => d.name).filter(Boolean),
+            nextIndex: 0
+          });
+          continue;
+        }
+
+        if (depState === 1) {
+          const cycleStart = path.indexOf(dep);
           if (cycleStart !== -1) {
-            const cycle = path.slice(cycleStart).concat([name]);
-            cycles.push(cycle);
-          }
-          continue;
-        }
-
-        if (visited.has(name) && name !== startComponent.name) {
-          continue;
-        }
-
-        visited.add(name);
-        recursionStack.add(name);
-
-        const component = this._componentByName.get(name);
-        if (component && Array.isArray(component.dependencies)) {
-          for (const dep of component.dependencies) {
-            if (dep) { // Skip null/undefined dependencies
-              stack.push({
-                name: dep,
-                path: [...path, name],
-                depth: depth + 1
-              });
+            const cycle = path.slice(cycleStart).concat(dep);
+            const key = canonicalizeCycle(cycle);
+            if (!seenCycles.has(key)) {
+              seenCycles.add(key);
+              cycles.push(cycle);
             }
           }
         }
-
-        recursionStack.delete(name);
       }
     }
 

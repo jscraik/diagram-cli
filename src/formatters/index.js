@@ -11,7 +11,17 @@ const { formatJUnit } = require('./junit');
  * @returns {number} Exit code
  */
 function formatResults(results, format, options = {}, startTime = Date.now()) {
-  switch (format) {
+  const normalizedFormat = typeof format === 'string' ? format.trim().toLowerCase() : 'console';
+  const validFormats = ['json', 'junit', 'console'];
+  
+  if (!validFormats.includes(normalizedFormat)) {
+    if (format && typeof format === 'string') {
+      console.warn(`Warning: Unknown format "${format}", using console`);
+    }
+    return formatConsole(results, options, startTime);
+  }
+  
+  switch (normalizedFormat) {
     case 'json':
       return formatJSON(results, options, startTime);
     case 'junit':

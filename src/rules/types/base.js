@@ -4,15 +4,18 @@
  */
 class Rule {
   constructor(config) {
-    this.config = config;
+    // Deep clone config to prevent external mutation
+    this.config = Object.freeze(JSON.parse(JSON.stringify(config || {})));
   }
 
   get name() {
-    return this.config.name;
+    const name = this.config.name;
+    return typeof name === 'string' ? name.slice(0, 100) : 'unnamed';
   }
 
   get description() {
-    return this.config.description || '';
+    const desc = this.config.description;
+    return typeof desc === 'string' ? desc.slice(0, 500) : '';
   }
 
   get layer() {

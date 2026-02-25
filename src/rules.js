@@ -6,6 +6,7 @@ const { RuleFactory } = require('./rules/factory');
 const { ComponentGraph } = require('./graph');
 
 const MAX_CONFIG_SIZE = 1024 * 1024; // 1MB limit
+const MAX_PATTERN_CACHE_SIZE = 5000;
 
 /**
  * Architecture Rules Engine
@@ -30,10 +31,10 @@ class RulesEngine {
       throw new Error(`Config file not found or not accessible: ${configPath}`);
     }
     
-    // Check buffer size after reading
-    if (content.length > MAX_CONFIG_SIZE) {
+    const contentSize = Buffer.byteLength(content, 'utf8');
+    if (contentSize > MAX_CONFIG_SIZE) {
       throw new Error(
-        `Config file too large (${content.length} bytes)`
+        `Config file too large (${contentSize} bytes)`
       );
     }
 
@@ -42,8 +43,7 @@ class RulesEngine {
         prettyErrors: true,
         strict: true,
         maxAliasCount: 100, // Prevent Billion Laughs attack
-        customTags: [], // Disable dangerous tags
-        schema: 'json' // Use JSON schema for safety
+        customTags: [] // Disable dangerous tags like !!js/function
       });
     } catch (error) {
       const enhanced = new Error(
@@ -61,15 +61,21 @@ class RulesEngine {
    * @param {string} context - Context for error messages
    */
   validatePattern(pattern, context = 'pattern') {
-    // Normalize path before checking
-    const normalizedPattern = path.normalize(pattern);
+    if (typeof pattern !== 'string' || pattern.trim() === '') {
+      throw new Error(`Invalid ${context}: pattern must be a non-empty string`);
+    }
+    if (pattern.includes('\0')) {
+      throw new Error(`Invalid ${context}: null bytes are not allowed`);
+    }
+
+    const normalizedPattern = path.posix.normalize(pattern.trim().replace(/\\/g, '/'));
     
-    if (normalizedPattern.includes('..')) {
+    if (normalizedPattern === '..' || normalizedPattern.startsWith('../')) {
       throw new Error(
         `Invalid ${context}: directory traversal not allowed`
       );
     }
-    if (path.isAbsolute(normalizedPattern)) {
+    if (path.posix.isAbsolute(normalizedPattern) || /^[a-zA-Z]:\//.test(normalizedPattern)) {
       throw new Error(
         `Invalid ${context}: absolute paths not allowed`
       );
@@ -96,6 +102,9 @@ class RulesEngine {
     
     if (!this.patternCache.has(key)) {
       this.validatePattern(pattern);
+      if (this.patternCache.size >= MAX_PATTERN_CACHE_SIZE) {
+        this.patternCache.clear();
+      }
       this.patternCache.set(key, picomatch(pattern, options));
     }
     
@@ -108,8 +117,16 @@ class RulesEngine {
    * @returns {Array<Function>} Compiled matchers
    */
   compileLayerPatterns(rule) {
-    const layers = Array.isArray(rule.layer) ? rule.layer : [rule.layer];
-    return layers.map(layer => this.getMatcher(layer, { dot: true }));
+    const layers = Array.isArray(rule?.layer) ? rule.layer : [rule?.layer];
+    const normalizedLayers = layers
+      .filter(layer => typeof layer === 'string' && layer.trim() !== '')
+      .map(layer => layer.trim());
+
+    if (normalizedLayers.length === 0) {
+      throw new Error(`Rule "${rule?.name || 'unnamed'}" has no valid layer patterns`);
+    }
+
+    return normalizedLayers.map(layer => this.getMatcher(layer, { dot: true }));
   }
 
   /**
@@ -119,9 +136,14 @@ class RulesEngine {
    * @returns {Object} Validation results
    */
   validate(rules, graph) {
+    if (!graph || typeof graph.getFilesInLayer !== 'function') {
+      throw new TypeError('graph must expose getFilesInLayer(matchers)');
+    }
+
+    const safeRules = Array.isArray(rules) ? rules : [];
     const results = {
       summary: {
-        total: rules.length,
+        total: safeRules.length,
         passed: 0,
         failed: 0,
         violations: 0
@@ -129,36 +151,93 @@ class RulesEngine {
       rules: []
     };
 
-    for (const rule of rules) {
-      const matchers = this.compileLayerPatterns(rule);
-      const filesInLayer = graph.getFilesInLayer(matchers);
-      
+    const seenRuleNames = new Set();
+
+    for (let index = 0; index < safeRules.length; index++) {
+      const rule = safeRules[index] || {};
+      const ruleName =
+        typeof rule.name === 'string' && rule.name.trim() !== ''
+          ? rule.name
+          : `rule-${index + 1}`;
       const ruleResult = {
-        name: rule.name,
-        description: rule.description,
+        name: ruleName,
+        description: typeof rule.description === 'string' ? rule.description : '',
         status: 'passed',
-        filesChecked: filesInLayer.length,
+        filesChecked: 0,
         violations: []
       };
 
-      // Skip if no files match
-      if (filesInLayer.length === 0) {
-        ruleResult.status = 'skipped';
-        ruleResult.message = 'No files matched layer pattern';
+      if (seenRuleNames.has(ruleName)) {
+        ruleResult.violations.push({
+          ruleName,
+          severity: 'error',
+          message: `Duplicate rule name "${ruleName}" detected`
+        });
+      } else {
+        seenRuleNames.add(ruleName);
+      }
+
+      let filesInLayer = [];
+      try {
+        const matchers = this.compileLayerPatterns(rule);
+        filesInLayer = graph.getFilesInLayer(matchers);
+        ruleResult.filesChecked = filesInLayer.length;
+      } catch (error) {
+        ruleResult.status = 'failed';
+        ruleResult.violations.push({
+          ruleName,
+          severity: 'error',
+          message: `Rule setup failed: ${error.message}`
+        });
+        results.summary.failed++;
+        results.summary.violations += ruleResult.violations.length;
         results.rules.push(ruleResult);
         continue;
       }
 
+      // Skip if no files match
+      if (filesInLayer.length === 0) {
+        if (ruleResult.violations.length > 0) {
+          ruleResult.status = 'failed';
+          results.summary.failed++;
+          results.summary.violations += ruleResult.violations.length;
+        } else {
+          ruleResult.status = 'skipped';
+          ruleResult.message = 'No files matched layer pattern';
+        }
+        results.rules.push(ruleResult);
+        continue;
+      }
+
+      if (typeof rule.validate !== 'function') {
+        ruleResult.violations.push({
+          ruleName,
+          severity: 'error',
+          message: `Rule "${ruleName}" does not implement validate()`
+        });
+      }
+
       // Validate each file with error handling per rule
       for (const file of filesInLayer) {
+        if (!file || typeof file !== 'object') continue;
         try {
+          if (typeof rule.validate !== 'function') {
+            break;
+          }
           const violations = rule.validate(file, graph);
-          if (violations && violations.length > 0) {
+          if (Array.isArray(violations) && violations.length > 0) {
             ruleResult.violations.push(...violations);
+          } else if (violations != null && !Array.isArray(violations)) {
+            ruleResult.violations.push({
+              ruleName,
+              severity: 'error',
+              file: file.filePath,
+              message: 'Rule returned invalid violation payload'
+            });
           }
         } catch (validationError) {
           ruleResult.violations.push({
-            ruleName: rule.name,
+            ruleName,
             severity: 'error',
             file: file.filePath,
             message: `Rule validation failed: ${validationError.message}`
@@ -231,10 +310,22 @@ class RulesEngine {
     const preview = {
       rules: []
     };
+
+    if (!graph || typeof graph.getFilesInLayer !== 'function') {
+      return {
+        rules: [{
+          name: 'preview',
+          layer: '',
+          error: 'Invalid graph input'
+        }]
+      };
+    }
     
     const MAX_PREVIEW_FILES = 100; // Limit output size
+    const safeRules = Array.isArray(rules) ? rules : [];
 
-    for (const rule of rules) {
+    for (let index = 0; index < safeRules.length; index++) {
+      const rule = safeRules[index] || {};
       try {
         const matchers = this.compileLayerPatterns(rule);
         const filesInLayer = graph.getFilesInLayer(matchers);
@@ -251,7 +342,7 @@ class RulesEngine {
         });
       } catch (e) {
         preview.rules.push({
-          name: rule.name || 'unnamed',
+          name: rule.name || `rule-${index + 1}`,
           layer: rule.layer,
           error: e.message
         });

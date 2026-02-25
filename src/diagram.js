@@ -5,9 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const { glob } = require('glob');
 const chalk = require('chalk');
-const { execSync, spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const os = require('os');
 const crypto = require('crypto');
+const zlib = require('zlib');
+const { getOpenCommand, getNpxCommandCandidates } = require('./utils/commands');
 
 // Video generation (lazy loaded)
 let videoModule;
@@ -152,6 +154,78 @@ function normalizePath(inputPath) {
   return inputPath.replace(/\\/g, '/');
 }
 
+const IMPORT_RESOLUTION_SUFFIXES = [
+  '',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.mts',
+  '.cts',
+  '/index.ts',
+  '/index.tsx',
+  '/index.js',
+  '/index.jsx',
+  '/index.mjs',
+  '/index.mts',
+  '/index.cts'
+];
+
+function toComparablePath(p) {
+  return normalizePath(String(p || '')).replace(/^\.\//, '');
+}
+
+function getImportPath(importInfo) {
+  if (typeof importInfo === 'string') return importInfo;
+  if (importInfo && typeof importInfo.path === 'string') return importInfo.path;
+  return null;
+}
+
+function resolveInternalImport(fromFilePath, importPath, rootPath) {
+  if (typeof fromFilePath !== 'string' || typeof importPath !== 'string') {
+    return null;
+  }
+  if (!importPath.startsWith('.')) {
+    return null;
+  }
+
+  const fromDir = path.dirname(fromFilePath);
+
+  // In analysis mode we can enforce root boundaries with absolute paths
+  if (rootPath) {
+    const absoluteTarget = path.resolve(rootPath, fromDir, importPath);
+    const relativeToRoot = toComparablePath(path.relative(rootPath, absoluteTarget));
+    if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+      return null;
+    }
+    return relativeToRoot;
+  }
+
+  // Fallback for precomputed data without root path
+  const posixFromDir = normalizePath(fromDir);
+  const posixImport = normalizePath(importPath);
+  return toComparablePath(path.posix.normalize(path.posix.join(posixFromDir, posixImport)));
+}
+
+function findComponentByResolvedPath(components, resolvedPath) {
+  const comparablePath = toComparablePath(resolvedPath);
+  const candidates = new Set(
+    IMPORT_RESOLUTION_SUFFIXES.map(suffix => toComparablePath(comparablePath + suffix))
+  );
+  return components.find(c => candidates.has(toComparablePath(c.filePath)));
+}
+
+function getExternalPackageName(importPath) {
+  if (typeof importPath !== 'string') return null;
+  if (!importPath) return null;
+  if (importPath.startsWith('@')) {
+    const [scope, pkg] = importPath.split('/');
+    return scope && pkg ? `${scope}/${pkg}` : scope || null;
+  }
+  return importPath.split('/')[0] || null;
+}
+
 // Analysis
 async function analyze(rootPath, options) {
   // Validate maxFiles with strict parsing
@@ -253,34 +327,12 @@ async function analyze(rootPath, options) {
   for (const comp of components) {
     comp.dependencies = [];
     for (const imp of comp.imports) {
-      const importPath = typeof imp === 'string' ? imp : imp.path;
-      // Security: Sanitize path traversal in imports
-      if (typeof importPath === 'string' && importPath.startsWith('.')) {
-        // Block path traversal attempts
-        if (importPath.includes('..')) {
-          continue; // Skip imports with path traversal
-        }
-        const dirName = normalizePath(path.dirname(comp.filePath));
-        const resolved = normalizePath(path.join(dirName, importPath));
-        const dep = components.find(c => 
-          c.filePath === resolved ||
-          c.filePath === resolved + '.ts' ||
-          c.filePath === resolved + '.tsx' ||
-          c.filePath === resolved + '.js' ||
-          c.filePath === resolved + '.jsx' ||
-          c.filePath === resolved + '.mjs' ||
-          c.filePath === resolved + '.mts' ||
-          c.filePath === resolved + '.cts' ||
-          c.filePath === resolved + '/index.ts' ||
-          c.filePath === resolved + '/index.tsx' ||
-          c.filePath === resolved + '/index.js' ||
-          c.filePath === resolved + '/index.jsx' ||
-          c.filePath === resolved + '/index.mjs' ||
-          c.filePath === resolved + '/index.mts' ||
-          c.filePath === resolved + '/index.cts'
-        );
-        if (dep) comp.dependencies.push(dep.name);
-      }
+      const importPath = getImportPath(imp);
+      if (!importPath) continue;
+      const resolved = resolveInternalImport(comp.filePath, importPath, rootPath);
+      if (!resolved) continue;
+      const dep = findComponentByResolvedPath(components, resolved);
+      if (dep) comp.dependencies.push(dep.name);
     }
   }
 
@@ -421,33 +473,20 @@ function generateDependency(data, focus) {
   const external = new Set();
 
   for (const c of comps) {
-    for (const imp of c.imports) {
-      if (!imp.startsWith('.')) {
-        const pkg = imp.split('/')[0];
+    const imports = Array.isArray(c.imports) ? c.imports : [];
+    for (const importInfo of imports) {
+      const importPath = getImportPath(importInfo);
+      if (!importPath) continue;
+      if (!importPath.startsWith('.')) {
+        const pkg = getExternalPackageName(importPath);
         if (pkg) {
           external.add(pkg);
           lines.push(`  ${sanitize(pkg)}["${escapeMermaid(pkg)}"] --> ${sanitize(c.name)}`);
         }
       } else {
-        const dirName = normalizePath(path.dirname(c.filePath));
-        const basePath = normalizePath(path.join(dirName, imp));
-        const resolved = comps.find(x => 
-          x.filePath === basePath ||
-          x.filePath === basePath + '.ts' ||
-          x.filePath === basePath + '.tsx' ||
-          x.filePath === basePath + '.js' ||
-          x.filePath === basePath + '.jsx' ||
-          x.filePath === basePath + '.mjs' ||
-          x.filePath === basePath + '.mts' ||
-          x.filePath === basePath + '.cts' ||
-          x.filePath === basePath + '/index.ts' ||
-          x.filePath === basePath + '/index.tsx' ||
-          x.filePath === basePath + '/index.js' ||
-          x.filePath === basePath + '/index.jsx' ||
-          x.filePath === basePath + '/index.mjs' ||
-          x.filePath === basePath + '/index.mts' ||
-          x.filePath === basePath + '/index.cts'
-        );
+        const basePath = resolveInternalImport(c.filePath, importPath, data.rootPath);
+        if (!basePath) continue;
+        const resolved = findComponentByResolvedPath(comps, basePath);
         if (resolved) lines.push(`  ${sanitize(c.name)} --> ${sanitize(resolved.name)}`);
       }
     }
@@ -545,21 +584,13 @@ function createMermaidUrl(mermaidCode) {
   }
   
   try {
-    // Safe stringify that handles circular references
-    const safeStringify = (obj) => {
-      const seen = new Set();
-      return JSON.stringify(obj, (key, value) => {
-        if (typeof value === 'object' && value !== null) {
-          if (seen.has(value)) {
-            return '[Circular]';
-          }
-          seen.add(value);
-        }
-        return value;
-      });
-    };
-    
-    const encoded = Buffer.from(safeStringify({ code: mermaidCode })).toString('base64url');
+    const payload = JSON.stringify({ code: mermaidCode });
+    const compressed = zlib.deflateSync(payload);
+    const encoded = compressed
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '');
     const url = `https://mermaid.live/edit#pako:${encoded}`;
     
     // Check if URL is too long for browser
@@ -574,21 +605,117 @@ function createMermaidUrl(mermaidCode) {
 
 // Validate output path to prevent directory traversal
 function validateOutputPath(outputPath, rootPath) {
+  if (typeof outputPath !== 'string' || outputPath.trim() === '') {
+    throw new Error('Invalid path: output path is required');
+  }
+
   // Security: Check for null bytes
   if (outputPath.includes('\0')) {
     throw new Error('Invalid path: null bytes detected');
   }
   
   // Resolve symlinks to prevent symlink attacks
-  const realRoot = fs.realpathSync(rootPath);
-  const resolved = path.resolve(realRoot, outputPath);
-  const relative = path.relative(realRoot, resolved);
+  let realRoot;
+  try {
+    realRoot = fs.realpathSync(rootPath);
+  } catch (e) {
+    throw new Error(`Invalid project path: ${rootPath}`);
+  }
+  const resolved = path.isAbsolute(outputPath)
+    ? path.resolve(outputPath)
+    : path.resolve(realRoot, outputPath);
+
+  const resolveViaExistingAncestor = (targetPath) => {
+    const pending = [];
+    let probe = targetPath;
+
+    while (!fs.existsSync(probe)) {
+      pending.unshift(path.basename(probe));
+      const parent = path.dirname(probe);
+      if (parent === probe) {
+        break;
+      }
+      probe = parent;
+    }
+
+    const canonicalBase = fs.realpathSync(probe);
+    return path.join(canonicalBase, ...pending);
+  };
+
+  const canonicalResolved = resolveViaExistingAncestor(resolved);
+  const relative = path.relative(realRoot, canonicalResolved);
   
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
     throw new Error(`Invalid path: directory traversal detected in "${outputPath}"`);
   }
   
-  return resolved;
+  return canonicalResolved;
+}
+
+function resolveRootPathOrExit(targetPath) {
+  const root = path.resolve(targetPath || '.');
+  try {
+    const stats = fs.statSync(root);
+    if (!stats.isDirectory()) {
+      console.error(chalk.red('❌ Path error:'), `Target is not a directory: ${root}`);
+      process.exit(2);
+    }
+  } catch (error) {
+    console.error(chalk.red('❌ Path error:'), `Target directory not found: ${root}`);
+    process.exit(2);
+  }
+  return root;
+}
+
+function openPreviewUrl(url) {
+  const { cmd, args } = getOpenCommand(url, process.platform);
+  try {
+    const child = spawn(cmd, args, {
+      stdio: 'ignore',
+      detached: true,
+      windowsHide: true
+    });
+    child.on('error', (err) => {
+      console.error(chalk.yellow('⚠️  Failed to open browser:'), err.message);
+    });
+    child.unref();
+  } catch (err) {
+    console.error(chalk.yellow('⚠️  Failed to open browser:'), err.message);
+  }
+}
+
+function runMermaidCli(args) {
+  const candidates = getNpxCommandCandidates(process.platform);
+  let lastError = null;
+  for (const candidate of candidates) {
+    try {
+      execFileSync(candidate, args, { stdio: 'pipe', windowsHide: true });
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (lastError) {
+    throw lastError;
+  }
+  throw new Error('npx command not found');
+}
+
+const ALLOWED_THEMES = ['default', 'dark', 'forest', 'neutral', 'light'];
+
+function normalizeThemeOption(theme, fallback = 'default') {
+  const normalized = String(theme || fallback).toLowerCase();
+  return ALLOWED_THEMES.includes(normalized) ? normalized : fallback;
+}
+
+function validateExistingPathInRoot(targetPath, rootPath, label = 'path') {
+  const realRoot = fs.realpathSync(rootPath);
+  const realTarget = fs.realpathSync(targetPath);
+  const relative = path.relative(realRoot, realTarget);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`Invalid ${label}: path escapes project root`);
+  }
+  return realTarget;
 }
 
 // Commands
@@ -605,8 +732,10 @@ program
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .option('-j, --json', 'Output as JSON')
   .action(async (targetPath, options) => {
-    const root = path.resolve(targetPath || '.');
-    console.log(chalk.blue('Analyzing'), root);
+    const root = resolveRootPathOrExit(targetPath);
+    if (!options.json) {
+      console.log(chalk.blue('Analyzing'), root);
+    }
     
     const data = await analyze(root, options);
     
@@ -638,7 +767,12 @@ program
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral', 'default')
   .option('--open', 'Open in browser')
   .action(async (targetPath, options) => {
-    const root = path.resolve(targetPath || '.');
+    const root = resolveRootPathOrExit(targetPath);
+    const requestedTheme = String(options.theme || 'default').toLowerCase();
+    const safeTheme = normalizeThemeOption(options.theme, 'default');
+    if (requestedTheme !== safeTheme) {
+      console.warn(chalk.yellow(`⚠️  Unknown theme "${options.theme}", using "${safeTheme}"`));
+    }
     console.log(chalk.blue('Generating'), options.type, 'diagram for', root);
     
     const data = await analyze(root, options);
@@ -687,19 +821,17 @@ program
           // Use crypto for secure random filename
           const randomId = crypto.randomBytes(16).toString('hex');
           tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}-${randomId}.mmd`);
-          const theme = (options.theme || 'default').toLowerCase();
-          fs.writeFileSync(tempFile, `%%{init: {'theme': '${theme}'}}%%\n${mermaid}`);
-          // Use execFileSync with array args to prevent command injection
-          const { execFileSync } = require('child_process');
-          execFileSync('npx', ['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent'], { stdio: 'pipe' });
+          fs.writeFileSync(tempFile, `%%{init: {'theme': '${safeTheme}'}}%%\n${mermaid}`);
+          runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent']);
           fs.unlinkSync(tempFile);
           console.log(chalk.green('✅ Rendered to'), options.output);
         } catch (e) {
           if (tempFile && fs.existsSync(tempFile)) {
             try { fs.unlinkSync(tempFile); } catch (e2) {}
           }
-          console.log(chalk.yellow('⚠️  Could not render. Install mermaid-cli: npm i -g @mermaid-js/mermaid-cli'));
+          console.error(chalk.red('❌ Could not render output file. Install mermaid-cli: npm i -g @mermaid-js/mermaid-cli'));
           if (process.env.DEBUG) console.error(chalk.gray(e.message));
+          process.exit(2);
         }
       }
     }
@@ -709,16 +841,7 @@ program
       if (!url.startsWith('http://') && !url.startsWith('https://')) {
         console.error(chalk.red('❌ Invalid URL protocol'));
       } else {
-        const platform = process.platform;
-        const cmd = platform === 'darwin' ? 'open' : platform === 'win32' ? 'start' : 'xdg-open';
-        const child = spawn(cmd, platform === 'win32' ? ['', url] : [url], { 
-          stdio: 'ignore', 
-          detached: true 
-        });
-        child.on('error', (err) => {
-          console.error(chalk.yellow('⚠️  Failed to open browser:'), err.message);
-        });
-        child.unref();
+        openPreviewUrl(url);
       }
     }
   });
@@ -731,9 +854,14 @@ program
   .option('-e, --exclude <list>', 'Exclude patterns', 'node_modules/**,.git/**,dist/**')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .action(async (targetPath, options) => {
-    const root = path.resolve(targetPath || '.');
-    // Validate output directory path
-    const outDir = validateOutputPath(options.outputDir, root);
+    const root = resolveRootPathOrExit(targetPath);
+    let outDir;
+    try {
+      outDir = validateOutputPath(options.outputDir, root);
+    } catch (err) {
+      console.error(chalk.red('❌ Output path error:'), err.message);
+      process.exit(2);
+    }
     
     console.log(chalk.blue('Analyzing'), root);
     const data = await analyze(root, options);
@@ -764,7 +892,8 @@ program
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral', 'dark')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .action(async (targetPath, options) => {
-    const root = path.resolve(targetPath || '.');
+    const root = resolveRootPathOrExit(targetPath);
+    const safeTheme = normalizeThemeOption(options.theme, 'dark');
     
     // Validate output path
     let safeOutput;
@@ -773,6 +902,11 @@ program
     } catch (err) {
       console.error(chalk.red('❌ Output path error:'), err.message);
       process.exit(2);
+    }
+
+    const outputDir = path.dirname(safeOutput);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
     }
     
     console.log(chalk.blue('🎬 Generating video for'), root);
@@ -787,7 +921,7 @@ program
       fps: parseInt(options.fps) || 30,
       width: parseInt(options.width) || 1280,
       height: parseInt(options.height) || 720,
-      theme: (options.theme || 'dark').toLowerCase()
+      theme: safeTheme
     });
   });
 
@@ -799,7 +933,8 @@ program
   .option('--theme <theme>', 'Theme', 'dark')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .action(async (targetPath, options) => {
-    const root = path.resolve(targetPath || '.');
+    const root = resolveRootPathOrExit(targetPath);
+    const safeTheme = normalizeThemeOption(options.theme, 'dark');
     
     // Validate output path
     let safeOutput;
@@ -808,6 +943,11 @@ program
     } catch (err) {
       console.error(chalk.red('❌ Output path error:'), err.message);
       process.exit(2);
+    }
+
+    const outputDir = path.dirname(safeOutput);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
     }
     
     console.log(chalk.blue('✨ Generating animated SVG for'), root);
@@ -818,7 +958,7 @@ program
     const { generateAnimatedSVG } = getVideoModule();
     
     await generateAnimatedSVG(mermaid, safeOutput, {
-      theme: (options.theme || 'dark').toLowerCase()
+      theme: safeTheme
     });
   });
 
@@ -834,6 +974,7 @@ program
   .option('--dry-run', 'Preview file matching without validation', false)
   .option('--verbose', 'Show detailed output', false)
   .option('--init', 'Generate starter configuration file', false)
+  .option('--force', 'Overwrite existing configuration with --init', false)
   .action(async (targetPath, options) => {
     const { RulesEngine } = require('./rules');
     const { ComponentGraph } = require('./graph');
@@ -842,15 +983,18 @@ program
     const { validateConfig, getDefaultConfig } = require('./schema/rules-schema');
     const YAML = require('yaml');
     
-    const root = path.resolve(targetPath || '.');
+    const root = resolveRootPathOrExit(targetPath);
     const engine = new RulesEngine();
     const startTime = Date.now();
+    const outputsMachineFormat =
+      !options.output && (options.format === 'json' || options.format === 'junit');
+    const quietMachineOutput = outputsMachineFormat && !options.verbose;
     
     // Init mode - generate starter config
     if (options.init) {
       const configPath = path.join(root, '.architecture.yml');
       
-      if (fs.existsSync(configPath)) {
+      if (fs.existsSync(configPath) && !options.force) {
         console.error(chalk.yellow('⚠️  Configuration already exists:'), configPath);
         console.log(chalk.gray('   Use --force to overwrite'));
         process.exit(2);
@@ -912,7 +1056,9 @@ program
     }
     
     // Analyze codebase
-    console.log(chalk.blue('🔍 Analyzing'), root);
+    if (!quietMachineOutput) {
+      console.log(chalk.blue('🔍 Analyzing'), root);
+    }
     const data = await analyze(root, options);
     const graph = new ComponentGraph(data);
     
@@ -944,7 +1090,9 @@ program
     }
     
     // Run validation
-    console.log(chalk.blue('🧪 Validating'), rules.length, 'rules...\n');
+    if (!quietMachineOutput) {
+      console.log(chalk.blue('🧪 Validating'), rules.length, 'rules...\n');
+    }
     const results = engine.validate(rules, graph);
     
     // Validate output path if specified
