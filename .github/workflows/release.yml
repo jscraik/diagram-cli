@@ -136,6 +136,8 @@ jobs:
           else
             unset NODE_AUTH_TOKEN
             export NPM_TRUSTED_PUBLISHING=true
+            export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/npmrc-release"
+            printf "registry=https://registry.npmjs.org/\n" > "$NPM_CONFIG_USERCONFIG"
             echo "Using trusted publishing mode."
           fi
 
