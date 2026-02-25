@@ -22,6 +22,26 @@ fail() {
   exit 1
 }
 
+run_packaged_cli_smoke_test() {
+  local pack_dir smoke_dir pack_file
+
+  pack_dir="$(mktemp -d)"
+  smoke_dir="$(mktemp -d)"
+  trap 'rm -rf "$pack_dir" "$smoke_dir"' RETURN
+
+  pack_file="$(npm pack --json --pack-destination "$pack_dir" | jq -r '.[0].filename')"
+  if [[ -z "$pack_file" || "$pack_file" == "null" ]]; then
+    fail "Could not determine packed artifact filename."
+  fi
+
+  (
+    cd "$smoke_dir"
+    npm init -y >/dev/null 2>&1
+    npm install "$pack_dir/$pack_file" >/dev/null
+    ./node_modules/.bin/diagram --help >/dev/null
+  )
+}
+
 ensure_clean_tree() {
   local context="$1"
 
@@ -156,6 +176,9 @@ npm test
 
 echo "Checking publish artifact..."
 npm pack --dry-run
+
+echo "Running packaged CLI smoke test..."
+run_packaged_cli_smoke_test
 
 if ! npm whoami >/dev/null 2>&1; then
   if [[ "$publish" == "true" ]]; then

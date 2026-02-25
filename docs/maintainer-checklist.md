@@ -30,5 +30,6 @@
 
 - [ ] Version is bumped.
 - [ ] `npm pack --dry-run` output verified.
+- [ ] Packaged CLI smoke test passes (`diagram --help` from packed tarball).
 - [ ] `npm publish --access public` completed.
 - [ ] Release notes/tag created on GitHub.

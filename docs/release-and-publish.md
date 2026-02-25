@@ -35,6 +35,7 @@ This command validates:
 - tag `vX.Y.Z` does not already exist
 - `npm test` passes
 - `npm pack --dry-run` includes expected files
+- packaged install smoke test passes (`diagram --help` from the packed tarball)
 
 ## Publish command
 

@@ -48,6 +48,7 @@
   "files": [
     "src/diagram.js",
     "src/video.js",
+    "src/utils/commands.js",
     "README.md",
     "LICENSE"
   ],
