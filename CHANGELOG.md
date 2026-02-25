@@ -7,6 +7,13 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-02-25
+
+### Changed
+
+- fix: include commands module in published package (f95066d)
+
+
 ## [1.0.0] - 2026-02-24
 
 ### Added
