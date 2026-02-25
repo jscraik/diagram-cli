@@ -1,5 +1,8 @@
 # Async/Await Bug Report - diagram-cli
 
+> Historical snapshot: this report reflects point-in-time analysis from its date and is not the source of truth for current project status. Use README.md and CHANGELOG.md for current behavior.
+
+
 **Date:** 2026-02-24  
 **Scope:** Race conditions and async/await problems in diagram-cli codebase  
 **Files Analyzed:** src/**/*.js (12 source files)

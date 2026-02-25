@@ -1,30 +1,36 @@
 # Security Policy
 
+## Table of Contents
+
+- [Supported versions](#supported-versions)
+- [Reporting a vulnerability](#reporting-a-vulnerability)
+- [Disclosure process](#disclosure-process)
+
 ## Supported versions
 
-This project is pre-1.0 style in process even if the npm package version is
-`1.0.0`. Security fixes are applied to the latest published release.
+Security fixes are applied to the latest published npm release of `@brainwav/diagram`.
 
 | Version | Supported |
 | --- | --- |
-| Latest | Yes |
-| Older versions | No |
+| Latest published release | Yes |
+| Older releases | No |
 
 ## Reporting a vulnerability
 
-Please do not open public issues for potential vulnerabilities.
+Do not open public issues for potential vulnerabilities.
 
-Use GitHub Security Advisories:
+Preferred channel: GitHub Security Advisories.
 
-1. Open the repository security tab.
-2. Click "Report a vulnerability".
-3. Include reproduction steps, impact, and proposed fix details.
+1. Open the repository **Security** tab.
+2. Click **Report a vulnerability**.
+3. Include reproduction details, impact, and suggested remediation.
 
 If private reporting is unavailable, open a minimal GitHub issue requesting a
-maintainer contact channel and do not include exploit details.
+maintainer contact path and exclude exploit details.
 
 ## Disclosure process
 
-- We acknowledge reports as soon as possible.
-- We validate impact and triage severity.
-- We ship a fix and then publish a disclosure note with remediation guidance.
+- Report acknowledged as soon as possible.
+- Impact validated and severity triaged.
+- Fix shipped.
+- Disclosure notes and upgrade guidance published.

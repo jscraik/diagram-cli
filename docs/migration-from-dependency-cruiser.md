@@ -1,214 +1,126 @@
-# Migration from Dependency Cruiser
+# Migration from dependency-cruiser
 
-This guide helps you migrate from [dependency-cruiser](https://github.com/sverweij/dependency-cruiser) to diagram-cli's architecture testing.
+Move architecture validation rules from dependency-cruiser config to
+`diagram test` YAML rules.
 
-## Why Migrate?
+## Table of Contents
 
-| Feature | dependency-cruiser | diagram-cli |
-|---------|-------------------|-------------|
-| Configuration | JavaScript/JSON | YAML (simpler) |
-| Setup | Complex (webpack, tsconfig paths) | Zero-config for basic use |
-| Output | Various formats | Console, JSON, JUnit XML |
-| Maintenance | Active | Simpler codebase |
-| Learning curve | Steep | Minimal |
+- [Why migrate](#why-migrate)
+- [Configuration mapping](#configuration-mapping)
+- [Migration steps](#migration-steps)
+- [Feature parity and gaps](#feature-parity-and-gaps)
+- [Troubleshooting](#troubleshooting)
 
-## Configuration Mapping
+## Why migrate
 
-### dependency-cruiser (JS config)
+| Capability | dependency-cruiser | diagram-cli |
+| --- | --- | --- |
+| Config format | JavaScript/JSON | YAML |
+| CI output | Multiple formats | Console, JSON, JUnit |
+| Rule model | Regex-heavy | Path-pattern constraints |
+
+## Configuration mapping
+
+### dependency-cruiser (example)
 
 ```javascript
-// .dependency-cruiser.js
 module.exports = {
   forbidden: [
     {
-      name: 'no-ui-in-domain',
-      comment: 'Domain should not depend on UI',
-      severity: 'error',
-      from: { path: '^src/domain' },
-      to: { path: '^src/ui' }
-    },
-    {
-      name: 'api-only-imports-domain',
-      comment: 'API can only import from domain and shared',
-      severity: 'error',
-      from: { path: '^src/api' },
-      to: { 
-        path: '^(?!src/domain|src/shared)',
-        pathNot: '^src/types'
-      }
+      name: "no-ui-in-domain",
+      from: { path: "^src/domain" },
+      to: { path: "^src/ui" }
     }
   ]
 };
 ```
 
-### diagram-cli (YAML config)
+### diagram-cli (equivalent)
 
 ```yaml
-# .architecture.yml
 version: "1.0"
 
 rules:
   - name: "no-ui-in-domain"
-    description: "Domain should not depend on UI"
     layer: "src/domain"
     must_not_import_from: ["src/ui"]
-
-  - name: "api-only-imports-domain"
-    description: "API can only import from domain and shared"
-    layer: "src/api"
-    may_import_from: ["src/domain", "src/shared", "src/types"]
 ```
 
-## Pattern Conversion
+## Migration steps
 
-| dependency-cruiser | diagram-cli |
-|-------------------|-------------|
-| `from: { path: '^src/domain' }` | `layer: "src/domain"` |
-| `to: { path: '^src/ui' }` | `must_not_import_from: ["src/ui"]` |
-| `to: { pathNot: '^src/types' }` | `may_import_from: ["src/types"]` |
-| `path: '^src/(\\w+)'` | `layer: "src/*"` (glob) |
-| `path: '\\.spec\\.ts$'` | `layer: "**/*.spec.ts"` |
+1. Install diagram-cli in your project.
 
-## Severity Mapping
-
-| dependency-cruiser | diagram-cli |
-|-------------------|-------------|
-| `severity: 'error'` | Default (exit code 1) |
-| `severity: 'warn'` | Not yet supported (see roadmap) |
-| `severity: 'info'` | Not yet supported |
-
-## Migration Steps
-
-1. **Install diagram-cli**
-   ```bash
-   npm install -g @brainwav/diagram
-   # or
-   npm install --save-dev @brainwav/diagram
-   ```
-
-2. **Generate starter config**
-   ```bash
-   diagram test --init
-   ```
-
-3. **Translate rules manually**
-   - Copy each `forbidden` rule to `rules` array
-   - Convert `from.path` regex to `layer` glob
-   - Convert `to.path` to `must_not_import_from`
-   - Convert `to.pathNot` to `may_import_from`
-
-4. **Test the migration**
-   ```bash
-   # Run both tools and compare
-   depcruise --validate .dependency-cruiser.js src
-   diagram test
-   ```
-
-5. **Update CI/CD**
-   ```yaml
-   # Before (dependency-cruiser)
-   - run: npx depcruise --validate .dependency-cruiser.js src
-   
-   # After (diagram-cli)
-   - run: npx diagram test
-   ```
-
-6. **Remove dependency-cruiser**
-   ```bash
-   npm uninstall dependency-cruiser
-   rm .dependency-cruiser.js
-   ```
-
-## Feature Comparison
-
-### Supported in diagram-cli
-
-- ✅ Import path validation
-- ✅ Glob pattern matching
-- ✅ Layer-based rules
-- ✅ Whitelist (may_import_from)
-- ✅ Blacklist (must_not_import_from)
-- ✅ Required imports (must_import_from)
-- ✅ JUnit XML output for CI
-- ✅ JSON output for scripting
-
-### Not yet supported
-
-- ⚠️ Custom rules (JavaScript)
-- ⚠️ tsconfig path resolution
-- ⚠️ Webpack alias resolution
-- ⚠️ Severity levels (warn/info)
-- ⚠️ Circular dependency detection (Phase 2)
-
-## Common Patterns
-
-### Prevent circular dependencies
-
-**dependency-cruiser:**
-```javascript
-{
-  name: 'no-circular',
-  severity: 'error',
-  from: {},
-  to: { circular: true }
-}
+```bash
+npm install --save-dev @brainwav/diagram
 ```
 
-**diagram-cli:**
+1. Generate starter config.
+
+```bash
+npx diagram test --init
+```
+
+1. Translate each dependency-cruiser rule:
+
+- `from.path` -> `layer`
+- `to.path` -> `must_not_import_from`
+- `to.pathNot` patterns -> `may_import_from` allowlist design
+
+1. Validate and compare.
+
+```bash
+# Existing
+npx depcruise --validate .dependency-cruiser.js src
+
+# New
+npx diagram test
+```
+
+1. Update CI commands.
+
 ```yaml
-# Coming in Phase 2
-rules:
-  - name: "No circular dependencies"
-    type: "no_circular_dependencies"
+# Before
+- run: npx depcruise --validate .dependency-cruiser.js src
+
+# After
+- run: npx diagram test --format junit --output architecture-results.xml
 ```
 
-### Restrict imports to specific file types
+1. Remove dependency-cruiser when parity is confirmed.
 
-**dependency-cruiser:**
-```javascript
-{
-  from: { path: '\\.test\\.ts$' },
-  to: { path: '\\.test\\.ts$', pathNot: '\\.test\\.ts$' }
-}
+```bash
+npm uninstall dependency-cruiser
+rm .dependency-cruiser.js
 ```
 
-**diagram-cli:**
-```yaml
-rules:
-  - name: "Test isolation"
-    layer: "**/*.test.ts"
-    must_not_import_from: ["**/*.test.ts"]
-```
+## Feature parity and gaps
+
+Currently supported:
+
+- Forbidden import constraints (`must_not_import_from`)
+- Allowlist constraints (`may_import_from`)
+- Required import constraints (`must_import_from`)
+- JSON and JUnit output modes
+
+Current gaps (relative to advanced dependency-cruiser use cases):
+
+- Custom JavaScript rule logic
+- Severity levels (`warn`/`info`)
+- tsconfig/webpack alias-aware resolution
+- Built-in circular dependency rule type
 
 ## Troubleshooting
 
-### Import aliases not resolving
+### Import aliases do not match
 
-diagram-cli uses simple glob matching, not webpack/tsconfig resolution:
+Use explicit source paths in rules (for example `src/ui`) unless your imports
+are already resolved to that form.
 
-```yaml
-# Instead of relying on "@/components" resolution
-rules:
-  - name: "Domain isolation"
-    layer: "src/domain"
-    must_not_import_from: ["src/ui", "src/components"]
-```
+### Rule seems too broad
 
-### More lenient matching
+Use tighter layer patterns (for example `src/api/**/*.ts` instead of `src/api`).
 
-diagram-cli's glob matching is more lenient than regex:
+### Need examples
 
-```yaml
-# This matches "src/ui", "src/ui/components", etc.
-must_not_import_from: ["src/ui"]
-
-# For exact matching (not yet supported):
-# Use multiple patterns
-must_not_import_from: ["src/ui/*", "src/ui/**/*"]
-```
-
-## Getting Help
-
-- Open an issue: [github.com/jscraik/diagram-cli/issues](https://github.com/jscraik/diagram-cli/issues)
-- Read the docs: [docs/architecture-testing.md](architecture-testing.md)
-- Example configs: [examples/](../examples/)
+- [Architecture testing guide](architecture-testing.md)
+- [Example configs](../examples/)

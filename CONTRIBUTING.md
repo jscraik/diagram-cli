@@ -7,14 +7,14 @@ Thanks for contributing to `@brainwav/diagram`.
 - [Development setup](#development-setup)
 - [Run checks](#run-checks)
 - [Submit changes](#submit-changes)
-- [Docs updates](#docs-updates)
+- [Documentation updates](#documentation-updates)
 
 ## Development setup
 
 Requirements:
 
 - Node.js 18+
-- npm (package-lock is committed, so npm is the canonical package manager)
+- npm (this repo uses `package-lock.json`)
 
 Setup:
 
@@ -32,32 +32,37 @@ npm link
 
 ## Run checks
 
-Run the required check before opening a PR:
+Required baseline check:
 
 ```bash
 npm test
 ```
 
-The current test script runs:
+Additional regression check (run when behavior changes):
 
 ```bash
-node src/diagram.js analyze .
+npm run test:deep
+```
+
+Useful smoke checks:
+
+```bash
+node src/diagram.js --help
+node src/diagram.js test --help
 ```
 
 ## Submit changes
 
 1. Create a branch from `main`.
-2. Make focused changes.
-3. Run `npm test`.
+2. Keep changes focused.
+3. Run the checks above.
 4. Update docs when behavior changes.
-5. Open a pull request using the PR template.
+5. Open a pull request using `.github/pull_request_template.md`.
 
-Commit message convention is currently not observed/enforced in this repo.
+## Documentation updates
 
-## Docs updates
+When adding or changing CLI behavior:
 
-When you add or change CLI flags/commands:
-
-- Update [README.md](README.md)
-- Update relevant files under [docs/](docs/README.md)
-- Include usage examples for the new behavior
+- update [README.md](README.md)
+- update relevant files under [docs/](docs/README.md)
+- validate examples and commands before merging

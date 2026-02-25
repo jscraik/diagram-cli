@@ -1,5 +1,7 @@
 # Maintainer Checklist
 
+Review this checklist before merging changes or cutting a release.
+
 ## Table of Contents
 
 - [Per-PR checklist](#per-pr-checklist)
@@ -8,28 +10,30 @@
 
 ## Per-PR checklist
 
-- [ ] Scope is clear and small.
+- [ ] Scope is clear and minimal.
 - [ ] `npm test` passes.
-- [ ] CLI examples match actual command behavior.
+- [ ] `npm run test:deep` passes when behavior or command output changed.
+- [ ] CLI examples were validated against current command behavior.
 - [ ] No secrets, tokens, or private endpoints were added.
 
 ## Documentation checklist
 
-- [ ] README is updated if commands/flags changed.
-- [ ] `docs/` pages are updated for maintainers.
-- [ ] Community files are present:
+- [ ] `README.md` reflects command/flag changes.
+- [ ] Relevant pages under `docs/` are updated.
+- [ ] Community files remain present and current:
   - [ ] `LICENSE`
   - [ ] `CODE_OF_CONDUCT.md`
   - [ ] `CONTRIBUTING.md`
   - [ ] `SECURITY.md`
   - [ ] `SUPPORT.md`
-  - [ ] Issue templates
-  - [ ] PR template
+  - [ ] `.github/ISSUE_TEMPLATE/*`
+  - [ ] `.github/pull_request_template.md`
 
 ## Release checklist
 
-- [ ] Version is bumped.
-- [ ] `npm pack --dry-run` output verified.
-- [ ] Packaged CLI smoke test passes (`diagram --help` from packed tarball).
-- [ ] `npm publish --access public` completed.
-- [ ] Release notes/tag created on GitHub.
+- [ ] Version is updated.
+- [ ] `npm run release:prepare -- X.Y.Z` passes.
+- [ ] Packaged CLI smoke test passes.
+- [ ] Publish command completed (`npm run release:publish -- X.Y.Z` or initial equivalent).
+- [ ] Git tag and GitHub release exist.
+- [ ] `CHANGELOG.md` contains release notes.

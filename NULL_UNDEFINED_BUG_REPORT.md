@@ -1,5 +1,8 @@
 # Null/Undefined Handling Bug Report
 
+> Historical snapshot: this report reflects point-in-time analysis from its date and is not the source of truth for current project status. Use README.md and CHANGELOG.md for current behavior.
+
+
 **Project:** diagram-cli  
 **Analysis Date:** 2026-02-24  
 **Files Analyzed:** 12 source files in `src/**/*.js`

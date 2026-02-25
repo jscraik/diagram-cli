@@ -1,5 +1,11 @@
 # Support
 
+## Table of Contents
+
+- [Get help](#get-help)
+- [What to include](#what-to-include)
+- [Security issues](#security-issues)
+
 ## Get help
 
 For usage questions and bug reports, open a GitHub issue:
@@ -10,13 +16,11 @@ For usage questions and bug reports, open a GitHub issue:
 
 ## What to include
 
-Please include:
-
 - OS and Node.js version
 - Exact command run
 - Expected behavior
 - Actual behavior and error output
-- Minimal reproduction path if possible
+- Minimal reproduction path (if possible)
 
 ## Security issues
 

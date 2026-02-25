@@ -1,5 +1,8 @@
 # Comprehensive Bug Audit Report
 
+> Historical snapshot: this report reflects point-in-time analysis from its date and is not the source of truth for current project status. Use README.md and CHANGELOG.md for current behavior.
+
+
 **Project:** diagram-cli  
 **Date:** 2026-02-25  
 **Total Bugs Found:** 40  

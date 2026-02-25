@@ -1,80 +1,65 @@
 # Claude Context: diagram-cli
 
-Generate architecture diagrams from codebases using static analysis and Mermaid.
+Generate architecture diagrams and architecture-rule test results from source
+code using static analysis and Mermaid.
+
+## Table of Contents
+
+- [When to use this tool](#when-to-use-this-tool)
+- [Local commands](#local-commands)
+- [Codebase shape](#codebase-shape)
+- [Implementation notes](#implementation-notes)
+- [Validation](#validation)
 
 ## When to use this tool
 
-- **Analyze**: Understand project structure, dependencies, and entry points
-- **Generate**: Create architecture, sequence, dependency, class, or flow diagrams  
-- **Video**: Export animated videos or SVGs for presentations
+- Analyze repository structure and imports.
+- Generate Mermaid diagrams (`architecture`, `sequence`, `dependency`, `class`,
+  `flow`).
+- Validate architecture constraints via `diagram test`.
+- Export animated SVG/video outputs when optional dependencies are installed.
 
-## Bash Commands
+## Local commands
 
 ```bash
-# Development
-npm install                    # Install deps
-npm link                       # Link globally for local dev
-npm test                       # Run self-test (analyzes current dir)
+npm install
+npm test
+npm run test:deep
 
-# Usage examples
-diagram analyze .              # Quick project overview
-diagram generate .             # Architecture diagram to stdout
-diagram all . --output-dir docs/diagrams  # Generate all types
-diagram video . --output demo.mp4 --duration 5  # Animated video
+# CLI help
+node src/diagram.js --help
+node src/diagram.js test --help
+
+# Typical usage
+node src/diagram.js analyze .
+node src/diagram.js generate . --type dependency
+node src/diagram.js test .
 ```
 
-## Code Style
+## Codebase shape
 
-- **Node.js 18+**, CommonJS (for broad compatibility)
-- Use `path.posix` for cross-platform path consistency
-- Escape all user input before shell commands (`escapeShellArg`)
-- Hash suffix on all mermaid IDs to prevent collisions
-- Validate numeric inputs (bounds checking)
-
-## Architecture
-
-```
+```text
 src/
-  diagram.js    # CLI entry, analysis, diagram generators
-  video.js      # Playwright-based video/SVG rendering (optional)
+  diagram.js    # CLI entrypoint, analysis, generation, test command
+  rules.js      # rules engine and config loading
+  graph.js      # component graph helper
+  formatters/   # console/json/junit format output
+  video.js      # optional animation/video rendering
 ```
 
-- **Analysis**: AST-less regex parsing for speed (supports TS/JS/Py/Go/Rust/Java)
-- **Diagrams**: Mermaid syntax generation with collision-resistant IDs
-- **Video**: Playwright screenshots → FFmpeg compilation
+## Implementation notes
 
-## Key Implementation Details
+- Runtime target: Node.js 18+.
+- Module system: CommonJS (`require`/`module.exports`).
+- Mermaid node IDs are sanitized and suffixed with SHA-256 hash fragments for
+  collision resistance.
+- Path handling normalizes separators for cross-platform matching.
+- Output paths are validated to prevent directory traversal.
 
-- **Sanitize**: `sanitize(name)` adds MD5 hash suffix to prevent ID collisions
-- **Normalize**: `normalizePath()` converts all paths to forward slashes
-- **Escape**: `escapeMermaid()` handles quotes, brackets, hashes for mermaid
-- **Video**: Auto-detects FFmpeg codec (libx264 → h264_videotoolbox → mpeg4 fallback)
+## Validation
 
-## Testing
+Before shipping behavior changes:
 
-```bash
-# Manual verification
-diagram analyze /Users/jamiecraik/dev/design-system --max-files 50
-diagram generate . --type dependency --focus src/api
-diagram video . --output /tmp/test.mp4 --duration 2 --fps 10
-```
-
-## Git/PR Etiquette
-
-- Run `npm test` before commit
-- Update README.md if adding new diagram types or commands
-- Video feature requires Playwright + FFmpeg (document in README)
-
-## @imports
-
-- @README.md — User-facing documentation
-- @package.json — Dependencies and scripts
-
-## Package Manager
-
-Detected: **npm** (lockfile present)
-
-```bash
-npm install       # dependencies
-npm install -g .  # global install
-```
+1. Run `npm test`.
+2. Run `npm run test:deep`.
+3. Verify examples in `README.md` and `docs/` still match CLI help output.

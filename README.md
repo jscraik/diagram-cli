@@ -19,7 +19,8 @@ Generate codebase architecture diagrams from source files. No AI required.
 ## Upgrade notice
 
 ⚠️ `@brainwav/diagram@1.0.0` had a packaging regression and failed at runtime with
-`Cannot find module './utils/commands'`. Please use `@brainwav/diagram@1.0.1` or later.
+`Cannot find module './utils/commands'`. Please use
+`@brainwav/diagram@1.0.1` or later.
 
 ## Install
 
@@ -285,6 +286,9 @@ jobs:
 
 ## Documentation
 
+- Getting started: [docs/getting-started.md](docs/getting-started.md)
+- Architecture testing guide: [docs/architecture-testing.md](docs/architecture-testing.md)
+- Migration guide: [docs/migration-from-dependency-cruiser.md](docs/migration-from-dependency-cruiser.md)
 - Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Security policy: [SECURITY.md](SECURITY.md)
 - Support policy: [SUPPORT.md](SUPPORT.md)

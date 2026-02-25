@@ -1,11 +1,13 @@
 ---
 title: Add Architecture Testing with YAML Rules Validation
 type: feat
-status: active
+status: archived
 date: 2026-02-24
 ---
 
 # Add Architecture Testing with YAML Rules Validation
+
+Historical status: implemented in this repository. This file is retained as a planning artifact.
 
 ## Enhancement Summary
 
