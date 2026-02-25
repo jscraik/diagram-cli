@@ -1,0 +1,66 @@
+# Example: Monorepo Architecture
+# For turborepo or Nx monorepos with multiple packages
+
+version: "1.0"
+
+rules:
+  # Enforce package boundaries
+  - name: "Core package isolation"
+    description: "Core packages should not import from app packages"
+    layer: "packages/core/**/*"
+    must_not_import_from:
+      - "apps/"
+      - "packages/web"
+      - "packages/mobile"
+
+  # UI package is shared
+  - name: "UI package is framework-agnostic"
+    description: "UI components should not import from framework-specific packages"
+    layer: "packages/ui/**/*"
+    must_not_import_from:
+      - "packages/next-app"
+      - "packages/react-native"
+      - "apps/"
+
+  # API contracts
+  - name: "API types are shared"
+    description: "API types package should not import from implementations"
+    layer: "packages/api-types/**/*"
+    must_not_import_from:
+      - "packages/api-server"
+      - "packages/api-client"
+      - "apps/"
+
+  # App dependencies
+  - name: "Apps use shared packages"
+    description: "Apps can import from shared packages"
+    layer: "apps/**/*"
+    may_import_from:
+      - "packages/core"
+      - "packages/ui"
+      - "packages/api-types"
+      - "packages/utils"
+
+  # Test utilities
+  - name: "Test utils don't import from apps"
+    description: "Shared test utilities should be app-agnostic"
+    layer: "packages/test-utils/**/*"
+    must_not_import_from:
+      - "apps/"
+      - "packages/*/src"
+
+  # Database layer
+  - name: "Database access is controlled"
+    description: "Only API server and data packages can import from database"
+    layer: ["packages/db/**/*", "packages/*/db/**/*"]
+    may_import_from:
+      - "packages/core"
+      - "packages/types"
+
+  - name: "No direct DB imports in apps"
+    description: "Apps must use API client, not direct DB access"
+    layer: "apps/**/*"
+    must_not_import_from:
+      - "packages/db"
+      - "**/db/client"
+      - "prisma"

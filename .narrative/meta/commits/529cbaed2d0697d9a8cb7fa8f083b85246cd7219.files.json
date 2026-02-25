@@ -1,0 +1,80 @@
+{
+  "sha": "529cbaed2d0697d9a8cb7fa8f083b85246cd7219",
+  "totals": {
+    "added": 500,
+    "removed": 141,
+    "files": 14
+  },
+  "files": [
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "additions": 35,
+      "deletions": 0
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "additions": 5,
+      "deletions": 0
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/feature_request.md",
+      "additions": 23,
+      "deletions": 0
+    },
+    {
+      "path": ".github/pull_request_template.md",
+      "additions": 16,
+      "deletions": 0
+    },
+    {
+      "path": "CHANGELOG.md",
+      "additions": 15,
+      "deletions": 0
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "additions": 61,
+      "deletions": 0
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "additions": 63,
+      "deletions": 0
+    },
+    {
+      "path": "README.md",
+      "additions": 75,
+      "deletions": 141
+    },
+    {
+      "path": "SECURITY.md",
+      "additions": 30,
+      "deletions": 0
+    },
+    {
+      "path": "SUPPORT.md",
+      "additions": 24,
+      "deletions": 0
+    },
+    {
+      "path": "docs/README.md",
+      "additions": 11,
+      "deletions": 0
+    },
+    {
+      "path": "docs/getting-started.md",
+      "additions": 51,
+      "deletions": 0
+    },
+    {
+      "path": "docs/maintainer-checklist.md",
+      "additions": 34,
+      "deletions": 0
+    },
+    {
+      "path": "docs/release-and-publish.md",
+      "additions": 57,
+      "deletions": 0
+    }
+  ]
+}

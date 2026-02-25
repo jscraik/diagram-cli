@@ -1,0 +1,24 @@
+{
+  "repoRoot": "/Users/jamiecraik/dev/diagram-cli",
+  "branch": "main",
+  "headSha": "c56db76b866ff960af0b271fa97f5678282df762",
+  "indexedAtISO": "2026-02-25T19:28:41.876Z",
+  "stats": {
+    "added": 2470,
+    "removed": 181,
+    "files": 22,
+    "commits": 4,
+    "prompts": 7,
+    "responses": 96
+  },
+  "commits": [
+    "c56db76b866ff960af0b271fa97f5678282df762",
+    "529cbaed2d0697d9a8cb7fa8f083b85246cd7219",
+    "aacda8a6dcc46165525ec5217688fb04d0964337",
+    "87a436769f630d2f7bcbc91b8e75686276ceb31b"
+  ],
+  "narrative": {
+    "schemaVersion": 1,
+    "phase": 1
+  }
+}

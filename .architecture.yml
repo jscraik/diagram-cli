@@ -1,0 +1,23 @@
+# Architecture rules for diagram-cli itself
+version: "1.0"
+
+rules:
+  - name: "Rule types are isolated"
+    description: "Rule implementations should only import from base and external packages"
+    layer: "src/rules/types/*.js"
+    must_not_import_from: ["src/diagram.js", "src/formatters/"]
+
+  - name: "Formatters don't import rules"
+    description: "Output formatters should not depend on rule logic"
+    layer: "src/formatters/*.js"
+    must_not_import_from: ["src/rules", "src/rules/", "src/graph.js"]
+
+  - name: "Graph is dependency-free"
+    description: "ComponentGraph should not import CLI or rules"
+    layer: "src/graph.js"
+    must_not_import_from: ["src/diagram.js", "src/rules"]
+
+  - name: "Schema is standalone"
+    description: "Schema validation should not depend on runtime"
+    layer: "src/schema/*.js"
+    must_not_import_from: ["src/diagram.js", "src/rules", "src/graph.js"]

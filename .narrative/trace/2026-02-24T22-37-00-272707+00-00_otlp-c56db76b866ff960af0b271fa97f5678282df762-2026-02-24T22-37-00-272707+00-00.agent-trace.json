@@ -1,0 +1,510 @@
+{
+  "id": "otlp-c56db76b866ff960af0b271fa97f5678282df762-2026-02-24T22-37-00-272707+00-00",
+  "version": "0.1.0",
+  "timestamp": "2026-02-24T22:37:00.272707+00:00",
+  "vcs": {
+    "type": "git",
+    "revision": "c56db76b866ff960af0b271fa97f5678282df762"
+  },
+  "tool": {
+    "name": "codex",
+    "version": null
+  },
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "conversations": [
+        {
+          "url": null,
+          "contributor": {
+            "type": "ai",
+            "model_id": "smoke-test"
+          },
+          "ranges": [
+            {
+              "start_line": 1,
+              "end_line": 80,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "package.json",
+      "conversations": [
+        {
+          "url": null,
+          "contributor": {
+            "type": "ai",
+            "model_id": "smoke-test"
+          },
+          "ranges": [
+            {
+              "start_line": 41,
+              "end_line": 41,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/video.js",
+      "conversations": [
+        {
+          "url": null,
+          "contributor": {
+            "type": "ai",
+            "model_id": "smoke-test"
+          },
+          "ranges": [
+            {
+              "start_line": 1,
+              "end_line": 377,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/diagram.js",
+      "conversations": [
+        {
+          "url": null,
+          "contributor": {
+            "type": "ai",
+            "model_id": "smoke-test"
+          },
+          "ranges": [
+            {
+              "start_line": 10,
+              "end_line": 24,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 33,
+              "end_line": 33,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 35,
+              "end_line": 35,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 55,
+              "end_line": 55,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 58,
+              "end_line": 58,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 61,
+              "end_line": 63,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 75,
+              "end_line": 79,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 83,
+              "end_line": 97,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 102,
+              "end_line": 107,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 113,
+              "end_line": 119,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 127,
+              "end_line": 127,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 133,
+              "end_line": 133,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 135,
+              "end_line": 137,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 141,
+              "end_line": 155,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 158,
+              "end_line": 159,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 175,
+              "end_line": 176,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 183,
+              "end_line": 184,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 188,
+              "end_line": 190,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 203,
+              "end_line": 211,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 226,
+              "end_line": 226,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 239,
+              "end_line": 240,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 242,
+              "end_line": 247,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 262,
+              "end_line": 286,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 288,
+              "end_line": 288,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 295,
+              "end_line": 302,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 309,
+              "end_line": 312,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 314,
+              "end_line": 315,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 322,
+              "end_line": 322,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 326,
+              "end_line": 327,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 344,
+              "end_line": 348,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 351,
+              "end_line": 351,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 367,
+              "end_line": 367,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 369,
+              "end_line": 375,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 378,
+              "end_line": 381,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 383,
+              "end_line": 383,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 399,
+              "end_line": 433,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 458,
+              "end_line": 458,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 463,
+              "end_line": 463,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 465,
+              "end_line": 467,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 493,
+              "end_line": 493,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 495,
+              "end_line": 497,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 512,
+              "end_line": 514,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 523,
+              "end_line": 523,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 526,
+              "end_line": 530,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            },
+            {
+              "start_line": 562,
+              "end_line": 611,
+              "content_hash": null,
+              "contributor": {
+                "type": "ai",
+                "model_id": "smoke-test"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "dev.narrative": {
+      "conversationId": null,
+      "derived": true,
+      "source": "otlp-trace"
+    }
+  }
+}

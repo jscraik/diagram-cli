@@ -1,0 +1,150 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://diagram-cli.dev/schemas/architecture-v1.json",
+  "title": "Architecture Rules Configuration",
+  "description": "Configuration schema for diagram-cli architecture testing",
+  "type": "object",
+  "required": ["rules"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Configuration version",
+      "pattern": "^\\d+\\.\\d+$",
+      "default": "1.0",
+      "examples": ["1.0", "1.1"]
+    },
+    "extends": {
+      "type": "string",
+      "description": "Path to base configuration file to extend",
+      "examples": ["./base.architecture.yml", "@company/shared-config"]
+    },
+    "rules": {
+      "type": "array",
+      "description": "List of architecture rules to validate",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/rule"
+      }
+    }
+  },
+  "definitions": {
+    "rule": {
+      "type": "object",
+      "required": ["name", "layer"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique name for this rule",
+          "minLength": 1,
+          "maxLength": 100,
+          "examples": ["Domain isolation", "API contract", "No circular dependencies"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what this rule enforces",
+          "maxLength": 500,
+          "examples": ["Domain logic should not depend on UI components"]
+        },
+        "layer": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Glob pattern matching files this rule applies to",
+              "minLength": 1,
+              "examples": [
+                "src/domain",
+                "src/**/*.ts",
+                "**/*.test.ts"
+              ]
+            },
+            {
+              "type": "array",
+              "description": "Multiple glob patterns (matches if ANY pattern matches)",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "examples": [
+                ["src/core/**/*.ts", "src/shared/**/*.ts"]
+              ]
+            }
+          ]
+        },
+        "must_not_import_from": {
+          "type": "array",
+          "description": "Forbidden import patterns. Files in this layer cannot import from these patterns.",
+          "items": {
+            "type": "string",
+            "description": "Glob pattern for forbidden imports"
+          },
+          "examples": [
+            ["src/ui", "src/components"],
+            ["**/*.test.ts"]
+          ]
+        },
+        "may_import_from": {
+          "type": "array",
+          "description": "Whitelist of allowed import patterns. If specified, files in this layer can ONLY import from these patterns.",
+          "items": {
+            "type": "string",
+            "description": "Glob pattern for allowed imports"
+          },
+          "examples": [
+            ["src/domain", "src/shared", "src/types"]
+          ]
+        },
+        "must_import_from": {
+          "type": "array",
+          "description": "Required import patterns. Files in this layer MUST import from at least one of these patterns.",
+          "items": {
+            "type": "string",
+            "description": "Glob pattern for required imports"
+          },
+          "examples": [
+            ["src/types"]
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["must_not_import_from"]
+        },
+        {
+          "required": ["may_import_from"]
+        },
+        {
+          "required": ["must_import_from"]
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "version": "1.0",
+      "rules": [
+        {
+          "name": "Domain isolation",
+          "description": "Domain logic should not depend on UI",
+          "layer": "src/domain",
+          "must_not_import_from": ["src/ui", "src/components"]
+        },
+        {
+          "name": "API contract",
+          "description": "API routes only use domain and shared",
+          "layer": "src/api",
+          "may_import_from": ["src/domain", "src/shared", "src/types"],
+          "must_not_import_from": ["src/ui"]
+        },
+        {
+          "name": "Test independence",
+          "description": "Tests should not import other tests",
+          "layer": "**/*.test.ts",
+          "must_not_import_from": ["**/*.test.ts", "**/*.spec.ts"]
+        }
+      ]
+    }
+  ]
+}

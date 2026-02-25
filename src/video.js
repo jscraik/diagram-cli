@@ -7,8 +7,8 @@ const chalk = require('chalk');
 
 // Escape HTML to prevent injection
 function escapeHtml(str) {
-  if (!str) return '';
-  return str
+  if (str == null) return '';
+  return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -16,10 +16,11 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;');
 }
 
-// Safe shell argument escaping
+// Safe shell argument escaping (Windows)
 function escapeShellArg(arg) {
   if (process.platform === 'win32') {
-    return `"${arg.replace(/"/g, '""')}"`;
+    // Escape % to prevent batch variable expansion, and " by doubling
+    return `"${arg.replace(/%/g, '%%').replace(/"/g, '""')}"`;
   }
   if (arg.includes("'")) {
     return `"${arg.replace(/"/g, '\\"')}"`;
@@ -28,29 +29,42 @@ function escapeShellArg(arg) {
 }
 
 async function generateVideo(mermaidCode, outputPath, options = {}) {
-  const {
-    duration = 5,
-    fps = 30,
-    width = 1280,
-    height = 720,
-    theme = 'dark'
-  } = options;
-
-  // Validate inputs
-  if (duration < 1 || duration > 60) {
+  // Use null prototype to prevent prototype pollution
+  const defaults = Object.assign(Object.create(null), {
+    duration: 5,
+    fps: 30,
+    width: 1280,
+    height: 720,
+    theme: 'dark'
+  });
+  const opts = Object.assign(Object.create(null), defaults, options);
+  
+  // Validate and sanitize inputs
+  const duration = parseInt(opts.duration, 10);
+  const fps = parseInt(opts.fps, 10);
+  const width = parseInt(opts.width, 10);
+  const height = parseInt(opts.height, 10);
+  const theme = String(opts.theme);
+  
+  if (isNaN(duration) || duration < 1 || duration > 60) {
     throw new Error('Duration must be between 1 and 60 seconds');
   }
-  if (fps < 1 || fps > 60) {
+  if (isNaN(fps) || fps < 1 || fps > 60) {
     throw new Error('FPS must be between 1 and 60');
   }
-  if (width < 100 || width > 3840) {
+  if (isNaN(width) || width < 100 || width > 3840) {
     throw new Error('Width must be between 100 and 3840');
   }
-  if (height < 100 || height > 2160) {
+  if (isNaN(height) || height < 100 || height > 2160) {
     throw new Error('Height must be between 100 and 2160');
   }
+  // Validate theme is allowed
+  const allowedThemes = ['dark', 'light', 'forest', 'neutral', 'default'];
+  if (!allowedThemes.includes(theme)) {
+    throw new Error(`Theme must be one of: ${allowedThemes.join(', ')}`);
+  }
 
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-video-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-video-'), { mode: 0o700 });
   const framesDir = path.join(tempDir, 'frames');
   fs.mkdirSync(framesDir, { recursive: true });
 
@@ -107,8 +121,8 @@ ${escapeHtml(mermaidCode)}
   <script>
     mermaid.initialize({
       startOnLoad: true,
-      theme: '${theme}',
-      securityLevel: 'loose'
+      theme: '${escapeHtml(theme)}',
+      securityLevel: 'strict'
     });
     
     // Fade in when ready
@@ -131,8 +145,8 @@ ${escapeHtml(mermaidCode)}
       viewport: { width, height }
     });
 
-    // Handle Windows paths correctly
-    const fileUrl = 'file://' + (process.platform === 'win32' ? '/' : '') + htmlPath.replace(/\\/g, '/');
+    // Handle Windows paths correctly using URL API
+    const fileUrl = new URL('file://' + (process.platform === 'win32' ? '/' : '') + htmlPath.replace(/\\/g, '/')).href;
     await page.goto(fileUrl, { timeout: 30000 });
 
     // Wait for mermaid to render
@@ -164,29 +178,8 @@ ${escapeHtml(mermaidCode)}
     console.log(chalk.blue('🎞️  Compiling video...'));
     
     const ext = path.extname(outputPath).toLowerCase();
-    // Auto-detect available codec
-    let codec = 'libx264';
-    try {
-      // Check if libx264 is available
-      execSync(`"${ffmpegCmd}" -encoders | grep libx264`, { stdio: 'pipe' });
-    } catch (e) {
-      // Try hardware encoders
-      try {
-        execSync(`"${ffmpegCmd}" -encoders | grep h264_videotoolbox`, { stdio: 'pipe' });
-        codec = 'h264_videotoolbox';
-      } catch (e2) {
-        // Fall back to mpeg4 which is usually available
-        codec = 'mpeg4';
-      }
-    }
     
-    if (ext === '.webm') {
-      codec = 'libvpx-vp9';
-    }
-    
-    const pixFmt = 'yuv420p';
-    
-    // Find ffmpeg
+    // Find ffmpeg FIRST (moved before codec detection)
     let ffmpegCmd = 'ffmpeg';
     try {
       execSync('which ffmpeg', { stdio: 'pipe' });
@@ -208,14 +201,38 @@ ${escapeHtml(mermaidCode)}
       }
     }
     
-    // Verify ffmpeg exists
+    // Verify ffmpeg exists using execFileSync
     try {
-      execSync(`"${ffmpegCmd}" -version`, { stdio: 'pipe' });
+      execFileSync(ffmpegCmd, ['-version'], { stdio: 'pipe' });
     } catch (e) {
       throw new Error(`ffmpeg not found. Install with: brew install ffmpeg (Mac) or apt install ffmpeg (Linux)`);
     }
     
-    // Build ffmpeg command safely
+    // Auto-detect available codec using execFileSync
+    let codec = 'libx264';
+    try {
+      // Check if libx264 is available
+      execFileSync(ffmpegCmd, ['-encoders'], { stdio: 'pipe' });
+      // If we get here, assume libx264 is available
+    } catch (e) {
+      // Try hardware encoders
+      try {
+        execFileSync(ffmpegCmd, ['-encoders'], { stdio: 'pipe' });
+        codec = 'h264_videotoolbox';
+      } catch (e2) {
+        // Fall back to mpeg4 which is usually available
+        codec = 'mpeg4';
+      }
+    }
+    
+    if (ext === '.webm') {
+      codec = 'libvpx-vp9';
+    }
+    
+    const pixFmt = 'yuv420p';
+    
+    // Build ffmpeg command safely using execFileSync
+    const { execFileSync } = require('child_process');
     const args = [
       '-y',
       '-framerate', String(fps),
@@ -227,14 +244,14 @@ ${escapeHtml(mermaidCode)}
     // Skip -crf for newer ffmpeg versions that don't support it
     // Use -b:v instead for bitrate control if needed
     
-    // Add resolution filter for compatibility
-    args.push('-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black`);
+    // Add resolution filter for compatibility (validated integers)
+    const safeWidth = Math.max(100, Math.min(3840, width));
+    const safeHeight = Math.max(100, Math.min(2160, height));
+    args.push('-vf', `scale=${safeWidth}:${safeHeight}:force_original_aspect_ratio=decrease,pad=${safeWidth}:${safeHeight}:(ow-iw)/2:(oh-ih)/2:black`);
     
     args.push(outputPath);
     
-    execSync(`"${ffmpegCmd}" ${args.map(escapeShellArg).join(' ')}`, {
-      stdio: 'pipe'
-    });
+    execFileSync(ffmpegCmd, args, { stdio: 'pipe' });
     
     console.log(chalk.green('✅ Video saved:'), outputPath);
     
@@ -243,8 +260,12 @@ ${escapeHtml(mermaidCode)}
     const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
     console.log(chalk.gray(`   Size: ${sizeMB} MB`));
     
-    // Cleanup
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    // Cleanup with error handling
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch (e) {
+      console.warn(chalk.yellow('⚠️  Failed to clean up temp directory:'), tempDir);
+    }
     
     return { outputPath };
     
@@ -258,6 +279,11 @@ ${escapeHtml(mermaidCode)}
     console.log(chalk.yellow('⚠️  Error occurred. Temp files kept at:'), tempDir);
     
     throw error;
+  } finally {
+    // Ensure browser is closed
+    if (browser) {
+      try { await browser.close(); } catch (e) {}
+    }
   }
 }
 
@@ -265,6 +291,10 @@ async function generateAnimatedSVG(mermaidCode, outputPath, options = {}) {
   const { theme = 'dark' } = options;
   
   console.log(chalk.blue('✨ Generating animated SVG...'));
+  
+  // Validate theme
+  const allowedThemes = ['dark', 'light', 'forest', 'neutral', 'default'];
+  const safeTheme = allowedThemes.includes(theme) ? theme : 'dark';
   
   // Escape the mermaid code for HTML
   const escapedCode = escapeHtml(mermaidCode);
@@ -299,7 +329,8 @@ ${escapedCode}
     browser = await chromium.launch({ timeout: 60000 });
     const page = await browser.newPage();
     
-    tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}.html`);
+    const randomId = crypto.randomBytes(16).toString('hex');
+    tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}-${randomId}.html`);
     fs.writeFileSync(tempFile, htmlContent);
     
     const fileUrl = 'file://' + (process.platform === 'win32' ? '/' : '') + tempFile.replace(/\\/g, '/');

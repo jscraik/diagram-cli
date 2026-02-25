@@ -1,0 +1,62 @@
+# Example: Next.js Application Architecture
+# Place this file as .architecture.yml in your Next.js project root
+
+version: "1.0"
+
+rules:
+  # Enforce Next.js App Router patterns
+  - name: "App Router - No page imports"
+    description: "App Router components should not import from pages"
+    layer: "app/**/*"
+    must_not_import_from: ["pages/", "src/pages/"]
+
+  # UI component isolation
+  - name: "UI components are pure"
+    description: "UI components should not import from data/api layers"
+    layer: "components/ui/**/*"
+    must_not_import_from:
+      - "lib/api"
+      - "lib/db"
+      - "services/"
+
+  # Data layer access
+  - name: "Server components can use data"
+    description: "Server components can import from data layers"
+    layer: ["app/**/*", "components/server/**/*"]
+    may_import_from:
+      - "lib/api"
+      - "lib/db"
+      - "components/ui"
+      - "types"
+
+  # Hook dependencies
+  - name: "Custom hooks are isolated"
+    description: "Custom hooks should not import from page components"
+    layer: "hooks/**/*"
+    must_not_import_from:
+      - "app/**"
+      - "pages/**"
+      - "components/**"
+    may_import_from:
+      - "hooks/**"
+      - "lib/**"
+      - "types/**"
+
+  # Utility functions
+  - name: "Utils are dependency-free"
+    description: "Utility functions should not import from app or components"
+    layer: "lib/utils/**/*"
+    must_not_import_from:
+      - "app/"
+      - "components/"
+      - "hooks/"
+
+  # Test isolation
+  - name: "No test cross-dependencies"
+    description: "Tests should not import from other test files"
+    layer: "**/*.test.ts"
+    must_not_import_from:
+      - "**/*.test.ts"
+      - "**/*.test.tsx"
+      - "**/*.spec.ts"
+      - "**/*.spec.tsx"

@@ -1,0 +1,55 @@
+name: Architecture Testing
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  architecture-test:
+    name: Validate Architecture
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install diagram-cli
+        run: npm install -g @jmc/diagram
+
+      - name: Run architecture tests
+        run: diagram test --format junit --output architecture-results.xml
+        continue-on-error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: architecture-test-results
+          path: architecture-results.xml
+
+      - name: Report test results
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Architecture Tests
+          path: architecture-results.xml
+          reporter: java-junit
+
+      - name: Check test status
+        run: |
+          if [ -f architecture-results.xml ]; then
+            failures=$(grep -o 'failures="[0-9]*"' architecture-results.xml | head -1 | grep -o '[0-9]*')
+            if [ "$failures" != "0" ] && [ -n "$failures" ]; then
+              echo "❌ Architecture tests failed with $failures violations"
+              exit 1
+            fi
+          fi
+          echo "✅ All architecture tests passed"

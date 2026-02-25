@@ -1,0 +1,30 @@
+{
+  "sha": "c56db76b866ff960af0b271fa97f5678282df762",
+  "totals": {
+    "added": 725,
+    "removed": 39,
+    "files": 4
+  },
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "additions": 80,
+      "deletions": 0
+    },
+    {
+      "path": "package.json",
+      "additions": 1,
+      "deletions": 0
+    },
+    {
+      "path": "src/diagram.js",
+      "additions": 267,
+      "deletions": 39
+    },
+    {
+      "path": "src/video.js",
+      "additions": 377,
+      "deletions": 0
+    }
+  ]
+}
