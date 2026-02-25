@@ -56,6 +56,8 @@ You can run the automated release workflow from GitHub Actions:
   - `version`: semver version (`X.Y.Z`)
   - `initial_release`: `true` for first publish, otherwise `false`
 
+Recommended auth path is npm Trusted Publishing (OIDC). If not configured yet, set `NPM_TOKEN` as a fallback.
+
 The workflow will:
 
 1. Generate a new `CHANGELOG.md` entry for the release.
