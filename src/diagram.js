@@ -621,9 +621,17 @@ function validateOutputPath(outputPath, rootPath) {
   } catch (e) {
     throw new Error(`Invalid project path: ${rootPath}`);
   }
-  const resolved = path.isAbsolute(outputPath)
+  const isAbsolute = path.isAbsolute(outputPath);
+  const resolved = isAbsolute
     ? path.resolve(outputPath)
     : path.resolve(realRoot, outputPath);
+
+  if (!isAbsolute) {
+    const relative = path.relative(realRoot, resolved);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error(`Invalid path: directory traversal detected in "${outputPath}"`);
+    }
+  }
 
   const resolveViaExistingAncestor = (targetPath) => {
     const pending = [];
@@ -643,12 +651,6 @@ function validateOutputPath(outputPath, rootPath) {
   };
 
   const canonicalResolved = resolveViaExistingAncestor(resolved);
-  const relative = path.relative(realRoot, canonicalResolved);
-  
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`Invalid path: directory traversal detected in "${outputPath}"`);
-  }
-  
   return canonicalResolved;
 }
 

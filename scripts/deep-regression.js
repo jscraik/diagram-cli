@@ -76,6 +76,11 @@ function run() {
   assert.strictEqual(generate.status, 0, `generate expected success, got ${generate.status}`);
   assert.ok(fs.existsSync(diagramOutput), 'diagram output file should be written');
 
+  const absGenerateOutput = path.join(tmpRoot, 'dependency-absolute.mmd');
+  const generateAbsolute = runCLI(['generate', '.', '--type', 'dependency', '--output', absGenerateOutput], workspace);
+  assert.strictEqual(generateAbsolute.status, 0, `generate absolute output expected success, got ${generateAbsolute.status}`);
+  assert.ok(fs.existsSync(absGenerateOutput), 'absolute path diagram output file should be written');
+
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 
   console.log('deep-regression: OK');
