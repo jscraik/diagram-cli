@@ -5,6 +5,7 @@ Validate repository import boundaries with `diagram test` and declarative
 
 ## Table of Contents
 
+- [Plain-language overview](#plain-language-overview)
 - [Quick start](#quick-start)
 - [Configuration file](#configuration-file)
 - [Rule fields](#rule-fields)
@@ -12,6 +13,18 @@ Validate repository import boundaries with `diagram test` and declarative
 - [Output formats and exit codes](#output-formats-and-exit-codes)
 - [CI integration](#ci-integration)
 - [Troubleshooting](#troubleshooting)
+
+## Plain-language overview
+
+`diagram test` checks imports in your code.
+You write rules in `.architecture.yml`.
+Each rule names a code area.
+Each rule says what that area can import.
+The CLI checks files and reports breaks.
+Exit code `0` means pass.
+Exit code `1` means at least one rule failed.
+Exit code `2` means config or setup is wrong.
+Use `--dry-run` to see file matches first.
 
 ## Quick start
 

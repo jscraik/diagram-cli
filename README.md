@@ -5,8 +5,10 @@ Generate codebase architecture diagrams from source files. No AI required.
 ## Table of Contents
 
 - [Upgrade notice](#upgrade-notice)
+- [Plain-language summary](#plain-language-summary)
 - [Install](#install)
 - [Quick start](#quick-start)
+- [First-run checklist](#first-run-checklist)
 - [Commands](#commands)
 - [Diagram types](#diagram-types)
 - [Output formats](#output-formats)
@@ -21,6 +23,21 @@ Generate codebase architecture diagrams from source files. No AI required.
 ⚠️ `@brainwav/diagram@1.0.0` had a packaging regression and failed at runtime with
 `Cannot find module './utils/commands'`. Please use
 `@brainwav/diagram@1.0.1` or later.
+
+## Plain-language summary
+
+This tool reads code and draws a map.
+You point it at a repo.
+It scans files.
+It finds links.
+It prints a clear graph.
+You can save that graph.
+You can save PNG or SVG files.
+You can make short video clips.
+You can test code layer rules.
+You can run it on your laptop.
+You can run it in CI.
+The goal is simple: keep the code map clear and keep rule drift low.
 
 ## Install
 
@@ -44,6 +61,27 @@ diagram generate .
 # Generate all diagram types into ./diagrams
 diagram all .
 ```
+
+## First-run checklist
+
+Use a small test repo first.
+Run from the repo root.
+Start with `diagram analyze .`.
+Read the file and link count.
+Next, run `diagram generate .`.
+Save one file with `--output`.
+Pick `.mmd` for text output.
+Pick `.svg` for image output.
+Use `diagram all .` for all views.
+Use `--max-files` if runs are slow.
+Keep path globs short and clear.
+Skip build and vendored dirs.
+Try `diagram test --init` for rules.
+Then run `diagram test` to check rules.
+Use `--dry-run` when match sets look odd.
+Use `--verbose` if you need more detail.
+Run `npm test` to check local health.
+Run `npm run test:deep` for deep checks.
 
 ## Commands
 
@@ -295,6 +333,10 @@ jobs:
 - Code of conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - Maintainer docs index: [docs/README.md](docs/README.md)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
+
+## Documentation signature
+
+brAInwav - from demo to duty
 
 ## Development
 

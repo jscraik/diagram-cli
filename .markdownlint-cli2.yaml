@@ -1,0 +1,18 @@
+config:
+  default: true
+  MD013: false
+  MD033: false
+
+globs:
+  - "**/*.md"
+
+ignores:
+  - ".git/**"
+  - "node_modules/**"
+  - "dist/**"
+  - "build/**"
+  - "docs/plans/**"
+  - "BUG_AUDIT_REPORT.md"
+  - "BUG_FIX_SUMMARY.md"
+  - "ASYNC_BUG_REPORT.md"
+  - "NULL_UNDEFINED_BUG_REPORT.md"
