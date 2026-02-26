@@ -4,10 +4,19 @@ Thanks for contributing to `@brainwav/diagram`.
 
 ## Table of Contents
 
+- [Quick guide](#quick-guide)
 - [Development setup](#development-setup)
 - [Run checks](#run-checks)
 - [Submit changes](#submit-changes)
 - [Documentation updates](#documentation-updates)
+
+## Quick guide
+
+Keep each change small.
+Run tests first.
+Keep docs in sync.
+Use real commands and real paths.
+Do not add secrets.
 
 ## Development setup
 
