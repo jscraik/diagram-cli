@@ -9,6 +9,7 @@ code using static analysis and Mermaid.
 - [Local commands](#local-commands)
 - [Codebase shape](#codebase-shape)
 - [Implementation notes](#implementation-notes)
+- [Diagram context automation](#diagram-context-automation)
 - [Validation](#validation)
 
 ## When to use this tool
@@ -55,6 +56,14 @@ src/
   collision resistance.
 - Path handling normalizes separators for cross-platform matching.
 - Output paths are validated to prevent directory traversal.
+
+## Diagram context automation
+
+- Canonical architecture context: `AI/context/diagram-context.md`
+- Regenerate context pack: `bash scripts/refresh-diagram-context.sh --force`
+- Enable silent refresh on repo open: `bash scripts/install-repo-open-hook.sh`
+- Optional startup append: `claude --append-system-prompt "$(cat AI/context/diagram-context.md)"`
+- Use `AI/context/diagram-context.md` before architecture/refactor tasks.
 
 ## Validation
 

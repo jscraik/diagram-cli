@@ -7,6 +7,15 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- fix: allow absolute output paths in diagram-cli (7ae4266)
+- ci: grant checks write permission for test reporter (161cd38)
+
+### Docs
+
+- docs: improve release and upgrade guidance for users and maintainers.
+
 ## [1.0.1] - 2026-02-25
 
 ### Changed

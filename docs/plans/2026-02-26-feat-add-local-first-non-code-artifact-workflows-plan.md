@@ -12,23 +12,23 @@ origin: docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brai
 
 **Deepened on:** 2026-02-26
 
-**Sections enhanced:** 13
+**Sections enhanced:** 14
 
 **Research agents used:**
-- `cli-spec`, `docs-expert`, `writing-plans`, `systematic-debugging`
-- Context7 (Commander, Mermaid, YAML)
-- Web research (CLI/Node/path-security/`git diff` references)
-- Local discovery in repo source and prior docs/plans
+- `cli-spec`, `docs-expert`, `writing-plans`, `architecture-interview`, `security-best-practices`, `systematic-debugging`, `test-driven-development`, `verification-before-completion`, `tech-spec`
+- Context7: /tj/commander.js, /mermaid-js/mermaid-cli, /eemeli/yaml
+- Web research (Node.js path/path traversal advisories, Git diff scalability guidance, command semantics)
+- Local discovery in repo source, prior plans, and security review outputs
 
 **Key Improvements:**
-1. Expanded design around CLI behavior, command surface consistency, and output contracts.
-2. Added concrete, production-safe security and portability patterns for path handling and input parsing.
-3. Strengthened implementation guidance for deterministic artifact generation, testability, and acceptance gates.
+1. Added explicit ADR section, phase-gated execution plan, and stronger validation/rollback checkpoints.
+2. Deepened path, launch, verification, and attestation safeguards for local-first reproducibility.
+3. Added concrete performance/scale constraints, test taxonomy, and documentation mapping for workflow operators.
 
 **New Considerations Discovered:**
-- No `docs/solutions/` corpus exists in this repo; related institutional learning must be pulled from broader plan artifacts.
-- Existing code already has strong baseline output/error semantics, so new workflow should reuse existing command/runtime patterns to reduce risk.
-- Windows path semantics and symlink/canonicalization behavior are now explicitly highlighted as a high-risk class in local-first file workflows.
+- No `docs/solutions/` corpus exists in this repo; no local learnings could be imported.
+- `security_best_practices_report.md` surfaced high-impact local-first risks around `--open`, path trust boundaries, and verify/read-only semantics.
+- Windows device-name traversal behavior and symlink traversal remain a live security test matrix item for all path inputs (`--output`, `--manifest`, `--attest-key`, `--verify`).
 
 ## Table of Contents
 
@@ -37,6 +37,7 @@ origin: docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brai
 - [Overview](#overview)
 - [Problem Statement / Motivation](#problem-statement--motivation)
 - [Research Summary and Decision](#research-summary-and-decision)
+- [Decision Record](#decision-record)
 - [Proposed Solution](#proposed-solution)
 - [Technical Considerations](#technical-considerations)
 - [System-Wide Impact](#system-wide-impact)
@@ -62,7 +63,8 @@ origin: docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brai
 10. **Success Metrics** - Measurement outcomes for release.
 11. **Dependencies & Risks** - Risks, assumptions, and mitigations.
 12. **Documentation Plan** - Authoring and maintenance updates.
-13. **Sources & References** - Evidence and traceability.
+13. **Decision Record** - ADRs, alternatives rejected, and revisit conditions.
+14. **Sources & References** - Evidence and traceability.
 
 ## Overview
 
@@ -88,7 +90,7 @@ Expand `diagram-cli` from code-structure outputs into two local-first, determini
 // Suggested command pattern in docs/plans only (not implementation yet)
 workflow {
   subcommands: ["state", "pr"],
-  sharedFlags: ["--output", "--validate-only", "--json", "--manifest", "--version"],
+  sharedFlags: ["--output", "--validate-only", "--json", "--manifest", "--open", "--attest", "--attest-key", "--verify", "--version"],
   commandExit: {
     success: 0,
     validationFailure: 1,
@@ -105,6 +107,19 @@ workflow {
 **References:**
 - CLI design principles in `clig.dev`.
 - Existing command conventions in `src/diagram.js`.
+
+### Deepened Research Insights
+
+**Operational improvements:**
+- Add explicit *minimum working example* for each input type at command level to lower adoption friction.
+- Define artifact naming defaults (`artifacts/<workflow>/<timestamp>-state.mmd`) to avoid collisions across parallel runs.
+
+**Performance and portability:**
+- Keep rendering deterministic by normalizing newline conventions before mermaid serialization.
+- Pre-create output directories only after `--validate-only` succeeds.
+
+**Security note:**
+- Validate both input/output roots once and reuse canonical paths for manifest and provenance fingerprinting.
 
 ## Problem Statement / Motivation
 
@@ -134,6 +149,16 @@ Input -> Validate -> Normalize(IR) -> Render -> Package(manifest, prompt-pack)
 **References:**
 - Problem framing in existing brainstorm plus plan body in this file.
 
+### Deepened Research Insights
+
+**Why local-first matters:**
+- Maintains reproducibility under restricted CI environments and satisfies audit requirements without external API reachability dependencies.
+- Enables artifact review in constrained environments where outbound network is blocked or denied by policy.
+
+**Edge-case framing:**
+- Empty PRs and parse-only no-op cases should still emit traceable `manifest + --json` signals.
+- Binary or non-text diffs should emit bounded extraction output with explicit `E_INPUT_BIN` diagnostics.
+
 ## Research Summary and Decision
 
 ### Local research findings
@@ -159,14 +184,27 @@ Input -> Validate -> Normalize(IR) -> Render -> Package(manifest, prompt-pack)
 - For PR flow use incremental diff strategies when possible (`git diff <base>..<head> --name-status/--numstat`) before deep parsing.
 
 **Implementation Details:**
-```js
-// Decision record skeleton
-## Decision Record
-- Inputs considered: local refs, local parsing, deterministic outputs
-- Alternatives considered: remote model flow, single-output-only flow
-- Decision: keep both artifact tracks in V1 with deterministic local processing
-- Rationale: aligns reliability + auditability + reproducibility
-```
+- Add a separate `## Decision Record` section directly before implementation details.
+- Capture decisions as ADR-0001 with explicit options, rationale, and consequences.
+- Ensure the decision is reflected in acceptance and risk matrices so implementation is auditable.
+
+### Deepened Research Insights
+
+**Research synthesis:**
+- Synthesize skill guidance into executable decisions: command-domain clarity (cli-spec), section-by-section implementation checkpoints (writing-plans), and security gates (security-best-practices).
+- Keep the decision log explicit and durable in a separate ADR-style section.
+
+**Evidence policy:**
+- Cite only verifiable local source lines and authoritative external docs; mark unsupported assumptions with `TODO` in the plan when needed.
+
+**Decision-ready inputs:**
+- Inputs considered: local refs, local parsing, deterministic outputs, and bounded filesystem behavior.
+- Alternatives considered: remote model flow and single-output-only flow.
+- Decision: keep both artifact tracks in V1 with deterministic local processing.
+- Rationale: aligns reliability + auditability + reproducibility while preserving offline CI usage.
+
+**Next action:**
+- Record the final choice as a separate `## Decision Record` section before proceeding to implementation details.
 
 **Edge Cases:**
 - If local git refs are missing or shallow clone lacks history, decision should allow clear `E_REF`-class failures with suggested fallback commands.
@@ -176,19 +214,217 @@ Input -> Validate -> Normalize(IR) -> Render -> Package(manifest, prompt-pack)
 - `git diff` docs (`git-scm.com/docs/git-diff`)
 - `Node.js path` and `fs.realpathSync` docs
 
+## Decision Record
+
+### ADR-0001: Ship dual-track local-first workflow commands in V1
+
+**Status:** Accepted
+
+**Context:**
+- The command expansion must support offline, deterministic artifact generation for non-code workflows and PR explainability without introducing remote-model execution.
+- Existing CLI conventions favor explicit command surfaces and deterministic artifacts.
+
+**Options considered:**
+1. **LLM-first embedded execution** (rejected): non-deterministic runtime and network dependencies conflict with local-first guarantees.
+2. **Single-output-only flow** (rejected): reduces flexibility and increases follow-up rework for common review workflows.
+3. **Dual-track local-only flow with offline render + attest/verify hooks** (selected): aligns safety and operator visibility goals.
+
+**Decision:**
+- Implement both `workflow state` and `workflow pr` in V1 under a common local-first command domain.
+- Keep all outputs deterministic, offline-rendered, and manifest/provenance-aware.
+- Keep `--open` as optional, non-blocking side-effect only, and non-breaking for automation/CI.
+
+**Consequences:**
+- Requires additional schema/versioned machine output (`workflow.result/0.2.0`, manifest/provenance contracts), and expanded test coverage for parse/render/security phases.
+- Adds short-term implementation effort but reduces ambiguity for later v2 feature scope.
+
 ## Proposed Solution
 
 Implement a staged workflow model with explicit local artifacts for each stage (see brainstorm: `docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brainstorm.md`).
 
 ### Planned command surface (v1)
 
-- `diagram workflow state --input <path> --output <path> [--validate-only] [--format mermaid] [--manifest <path>]`
-- `diagram workflow pr --base <ref> --head <ref> --output <path> [--validate-only] [--prompt-pack] [--manifest <path>]`
+- `diagram workflow state --input <path> --output <path> [--validate-only] [--format mermaid] [--json] [--manifest <path>] [--open html|video|all|auto|none] [--attest] [--attest-key <path>] [--verify <path>]`
+- `diagram workflow pr --base <ref> --head <ref> --output <path> [--validate-only] [--prompt-pack] [--json] [--manifest <path>] [--open html|video|all|auto|none] [--attest] [--attest-key <path>] [--verify <path>]`
+
+### Artifact launch contract (`--open`)
+
+- Scope: Both `workflow state` and `workflow pr`.
+- Purpose: quick visual verification when local review is active, without making launch part of validation correctness.
+- Values:
+  - `none` (default): do not launch anything.
+  - `auto`: launch the primary artifact only in interactive sessions.
+  - `html`: launch HTML artifact if present.
+  - `video`: launch video artifact if present (future-proof for `video` outputs).
+  - `all`: attempt launch for all recognized artifact types in a stable priority order.
+- Behavior:
+  - Non-interactive / CI environments force `none` regardless of `--open` (unless process policy explicitly allows interactive launch).
+  - If the requested type is missing, emit warning diagnostic and continue with non-blocking status.
+  - Launch failures are non-fatal and must be captured in diagnostics.
+- Security/UX guardrails:
+  - Never launch automatically by default.
+  - Log requested vs executed launch mode into `--json` and manifest for audit.
+- Output example extension in `--json`:
+
+```json
+{
+  "launch": {
+    "requested": "html",
+    "executed": true,
+    "artifacts": [
+      { "kind": "html", "path": "artifacts/pr-explainer.html", "result": "opened" }
+    ],
+    "errors": []
+  }
+}
+```
+
+### Auto launch of HTML/video artifacts
+
+- Define deterministic priority for automatic launch:
+  - `auto`:
+    1. Launch HTML if available.
+    2. If HTML is unavailable and video is available, launch video.
+    3. If neither exists, emit warning diagnostic and continue non-fatally.
+  - `all`:
+    1. Launch HTML if available.
+    2. Launch video if available.
+    3. Continue and report per-artifact results in launch diagnostics.
+- Execution order and safety:
+  - Launch is best-effort and post-render only.
+  - If a launch fails, continue the command as success/failure according to render outcome (never flip success on launch error).
+  - Never retry failed launches automatically in the same process.
+- Supported artifact kinds by workflow:
+  - `state`: `mermaid` and (future) `video` artifact launch candidates.
+  - `pr`: `html`, `manifest`, `prompt-pack`, and (future) `video` launch candidates.
+- Validation:
+  - `--open=video` and `--open=all` are legal now; `video` launches only occur when a video artifact is present.
+  - Add tests for:
+    - `--open=auto` preferring HTML when both exist.
+    - Missing kind fallback behavior in `auto`.
+    - Multi-launch behavior for `all` with one success + one failure path.
+
+### Machine output contract (`--json`)
+
+- Scope: Both `workflow state` and `workflow pr`.
+- Behavior: `--json` prints a machine-readable report to **stdout** and exits with the command-specific exit code.
+- Purpose: Deterministic automation and CI consumption while preserving default human-readable output.
+- Output shape (stable schema):
+
+```json
+{
+  "schemaVersion": "workflow.result/0.2.0",
+  "command": "diagram workflow state | diagram workflow pr",
+  "mode": "validate-only | execute",
+  "status": "ok | validation-failed | config-error",
+  "durationMs": 1234,
+  "artifacts": [
+    { "kind": "mermaid", "path": "artifacts/workflow-state.mmd", "sha256": "..." },
+    { "kind": "html", "path": "artifacts/pr-explainer.html", "sha256": "..." },
+    { "kind": "manifest", "path": "artifacts/manifest.json", "sha256": "..." }
+  ],
+  "diagnostics": [
+    { "code": "E_PATH", "message": "Invalid output path", "file": "N/A" }
+  ]
+}
+```
+
+- Failure handling: If validation/render fails, output `status` should be non-`ok` with diagnostics.
+
+### Reproducibility & Attestation (`--attest`, `--verify`)
+
+- Scope: both `workflow state` and `workflow pr`.
+- Purpose: provide a machine-verifiable trust envelope for reproducibility, CI gating, and incident review.
+- `--attest` (default off):
+  - Emits `artifacts/provenance.json` by default (same base output directory as manifest).
+  - Captures an immutable run envelope including:
+    - `schemaVersion` (provenance + manifest contract)
+    - normalized invocation and versioned flags
+    - CLI/app version and execution context (`platform`, `node`, `locale`, `cwd`)
+    - deterministic input fingerprints:
+      - file-based: path canonicalization + size + SHA-256
+      - git-based: base/head refs + commit/tree/object IDs used
+    - template/asset hashes consumed by render
+    - output artifact hashes and ordered manifest index
+    - diagnostics summary and exit status
+  - default: unsigned hash chain (hash-bound attestation).
+  - optional: `--attest-key <path>` to apply local signing (HMAC/signature policy explicit in implementation).
+- `--verify <path>`:
+  - Read-only mode: no launch, no prompt-pack regeneration, and no side-effectful optional steps unless explicitly requested.
+  - No re-render unless explicit `--validate-only`/`--attest` behavior requires it.
+  - Recomputes fingerprints and compares against recorded provenance:
+    - schema/version
+    - invocation and normalized options
+    - input digest set
+    - ordered outputs + checksums
+    - manifest hash chain
+  - Emits actionable diagnostics on drift (e.g., changed input, platform-dependent rendering difference, missing files).
+
+Example provenance fragment:
+
+```json
+{
+  "schemaVersion": "workflow.provenance/0.1.0",
+  "command": "diagram workflow pr --base main --head HEAD --output artifacts/pr-explainer.html --attest",
+  "runEnvelope": {
+    "cliVersion": "0.12.0",
+    "startedAt": "2026-02-26T10:00:00.000Z",
+    "durationMs": 842,
+    "environment": { "platform": "darwin", "node": "20.18.0", "locale": "en_US.UTF-8", "cwd": "/repo/diagram-cli" }
+  },
+  "inputs": {
+    "mode": "git",
+    "base": "main",
+    "head": "HEAD",
+    "refs": { "baseTree": "abc123", "headTree": "def456" }
+  },
+  "artifacts": [
+    { "kind": "html", "path": "artifacts/pr-explainer.html", "sha256": "..." },
+    { "kind": "manifest", "path": "artifacts/manifest.json", "sha256": "..." }
+  ],
+  "signature": {
+    "algorithm": "HMAC-SHA256",
+    "signedBy": null,
+    "value": "ab12..."
+  }
+}
+```
 
 ### Manifest contract
 - Shared manifest flag: `--manifest <path>` (optional) writes manifest to the provided path; default is `artifacts/manifest.json` when omitted in V1 docs.
 - When omitted, commands still emit manifest in default path to satisfy acceptance criteria.
 - CLI contract for manifest is canonical across `workflow state` and `workflow pr`; do not duplicate different behaviors.
+- `--json` and `--manifest` are independent: `--manifest` controls artifact index output, `--json` controls machine-result formatting.
+- Extend manifest schema with provenance linkage and execution envelope metadata:
+  - `schemaVersion: "workflow.manifest/0.3.0"`
+  - `commandInvocation` (normalized)
+  - canonical `outputs` ordering + artifact hashes
+  - `provenance` pointer (`path`, `sha256`, `signed`)
+
+```json
+{
+  "schemaVersion": "workflow.manifest/0.3.0",
+  "commandInvocation": {
+    "command": "diagram workflow pr --base main --head HEAD --prompt-pack --manifest artifacts/manifest.json"
+  },
+  "outputs": [
+    { "kind": "html", "path": "artifacts/pr-explainer.html", "sha256": "..." },
+    { "kind": "manifest", "path": "artifacts/manifest.json", "sha256": "..." }
+  ],
+  "provenance": {
+    "path": "artifacts/provenance.json",
+    "sha256": "…",
+    "signed": false
+  },
+  "launch": {
+    "requested": "html",
+    "executed": true,
+    "artifacts": [
+      { "kind": "html", "path": "artifacts/pr-explainer.html", "result": "opened" }
+    ]
+  }
+}
+```
 
 ### Stage contracts
 
@@ -203,6 +439,12 @@ Implement a staged workflow model with explicit local artifacts for each stage (
 4. **Emit supporting artifacts**
    - Prompt-pack files (no model execution in CLI).
    - Manifest file listing generated artifacts and checksums.
+5. **Attestation step (optional)**
+   - If `--attest`, emit `artifacts/provenance.json`.
+   - Capture a hash chain over input fingerprint + output hashes + diagnostics.
+   - Optionally sign with `--attest-key`.
+6. **Optional launch step**
+   - Launch selected artifact(s) based on `--open` when execution context permits.
 
 ### Research Insights
 
@@ -210,6 +452,7 @@ Implement a staged workflow model with explicit local artifacts for each stage (
 - Use immutable IR boundaries between parse/validate/render to support deterministic snapshots and easier testing.
 - Prefer explicit phase-level CLI flags (`--validate-only`, `--render-only`) over implicit mode inference.
 - Keep prompt-pack as artifact-only; do not embed model calls.
+- Keep launch as a side effect only, executed after successful render and artifact verification.
 
 **Performance Considerations:**
 - Cache parsed Mermaid/theme config at command-level to avoid duplicate file reads.
@@ -220,12 +463,19 @@ Implement a staged workflow model with explicit local artifacts for each stage (
 ```js
 // Manifest-oriented output sketch
 {
-  "version": "0.1.0",
-  "command": "diagram workflow state",
+  "schemaVersion": "workflow.manifest/0.3.0",
+  "commandInvocation": {
+    "command": "diagram workflow state"
+  },
   "input": { "type": "file", "path": "path/to/input.yml" },
+  "provenance": {
+    "path": "artifacts/provenance.json",
+    "sha256": "..."
+  },
   "outputs": [
     { "kind": "mermaid", "path": "artifacts/state-machine.mmd", "sha256": "..." },
-    { "kind": "manifest", "path": "artifacts/manifest.json", "sha256": "..." }
+    { "kind": "manifest", "path": "artifacts/manifest.json", "sha256": "..." },
+    { "kind": "provenance", "path": "artifacts/provenance.json", "sha256": "..." }
   ]
 }
 ```
@@ -245,6 +495,8 @@ Implement a staged workflow model with explicit local artifacts for each stage (
 - Enforce output path guardrails (no traversal/symlink escape; handle spaces/unicode paths).
 - Ensure HTML explainer can render without network dependency.
 - Keep prompt-pack generation as artifact-only (no direct API/model calls), matching brainstorm decisions.
+- Treat optional launch operations (`--open`) as non-blocking side effects and avoid leaking them into render/validation contracts.
+- Keep attestation hashing deterministic and stable across path separators and locale-sensitive formatting.
 
 ### Research Insights
 
@@ -260,7 +512,7 @@ Implement a staged workflow model with explicit local artifacts for each stage (
 
 **Implementation Details:**
 ```js
-function safeOutputPath(outputPath, projectRoot) {
+function safeOutputPath(outputPath, projectRoot, options = { validateOnly: false, createParents: false }) {
   const absoluteRoot = fs.realpathSync(projectRoot);
   const targetPath = path.resolve(outputPath);
   const targetDir = path.dirname(targetPath);
@@ -269,6 +521,10 @@ function safeOutputPath(outputPath, projectRoot) {
   const rel = path.relative(absoluteRoot, resolvedDir);
   if (rel.startsWith('..') || path.isAbsolute(rel)) {
     throw new Error('Invalid output path: traversal detected');
+  }
+
+  if (!options.validateOnly && options.createParents) {
+    fs.mkdirSync(targetDir, { recursive: true });
   }
 
   return targetPath;
@@ -287,6 +543,13 @@ function resolveExistingParent(dirPath) {
 }
 ```
 
+### Output behavior contract (validate-only vs render)
+
+- `--validate-only` phase **must not** create directories or files.
+- Render/write phase performs directory creation explicitly via `safeOutputPath(..., { validateOnly: false, createParents: true })` and only after successful validation checks.
+- If validation fails, no artifact directories/files are created (pure read/verification path).
+- If render fails after directory creation, return a partial artifact state with explicit diagnostics and cleanup for confirmed temporary artifacts.
+
 **Edge Cases:**
 - Windows path semantics and reserved device names can bypass naïve normalization logic; use conservative path checks and tests.
 - Symlink traversal and non-existent path ancestors: validate each stage in deterministic order (exists check, canonicalization, relative check).
@@ -296,6 +559,20 @@ function resolveExistingParent(dirPath) {
 - Node.js `path` docs.
 - Node.js `fs.realpathSync` docs.
 - Security notes around path/canonical handling and recent Node path traversal advisories.
+
+### Deepened Research Insights
+
+**Command/IO contract:**
+- Add per-command `--offline` guard (or equivalent invariant check) to keep V1 deterministic and avoid network-dependent runtime fallback paths.
+- Keep `--json` schema versioning additive (`workflow.result/0.2.0` already good); document semantic version bump rules.
+
+**Path and security hardening:**
+- Centralize path validation for **all** user-provided paths (`--output`, `--manifest`, `--attest-key`, `--verify`) with canonicalization and symlink policy checks before any write.
+- Apply Windows-specific checks for reserved device names when running on windows paths.
+
+**Parsing and rendering:**
+- Explicitly define parser fail-closed behavior: parse policy breaches should emit structured error codes and stop file writes.
+- Use deterministic sorting for maps/nodes/manifest entries before serialization.
 
 ## System-Wide Impact
 
@@ -309,6 +586,8 @@ function resolveExistingParent(dirPath) {
   3. Empty diff still generates valid explainer with “no changes” state.
   4. Large/binary/non-UTF8 diff content follows bounded/truncation policy.
   5. Output path traversal attempt is blocked.
+  6. `--open` launches expected artifact in interactive mode and degrades gracefully when artifacts are missing or open fails.
+  7. Replaying a prior attested command with `--verify` succeeds for unchanged inputs and highlights drift with actionable mismatch reasons.
 
 ### Research Insights
 
@@ -341,16 +620,32 @@ const STATES = {
 - Existing `src/diagram.js` action/error style.
 - `clig.dev` guidance on errors and human-friendly output.
 
+### Deepened Research Insights
+
+**Traceability model:**
+- Add a standard execution envelope for all runs: command input hash, normalized flags, normalized manifest, and provenance record pointer.
+- Separate transient runtime warnings from canonical state transitions (`DONE`, `VALIDATE_ONLY`, `MANIFEST_ONLY`, `ERROR`).
+
+**Non-functional impact:**
+- Open handling remains a side-effect phase with strict CI-safe default (`none`).
+- Keep failure codes machine-actionable for orchestration tools and automation dashboards.
+
 ## Implementation Phases
 
 ### Phase 1: Workflow foundations
 
 - Define shared workflow stage interfaces and manifest contract.
 - Add `--validate-only` behavior for both workflow tracks.
+- Add `--open` surface and launch-safe execution helper (`openArtifact`).
+- Add attestation primitives:
+  - schema for `provenance.json`
+  - deterministic hash utilities (input + output + manifest chain)
+  - optional signing verifier adapter for `--attest-key`
 - Target files (planned):
   - `src/diagram.js`
   - `src/workflows/shared/*.js`
   - `src/schema/workflow-manifest.schema.json`
+  - `src/schema/workflow-provenance.schema.json`
 
 ### Phase 2: State machine workflow
 
@@ -376,6 +671,14 @@ const STATES = {
 
 - Add unit/integration/deep regression coverage for both flows.
 - Add packaged-smoke verification for templates/assets.
+- Add `--open` acceptance tests:
+  - explicit launch behavior in interactive mode,
+  - missing-artifact warning + non-blocking behavior,
+  - failure diagnostics logging.
+- Add `--attest`/`--verify` acceptance tests:
+  - attested successful run writes deterministic provenance
+  - `--verify` succeeds on unchanged replay
+  - `--verify` reports mismatched inputs/digests for drift simulation
 - Update docs and examples.
 - Target files (planned):
   - `scripts/deep-regression.js`
@@ -410,6 +713,18 @@ if (!isAtomicWriteSuccessful()) rollbackPartialWrites();
 - Existing `scripts/deep-regression.js` and `package.json` test scripts.
 - Existing `docs/architecture-testing.md` test philosophy.
 
+### Deepened Research Insights
+
+**Phase gates (from writing-plans):**
+- Phase 1 gate: schema + security validation contracts approved before implementation starts.
+- Phase 2 gate: deterministic parser/rendering golden tests exist for all supported inputs.
+- Phase 3 gate: integration and path-security tests include negative cases.
+- Phase 4 gate: docs/tests green (`npm test`, targeted deep-regression cases) before docs handoff.
+
+**Execution notes:**
+- Add atomic writes for manifests/provenance to avoid partial artifact sets on crash.
+- Add `scripts` smoke checks for open artifact launch policy and verify-only mode safety.
+
 ## Alternative Approaches Considered
 
 - **LLM-first embedded execution** rejected (see brainstorm: `docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brainstorm.md`) to preserve deterministic local-first behavior.
@@ -437,6 +752,15 @@ if (!isAtomicWriteSuccessful()) rollbackPartialWrites();
 **References:**
 - Security/compliance principles in local-only model behavior.
 
+### Deepened Research Insights
+
+**Revisit conditions:**
+- Consider remote model augmentation in a v2 flow **only** if policy requires AI-assisted content enrichment.
+- Revisit single-output-first model only if scope narrows and product usage proves one flow has zero adoption.
+
+**Decision rationale reinforcement:**
+- Local-only + dual-track remains the safer default for compatibility, auditability, and deterministic CI use.
+
 ## Acceptance Criteria
 
 ### Functional requirements
@@ -446,20 +770,34 @@ if (!isAtomicWriteSuccessful()) rollbackPartialWrites();
 - [ ] PR workflow reads local git refs only and outputs interactive HTML explainer.
 - [ ] PR workflow emits prompt-pack artifacts without invoking model APIs.
 - [ ] Both workflows support `--validate-only` mode.
+- [ ] `--json` output conforms to `workflow.result/0.2.0` on both success and failure for `workflow state` and `workflow pr`.
 - [ ] Both workflows produce a manifest/index of generated artifacts.
+- [ ] `--open=html|video|all|auto|none` performs artifact launch behavior without changing pipeline success/failure semantics.
+- [ ] `--attest` writes `artifacts/provenance.json` with immutable run envelope and deterministic hashes.
+- [ ] `--verify <path>` validates deterministic replay against a previous provenance envelope.
 
 ### Non-functional requirements
 
 - [ ] Invalid inputs return actionable errors with clear classification (usage/config vs validation).
 - [ ] Output path validation blocks traversal/symlink escape and supports spaces/unicode.
+- [ ] `--validate-only` does not create directories or write output files.
 - [ ] HTML explainer renders offline without required remote scripts.
 - [ ] Prompt-pack and manifest outputs are deterministic for identical inputs.
 - [ ] Large inputs/diffs use bounded behavior with explicit warnings.
+- [ ] `--open` is no-op in non-interactive environments unless explicitly forced and does not fail command execution on launch errors.
+- [ ] Open actions are recorded in diagnostics/manifest/`--json` for auditability.
+- [ ] Provenance includes command, environment fingerprint, input manifest, output ordering, and diagnostics summary.
+- [ ] `--attest` should be deterministic across OS path separators once canonicalization is applied.
 
 ### Quality gates
 
 - [ ] `npm test` passes.
 - [ ] `npm run test:deep` passes with new workflow happy/failure path coverage.
+- [ ] `npm run test:deep` includes open-mode coverage (`--open=html`, missing artifact, launch failure simulation).
+- [ ] `npm run test:deep` includes attestation coverage:
+  - signed + unsigned `--attest`
+  - `--verify` pass/fail replay scenarios
+  - deterministic hash ordering validation
 - [ ] `npm pack --dry-run` includes new templates/assets and packed smoke checks pass.
 - [ ] Docs and examples updated for new commands.
 
@@ -491,10 +829,23 @@ criteria:
 - Existing project quality gates in `package.json`.
 - `scripts/deep-regression.js`.
 
+### Deepened Research Insights
+
+**Validation structure:**
+- Convert each criterion into one measurable check with expected status code and diagnostic class.
+- Add explicit non-goals to prevent ambiguity (e.g., remote model calls, cross-repo writes, interactive prompts in `--no-input`).
+
+**Quality gates to add:**
+- `--verify` test: fail if manifest/provenance inputs differ after canonicalization.
+- `--open` test: CI-mode enforces zero launch attempts and zero file writes outside write mode.
+- `--validate-only` test: guarantee zero side effects.
+
 ## Success Metrics
 
 - Workflow runs are reproducible locally with deterministic artifacts.
 - Human reviewers can inspect PR explainer HTML without additional tooling/network.
+- `--open` enables one-command human verification loop for artifact review in interactive environments.
+- `--attest` + `--verify` enables trustable reproducibility checks for CI and security review loops.
 - State-machine users can convert at least YAML/JSON/DSL sample cases to valid Mermaid with no manual edits.
 - No regressions in existing `diagram test` and current command suite.
 
@@ -524,6 +875,18 @@ SLA (proposed):
 **References:**
 - Internal performance baselines from existing `npm run test:deep` style execution.
 
+### Deepened Research Insights
+
+**Operational telemetry:**
+- Track median runtime for representative state and pr artifacts by input size band.
+- Track failure-code distribution (`E_VALIDATION`, `E_PARSE`, `E_OPEN`, `E_VERIFY`).
+- Track `--json` and manifest schema validation pass-rate.
+
+**Quality targets:**
+- Reproducibility replay pass on unchanged inputs: 100%.
+- Non-interactive `--open` attempts: 0.
+- Validate-only side effects: 0 writes outside manifest/provenance output targets.
+
 ## Dependencies & Risks
 
 - **Dependencies**: local git availability for PR workflow; parser/renderer modules; template packaging in npm artifact.
@@ -531,10 +894,20 @@ SLA (proposed):
   - DSL grammar ambiguity causing inconsistent IR.
   - Large diff rendering performance and binary file handling.
   - Template asset omissions in packaged builds.
+  - Auto-launch side effects in non-interactive environments.
+  - Attestation key management and local signing hygiene.
 - **Mitigations**:
   - Canonical IR + deterministic sort rules.
   - Input size bounds and truncation policies.
   - Packaging smoke checks and manifest completeness checks.
+- **Risk handling for `--open`**:
+  - Treat open as best-effort and never a gate for success.
+  - Log launch attempts and failures in `--json` diagnostics and manifest.
+  - In CI/non-interactive runs, force `none` behavior to avoid process/UX issues.
+- **Risk handling for `--attest/--verify`**:
+  - Keep `--attest-key` local-only and optional; default to unsigned hash-chain mode.
+  - Record key-id metadata (never key material) in provenance.
+  - Fail deterministically with actionable drift report when environment or inputs differ.
 
 ### Research Insights
 
@@ -561,12 +934,74 @@ Risk Register
 **References:**
 - Node path/canonical docs and security advisories on traversal boundaries.
 
+### Deepened Research Insights
+
+**Risk register (sample):**
+- **R-PATHTRAVERSAL (Owner: CLI security):** Windows and symlink traversal bypass.
+  - Mitigation: canonical path policy + adversarial fixture tests.
+- **R-SCRIPTDEP (Owner: Tooling):** Mermaid/git availability drift.
+  - Mitigation: explicit dependency checks + immutable execution contract.
+- **R-DIFFSCALE (Owner: Performance):** Large git diffs.
+  - Mitigation: `--name-status`/metadata-first path and bounded fallback summary.
+- **R-VERIFY (Owner: Reliability):** `--verify` side effects.
+  - Mitigation: hard denylist of writes/launch in verify mode + regression tests.
+
 ## Documentation Plan
 
-- Add workflow usage docs and examples to `docs/README.md`.
-- Add command/help examples and troubleshooting notes.
-- Add prompt-pack contract + manifest schema documentation.
-- Include explicit non-goals in docs (no direct API calls, no remote PR provider integration in V1).
+### Plan intent
+
+- Create `docs/README.md` as the single source of truth for `diagram workflow` usage.
+- Keep docs implementation-focused and avoid duplication in plans, changelogs, and issue templates.
+- Ensure docs are usable without model access or remote services.
+
+### Doc requirements
+
+- Audience: intermediate-to-advanced CLI users and maintainers.
+- Scope: command contract, output contracts, troubleshooting, and verification flow for workflow commands.
+- Non-scope: hosted model execution, remote PR provider integrations, and package-distribution documentation.
+- Owner: CLI maintainer; updates are required whenever command flags or outputs change.
+- Review cadence: each feature flag or schema change before merge.
+
+### Targeted documentation structure updates
+
+1. **`docs/README.md` — Workflow command block**
+   - Add a dedicated section `## Workflow commands`.
+   - Add a command matrix with columns:
+     - command
+     - required inputs
+     - outputs
+     - failure handling
+   - Add a `### Prerequisites` subsection with Node/git expectations.
+
+2. **`docs/README.md` — `workflow state` section**
+   - Clarify input formats and deterministic behavior.
+   - Document `--validate-only`, `--json`, `--manifest`, and exit-code mapping.
+   - Include one happy-path command and one validation failure command.
+
+3. **`docs/README.md` — `workflow pr` section**
+   - Clarify local-ref resolution and failure classes (`base/head` resolution, shallow clone).
+   - Document prompt-pack behavior as artifact-only (no model execution).
+   - Add examples for `--open=auto`, `--open=all`, and `--open=none`.
+
+4. **`docs/README.md` — Reproducibility section**
+   - Add explicit `Reproducibility & Verify` subsection:
+     - what `--attest` captures and where `provenance.json` is written
+     - required immutable inputs for `--verify`
+     - common drift classes and likely remediation.
+
+5. **Troubleshooting and risk section**
+   - Document top failure classes with corrective actions:
+     - path validation and traversal prevention
+     - missing or invalid git refs
+     - output write permissions
+     - interactive launch policy in CI
+     - large/binary diffs and truncation mode
+
+6. **Validation section**
+   - Add a `### Verify` block with expected outputs:
+     - manifest path and shape
+     - `--json` status and diagnostic patterns
+     - attestation file and signature metadata.
 
 ### Research Insights
 
@@ -579,29 +1014,50 @@ Risk Register
 - Add “large repo / large PR” guidance and expected runtime in docs to reduce support churn.
 
 **Implementation Details:**
+
 ### Usage example
 ```bash
-diagram workflow state --input workflow.yml --output artifacts/state.mmd --format mermaid
+diagram workflow state --input workflow.yml --output artifacts/state.mmd --validate-only
+diagram workflow state --input workflow.yml --output artifacts/state.mmd --manifest artifacts/manifest.json --open auto
+diagram workflow state --input workflow.yml --output artifacts/state.mmd --attest --attest-key ~/.config/diagram/attest-key.pem
+diagram workflow pr --base main --head HEAD --output artifacts/pr-explainer.html --manifest artifacts/manifest.json --prompt-pack
+diagram workflow pr --base main --head HEAD --output artifacts/pr-explainer.html --open all
+diagram workflow pr --base main --head HEAD --output artifacts/pr-explainer.html --verify artifacts/provenance.json
 ```
 
 ### Debugging
-- Use `--validate-only` first
-- Inspect `manifest.json` for missing artifact failures
-- Check path errors before rerunning full render
+- Use `--validate-only` first.
+- Inspect `manifest.json` (or explicit `--manifest` path) for artifact completeness and missing outputs.
+- Check path/read errors before rerunning render-heavy commands.
+- `--open` is disabled in non-interactive runs unless explicitly allowed by environment policy.
+- Re-run failed outputs with `--verify artifacts/provenance.json` to isolate replay drift vs runtime transient error.
 
 
 **Edge Cases:**
 - Add separate examples for spaces in paths, Unicode filenames, and empty diffs.
 - Clarify whether `--prompt-pack` is metadata-only and intentionally non-executing.
 
-**References:**
-- `docs/README.md` and existing docs style in this repo.
+### References
+- `docs/README.md` canonical doc path for command contracts and troubleshooting.
+- `docs/architecture-testing.md` for quality and verification style.
+- `CHANGELOG.md` for release-level feature framing.
+- Repo policy files: `README`, `CONTRIBUTING`, `SECURITY`, `SUPPORT`.
+
+### Deepened Research Insights
+
+**Doc-first implementation checklist:**
+- Add `workflow` command matrix in `docs/README.md` (flags, outputs, exit codes, examples).
+- Add a troubleshooting map for error classes with remediation examples.
+- Include reproducibility examples (`--attest` + `--verify`) as separate quick checks.
+
+**Community/operability polish:**
+- Add references to manifest schema files and sample artifacts used in tests to avoid docs drift from implementation.
 
 ## Sources & References
 
 ### Origin
 
-- **Brainstorm document:** `docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brainstorm.md`
+- **Brainstorm document:** [docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brainstorm.md](docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brainstorm.md)
 - Key decisions carried forward:
   - local-first and deterministic architecture
   - both artifact tracks in V1
@@ -610,22 +1066,23 @@ diagram workflow state --input workflow.yml --output artifacts/state.mmd --forma
 
 ### Internal references
 
-- `docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brainstorm.md:20-33`
-- `docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brainstorm.md:42-65`
-- `src/diagram.js:607-653`
-- `src/diagram.js:721-1118`
-- `src/rules.js:138-260`
-- `src/formatters/index.js:13-32`
-- `package.json:9-16`
-- `scripts/deep-regression.js:54-77`
-- `docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan-deepened.md:340-349`
-- `docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan-deepened.md:374-383`
-- `docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan-deepened.md:438-477`
-- `docs/architecture-testing.md:86-89`
-- `docs/architecture-testing.md:153-167`
-- `BUG_AUDIT_REPORT.md:100-103`
-- `BUG_AUDIT_REPORT.md:112-118`
-- `BUG_AUDIT_REPORT.md:132-142`
+- [Brainstorm: requirements + alternatives](docs/brainstorms/2026-02-26-local-first-non-code-artifact-workflows-brainstorm.md)
+- [CLI dispatch and subcommand wiring](src/diagram.js)
+- [Rule and validation behavior](src/rules.js)
+- [Formatter output behavior](src/formatters/index.js)
+- [Project scripts and quality gates](package.json)
+- [Regression suite entry points](scripts/deep-regression.js)
+- [Architecture testing plan (deepened)](docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan-deepened.md)
+- [Architecture testing reference points](docs/architecture-testing.md)
+- [Bug audit evidence](BUG_AUDIT_REPORT.md)
+- [Earlier planning baseline 1](docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan.md)
+- [Earlier planning baseline 2](docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan-deepened.md)
+
+### Reference quality checks
+
+- Prefer anchorless relative links for local files during planning to avoid broken line-number references after edits.
+- Before merging: run one link sweep on this section and `docs/README.md` to confirm no missing local targets.
+- Group evidence references by type (Brainstorm, implementation, tests, security/risk) to reduce lookup time for reviewers.
 
 ### External references
 
@@ -635,9 +1092,43 @@ diagram workflow state --input workflow.yml --output artifacts/state.mmd --forma
 - YAML parsing/options: [eemeli YAML docs](https://eemeli.org/yaml/)
 - Mermaid CLI usage and options: [mermaid-js/mermaid-cli](https://github.com/mermaid-js/mermaid-cli)
 - Git diff behavior: [git diff docs](https://git-scm.com/docs/git-diff)
+- SLSA provenance principles (inspiration for envelope fields): [SLSA](https://slsa.dev/spec/v1.0)
 
 ### Related work
 
 - Existing plan baseline:
-  - `docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan.md`
-  - `docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan-deepened.md`
+  - [Architecture testing baseline plan](docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan.md)
+  - [Architecture testing deepened plan](docs/plans/2026-02-24-feat-architecture-testing-rules-validation-plan-deepened.md)
+
+### Link/checklist recommendations
+
+#### Recommended quick link checks
+
+- `docs/README.md` should link to:
+  - `CONTRIBUTING.md`
+  - `SECURITY.md`
+  - `SUPPORT.md`
+  - `CHANGELOG.md`
+  - `LICENSE`
+- Add links from this plan section to the exact plan sections that define:
+  - manifest schema expectations
+  - attestation behavior
+  - open/launch behavior
+
+#### Recommended docs checklist snapshot (`references/CHECKLIST.md`)
+
+- Structure and navigation: TOC exists, informative headings, prerequisite→quickstart→troubleshooting flow.
+- Skimmability: short topic sentences + bulleting for flag semantics and failure modes.
+- Correctness and verification: verify outcomes and unknowns are explicit.
+- Requirements/risks: assumptions and risk assumptions are documented for docs with operational impact.
+- Community health: CODEOWNERS currently not present at repo root (`CODEOWNERS` gap to decide).
+
+### Deepened Research Insights
+
+**Additional authoritative references:**
+- Commander.js docs for error/output and exit behavior (via Context7: `/tj/commander.js`).
+- Mermaid CLI option and rendering docs (via Context7: `/mermaid-js/mermaid-cli`).
+- YAML parser semantics and schema options (via Context7: `/eemeli/yaml`).
+- Node.js `path` and `fs.realpath` APIs (Node docs).
+- Git `diff` docs and platform diff-limit guidance.
+- Node path traversal CVE advisory context (2025 Node advisory) for high-risk path cases.
