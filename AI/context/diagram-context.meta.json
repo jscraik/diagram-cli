@@ -1,14 +1,14 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-02-27T23:03:57Z",
-  "git_head": "e97b7d5",
-  "context_sha256": "a623764078c2785b77c3fdfc3ef4ed72682cb6a182b79665078e49ec2ad6bb87",
+  "generated_at": "2026-02-27T23:05:45Z",
+  "git_head": "fda68b5",
+  "context_sha256": "9b77a245cc44445ca0316bd2ed8696608e945c23fba962a767e7f14b998c26ec",
   "diagram_count": 5,
-  "last_generated_epoch": 1772233437,
+  "last_generated_epoch": 1772233545,
   "min_interval_seconds": 1800,
   "changed": true,
   "index_path": "AI/context/diagram-context.index.json",
-  "index_file_sha256": "3cd1014b93bbf3c35addc31bd3c8b744e51fa613704f9476dd87eb0f66b99bda",
+  "index_file_sha256": "352822341896f1d3fcb9abd75a8be465f4628cfcfe9edd18320cf5196e3df8ad",
   "lite_path": "AI/context/diagram-context-lite.md",
   "diagrams": [
     {
@@ -17,7 +17,7 @@
       "type": "module-graph",
       "summary": "Module-level architecture graph showing repository structure and dependency direction.",
       "line_count": 45,
-      "checksum": "7b3c5f13638155822e124a60c307ab5cfb93d8b5376730eb8a61f53906b3934d",
+      "checksum": "feba49eac5fb9981a2b5a2949069ef8618138849c7d98090c8b3876aa2d5346f",
       "tags": [
         "architecture",
         "module-graph",
@@ -53,7 +53,7 @@
       "type": "module-graph",
       "summary": "Dependency map showing external packages and internal import boundaries.",
       "line_count": 68,
-      "checksum": "2603bbb48fc301d5f6261cd385358b70fe1d71cedb9926ca3e581d1052802ffc",
+      "checksum": "dc31d8a22ea760f9a387ba00a1f81a61ce2b7c45035a8fc0bbb9b32366d76b34",
       "tags": [
         "dependencies",
         "imports",
@@ -71,7 +71,7 @@
       "type": "module-graph",
       "summary": "Command flow across major phases in the diagram CLI pipeline.",
       "line_count": 19,
-      "checksum": "b200852702cd6b26b729640f413622a3493e370ae406be1ddcbe37134a2805d8",
+      "checksum": "43c34e48a9e1266e26209e67c33e4f9cb5cfcb13d85ccb09055e848cd8fae845",
       "tags": [
         "runtime",
         "control-flow",

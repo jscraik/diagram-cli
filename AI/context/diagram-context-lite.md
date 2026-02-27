@@ -1,6 +1,6 @@
 # Diagram Context Pack (Lite)
 
-Generated: 2026-02-27T23:03:57Z
+Generated: 2026-02-27T23:05:45Z
 
 ## Diagram index (agent-first)
 

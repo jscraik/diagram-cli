@@ -1,6 +1,6 @@
 # Diagram Context Pack
 
-Generated: 2026-02-27T23:03:57Z
+Generated: 2026-02-27T23:05:45Z
 
 ## Agent-first index
 
@@ -31,11 +31,11 @@ graph TD
   subgraph scripts_8c5967fd["scripts"]
     deep_regression_4f028409["deep-regression"]
   end
-  subgraph src_schema_1bffb211["src/schema"]
-    rules_schema_1b0ae367["rules-schema"]
-  end
   subgraph src_utils_0f13bc3a["src/utils"]
     commands_10f5f77e["commands"]
+  end
+  subgraph src_schema_1bffb211["src/schema"]
+    rules_schema_1b0ae367["rules-schema"]
   end
   subgraph src_rules_03243834["src/rules"]
     factory_06c8aaa9["factory"]
@@ -131,9 +131,9 @@ graph LR
   path_a0af9f86["path"] --> deep_regression_4f028409
   child_process_f2d8255a["child_process"] --> deep_regression_4f028409
   deep_regression_4f028409 --> commands_10f5f77e
-  zod_4f63cf5c["zod"] --> rules_schema_1b0ae367
   os_840a8dcf["os"] --> commands_10f5f77e
   path_a0af9f86["path"] --> commands_10f5f77e
+  zod_4f63cf5c["zod"] --> rules_schema_1b0ae367
   factory_06c8aaa9 --> import_rule_641ce46a
   fs_dce7cce0["fs"] --> junit_018bb207
   path_a0af9f86["path"] --> junit_018bb207
@@ -182,12 +182,12 @@ flowchart TD
   graph_eef93e1d --> diagram_2c20a6b0
   deep_regression_4f028409["deep-regression"]
   diagram_2c20a6b0 --> deep_regression_4f028409
-  rules_schema_1b0ae367["rules-schema"]
-  deep_regression_4f028409 --> rules_schema_1b0ae367
   commands_10f5f77e["commands"]
-  rules_schema_1b0ae367 --> commands_10f5f77e
+  deep_regression_4f028409 --> commands_10f5f77e
+  rules_schema_1b0ae367["rules-schema"]
+  commands_10f5f77e --> rules_schema_1b0ae367
   factory_06c8aaa9["factory"]
-  commands_10f5f77e --> factory_06c8aaa9
+  rules_schema_1b0ae367 --> factory_06c8aaa9
   End(["End"])
   factory_06c8aaa9 --> End
 ```
