@@ -63,3 +63,7 @@ Before shipping behavior changes:
 1. Run `npm test`.
 2. Run `npm run test:deep`.
 3. Verify examples in `README.md` and `docs/` still match CLI help output.
+
+## Command preflight helper
+- Source `scripts/codex-preflight.sh` and run `preflight_repo` before command-heavy, destructive, or path-sensitive work.
+- Validate required bins and target paths first so mistakes are prevented before edits.
