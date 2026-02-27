@@ -1,8 +1,24 @@
 # Diagram Context Pack
 
-Generated: 2026-02-27T22:42:12Z
+Generated: 2026-02-27T23:03:57Z
+
+## Agent-first index
+
+| Diagram | Type | Path | Summary |
+| --- | --- | --- | --- |
+| architecture | module-graph | AI/diagrams/architecture.mmd | Module-level architecture graph showing repository structure and dependency direction. |
+| class | class-model | AI/diagrams/class.mmd | Class/module model for the principal command and rule objects. |
+| dependency | module-graph | AI/diagrams/dependency.mmd | Dependency map showing external packages and internal import boundaries. |
+| flow | module-graph | AI/diagrams/flow.mmd | Command flow across major phases in the diagram CLI pipeline. |
+| sequence | sequence-flow | AI/diagrams/sequence.mmd | Execution sequence for the current CLI surface and dependencies. |
+
+## Detailed diagrams
 
 ## architecture
+
+- Type: module-graph
+- Path: AI/diagrams/architecture.mmd
+- Summary: Module-level architecture graph showing repository structure and dependency direction.
 
 ```mermaid
 graph TD
@@ -15,14 +31,14 @@ graph TD
   subgraph scripts_8c5967fd["scripts"]
     deep_regression_4f028409["deep-regression"]
   end
+  subgraph src_schema_1bffb211["src/schema"]
+    rules_schema_1b0ae367["rules-schema"]
+  end
   subgraph src_utils_0f13bc3a["src/utils"]
     commands_10f5f77e["commands"]
   end
   subgraph src_rules_03243834["src/rules"]
     factory_06c8aaa9["factory"]
-  end
-  subgraph src_schema_1bffb211["src/schema"]
-    rules_schema_1b0ae367["rules-schema"]
   end
   subgraph src_formatters_8f43a42a["src/formatters"]
     junit_018bb207["junit"]
@@ -55,6 +71,10 @@ graph TD
 
 ## class
 
+- Type: class-model
+- Path: AI/diagrams/class.mmd
+- Summary: Class/module model for the principal command and rule objects.
+
 ```mermaid
 classDiagram
   class diagram_2c20a6b0 {
@@ -66,6 +86,10 @@ classDiagram
 ```
 
 ## dependency
+
+- Type: module-graph
+- Path: AI/diagrams/dependency.mmd
+- Summary: Dependency map showing external packages and internal import boundaries.
 
 ```mermaid
 graph LR
@@ -107,10 +131,10 @@ graph LR
   path_a0af9f86["path"] --> deep_regression_4f028409
   child_process_f2d8255a["child_process"] --> deep_regression_4f028409
   deep_regression_4f028409 --> commands_10f5f77e
+  zod_4f63cf5c["zod"] --> rules_schema_1b0ae367
   os_840a8dcf["os"] --> commands_10f5f77e
   path_a0af9f86["path"] --> commands_10f5f77e
   factory_06c8aaa9 --> import_rule_641ce46a
-  zod_4f63cf5c["zod"] --> rules_schema_1b0ae367
   fs_dce7cce0["fs"] --> junit_018bb207
   path_a0af9f86["path"] --> junit_018bb207
   fs_dce7cce0["fs"] --> json_02bd175f
@@ -141,6 +165,10 @@ graph LR
 
 ## flow
 
+- Type: module-graph
+- Path: AI/diagrams/flow.mmd
+- Summary: Command flow across major phases in the diagram CLI pipeline.
+
 ```mermaid
 flowchart TD
   Start(["Start"])
@@ -154,17 +182,21 @@ flowchart TD
   graph_eef93e1d --> diagram_2c20a6b0
   deep_regression_4f028409["deep-regression"]
   diagram_2c20a6b0 --> deep_regression_4f028409
+  rules_schema_1b0ae367["rules-schema"]
+  deep_regression_4f028409 --> rules_schema_1b0ae367
   commands_10f5f77e["commands"]
-  deep_regression_4f028409 --> commands_10f5f77e
+  rules_schema_1b0ae367 --> commands_10f5f77e
   factory_06c8aaa9["factory"]
   commands_10f5f77e --> factory_06c8aaa9
-  rules_schema_1b0ae367["rules-schema"]
-  factory_06c8aaa9 --> rules_schema_1b0ae367
   End(["End"])
-  rules_schema_1b0ae367 --> End
+  factory_06c8aaa9 --> End
 ```
 
 ## sequence
+
+- Type: sequence-flow
+- Path: AI/diagrams/sequence.mmd
+- Summary: Execution sequence for the current CLI surface and dependencies.
 
 ```mermaid
 sequenceDiagram
