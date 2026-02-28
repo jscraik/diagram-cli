@@ -35,28 +35,29 @@ jobs:
         run: npm run test:deep
 
       - name: Run architecture tests
-        run: node src/diagram.js test . --format junit --output architecture-results.xml
+        run: |
+          npm run ci:artifacts
         continue-on-error: true
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: architecture-test-results
-          path: architecture-results.xml
+          name: diagram-ci-artifacts
+          path: .diagram
 
       - name: Report test results
         uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
           name: Architecture Tests
-          path: architecture-results.xml
+          path: .diagram/architecture-results.xml
           reporter: java-junit
 
       - name: Check test status
         run: |
-          if [ -f architecture-results.xml ]; then
-            failures=$(node -e "const fs=require('fs');const xml=fs.readFileSync('architecture-results.xml','utf8');const m=xml.match(/failures=\"(\\d+)\"/);console.log(m?m[1]:'0');")
+          if [ -f .diagram/architecture-results.xml ]; then
+            failures=$(node -e "const fs=require('fs');const xml=fs.readFileSync('.diagram/architecture-results.xml','utf8');const m=xml.match(/failures=\"(\\d+)\"/);console.log(m?m[1]:'0');")
             if [ "$failures" != "0" ] && [ -n "$failures" ]; then
               echo "❌ Architecture tests failed with $failures violations"
               exit 1
