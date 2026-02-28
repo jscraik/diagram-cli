@@ -39,6 +39,13 @@ jobs:
           npm run ci:artifacts
         continue-on-error: true
 
+      - name: Validate diagram manifest artifact
+        run: |
+          node src/diagram.js manifest . \
+            --manifest-dir .diagram \
+            --require-types architecture,sequence,dependency,class,flow \
+            --fail-on-placeholder
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()

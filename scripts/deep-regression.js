@@ -48,6 +48,30 @@ function run() {
 
   fs.writeFileSync(path.join(workspace, 'src', 'main.js'), "const util = require('./util');\nmodule.exports = util;\n");
   fs.writeFileSync(path.join(workspace, 'src', 'util.js'), 'module.exports = { ok: true };\n');
+  fs.writeFileSync(
+    path.join(workspace, 'src', 'database.js'),
+    'const db = require("./db");\nfunction getOrCreateRecord(req) { return db.get(req.id) || db.create(req.body); }\nmodule.exports = getOrCreateRecord;\n'
+  );
+  fs.writeFileSync(
+    path.join(workspace, 'src', 'db.js'),
+    'function get(id) { return null; }\nfunction create(payload) { return { id: payload.id }; }\nmodule.exports = { get, create };\n'
+  );
+  fs.writeFileSync(
+    path.join(workspace, 'src', 'events.js'),
+    'const bus = require("eventemitter3");\nfunction publish(event) { bus.emit(event); }\nmodule.exports = { publish };\n'
+  );
+  fs.writeFileSync(
+    path.join(workspace, 'src', 'auth.js'),
+    'const jwt = require("jsonwebtoken");\nfunction authenticate(req) { return jwt.verify(req.token, "secret"); }\nmodule.exports = authenticate;\n'
+  );
+  fs.writeFileSync(
+    path.join(workspace, 'src', 'router.js'),
+    'const auth = require("./auth");\nconst events = require("./events");\nconst userRoute = (req, res) => { const user = auth(req); events.publish("user.signedin"); return user; };\nmodule.exports = userRoute;\n'
+  );
+  fs.writeFileSync(
+    path.join(workspace, 'src', 'user-route.js'),
+    'const router = require("./router");\nfunction userLanding(req, res) { return router(req, res); }\nmodule.exports = userLanding;\n'
+  );
 
   fs.writeFileSync(path.join(workspace, '.architecture.yml'), `version: "1.0"\nrules:\n  - name: Require shared import\n    layer: "src/util.js"\n    must_import_from:\n      - src/shared/**\n`);
 
@@ -75,6 +99,59 @@ function run() {
   const generate = runCLI(['generate', '.', '--type', 'dependency', '--output', diagramOutput], workspace);
   assert.strictEqual(generate.status, 0, `generate expected success, got ${generate.status}`);
   assert.ok(fs.existsSync(diagramOutput), 'diagram output file should be written');
+
+  const allOutputDir = path.join(workspace, 'diagrams');
+  const allRun = runCLI(['all', '.', '--output-dir', allOutputDir], workspace);
+  assert.strictEqual(allRun.status, 0, `all expected success, got ${allRun.status}`);
+  const manifestOutput = path.join(allOutputDir, 'manifest.json');
+  assert.ok(fs.existsSync(manifestOutput), 'all should write manifest.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestOutput, 'utf8'));
+  assert.ok(Array.isArray(manifest.diagrams), 'manifest should include diagrams array');
+  const expectedTypes = ['architecture', 'sequence', 'dependency', 'class', 'flow', 'database', 'user', 'events', 'auth', 'security'];
+  for (const type of expectedTypes) {
+    assert.ok(
+      manifest.diagrams.some((entry) => entry.type === type),
+      `manifest should include ${type} diagram`
+    );
+  }
+
+  const summaryOutput = path.join('diagrams', 'manifest-summary.json');
+  const manifestSummary = runCLI([
+    'manifest',
+    '.',
+    '--manifest-dir',
+    'diagrams',
+    '--output',
+    summaryOutput,
+    '--require-types',
+    expectedTypes.join(','),
+  ], workspace);
+  assert.strictEqual(manifestSummary.status, 0, `manifest expected success, got ${manifestSummary.status}`);
+  const summaryParsed = JSON.parse(fs.readFileSync(path.join(workspace, summaryOutput), 'utf8'));
+  assert.ok(summaryParsed.totalDiagrams >= expectedTypes.length, 'manifest summary should include generated diagrams');
+  assert.deepStrictEqual(summaryParsed.required.missing, [], 'manifest summary should have no missing required types');
+
+  const databaseOutput = path.join(workspace, 'diagrams', 'database.mmd');
+  const userOutput = path.join(workspace, 'diagrams', 'user.mmd');
+  const eventsOutput = path.join(workspace, 'diagrams', 'events.mmd');
+  const authOutput = path.join(workspace, 'diagrams', 'auth.mmd');
+  const securityOutput = path.join(workspace, 'diagrams', 'security.mmd');
+
+  const generateAI = [
+    ['database', databaseOutput, 'flowchart', 'database-focused components'],
+    ['user', userOutput, 'User(("User"))', 'user-facing components'],
+    ['events', eventsOutput, 'Event channels', 'event graph'],
+    ['auth', authOutput, 'Auth Boundary', 'auth flow'],
+    ['security', securityOutput, 'Untrusted input', 'security flow']
+  ];
+
+  for (const [type, output, marker, label] of generateAI) {
+    const result = runCLI(['generate', '.', '--type', type, '--output', output], workspace);
+    assert.strictEqual(result.status, 0, `generate ${type} expected success, got ${result.status}`);
+    assert.ok(fs.existsSync(output), `${label} output should be written`);
+    const text = fs.readFileSync(output, 'utf8');
+    assert.ok(text.includes(marker), `expected ${type} output to include ${marker}`);
+  }
 
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 

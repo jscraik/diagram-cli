@@ -11,6 +11,7 @@ Generate codebase architecture diagrams from source files. No AI required.
 - [First-run checklist](#first-run-checklist)
 - [Commands](#commands)
 - [Diagram types](#diagram-types)
+- [AI-focused diagram outputs](#ai-focused-diagram-outputs)
 - [Output formats](#output-formats)
 - [Video and animation prerequisites](#video-and-animation-prerequisites)
 - [Architecture Testing](#architecture-testing)
@@ -119,7 +120,7 @@ diagram generate . --open
 
 Options:
 
-- `-t, --type <type>` `architecture|sequence|dependency|class|flow` (default: `architecture`)
+- `-t, --type <type>` `architecture|sequence|dependency|class|flow|database|user|events|auth|security` (default: `architecture`)
 - `-f, --focus <module>` focus on one module or directory
 - `-o, --output <file>` write `.mmd`, `.svg`, or `.png`
 - `-m, --max-files <n>` max files to analyze
@@ -139,6 +140,23 @@ Options:
 
 - `-o, --output-dir <dir>` output directory (default: `./diagrams`)
 
+### `diagram manifest [path]`
+
+Summarize the generated `.diagram/manifest.json` artifact.
+
+```bash
+diagram manifest .
+diagram manifest . --manifest-dir .diagram --output .diagram/manifest-summary.json
+diagram manifest . --manifest-dir .diagram --require-types architecture,security --fail-on-placeholder
+```
+
+Options:
+
+- `-d, --manifest-dir <dir>` directory containing `manifest.json` (default: `.diagram`)
+- `-o, --output <file>` write summary JSON to file
+- `--require-types <list>` require specific diagram types, comma-separated
+- `--fail-on-placeholder` fail if any diagram entry is a placeholder
+
 ### `diagram video [path]`
 
 Generate an animated video (`.mp4`, `.webm`, `.mov`) from a Mermaid diagram.
@@ -151,7 +169,7 @@ diagram video . --duration 8 --fps 60 --width 1920 --height 1080
 
 Options:
 
-- `-t, --type <type>` `architecture|sequence|dependency|class|flow` (default: `architecture`)
+- `-t, --type <type>` `architecture|sequence|dependency|class|flow|database|user|events|auth|security` (default: `architecture`)
 - `-o, --output <file>` output file (default: `diagram.mp4`)
 - `-d, --duration <sec>` video duration in seconds (default: `5`)
 - `-f, --fps <n>` frames per second (default: `30`)
@@ -172,7 +190,7 @@ diagram animate . --theme forest
 
 Options:
 
-- `-t, --type <type>` `architecture|sequence|dependency|class|flow` (default: `architecture`)
+- `-t, --type <type>` `architecture|sequence|dependency|class|flow|database|user|events|auth|security` (default: `architecture`)
 - `-o, --output <file>` output file (default: `diagram-animated.svg`)
 - `--theme <theme>` `default|dark|forest|neutral` (default: `dark`)
 - `-m, --max-files <n>` max files to analyze (default: `100`)
@@ -186,6 +204,41 @@ Options:
 | `dependency` | Internal and external imports | Dependency review |
 | `class` | Class-oriented relationships | OOP-heavy codebases |
 | `flow` | Process/data flow | Control-flow mapping |
+| `database` | Database operations and condition paths | Conditional persistence flows |
+| `user` | User-facing entrypoints and handlers | Interaction flow mapping |
+| `events` | Event streams and async channels | Event-driven architecture |
+| `auth` | Authentication and authorization checks | Credential/identity flow |
+| `security` | Security boundaries and trust paths | Threat/risk analysis |
+
+## AI-focused diagram outputs
+
+For agent workflows, the Mermaid output is especially useful because it is
+compact, textual, and structured. Feeding `.mmd` into an AI at startup lets it
+understand architecture faster than reading all source files.
+
+The generated types cover these high-value areas for automated reasoning:
+
+- **Database Operations** — conditional record paths (for example "record exists?"
+  / "not found" branches), storage and mutation decisions.
+- **User Actions and Interactions** — user entrypoints and downstream handler
+  chains.
+- **Events and Channels** — internal publishers, workers, listeners, and trigger
+  paths.
+- **Authentication Flows** — step-by-step identity and credential checks.
+- **Security and Data Flows** — trust boundaries, sensitive components, and
+  integrations to support security review and compliance context.
+
+When reviewing PRs, run:
+
+```bash
+diagram all . --output-dir .diagram
+```
+
+so `.diagram/` includes the new AI-oriented variants beside the classic ones.
+
+The command also writes `.diagram/manifest.json` summarizing what diagrams were
+produced and whether any outputs are placeholder/no-data (helpful for CI and
+agent bootstrap checks).
 
 ## Output formats
 
@@ -194,6 +247,7 @@ Options:
 - `.svg`/`.png` rendered images (requires Mermaid CLI)
 - `.mp4`/`.webm`/`.mov` video export (requires Playwright + ffmpeg)
 - Animated `.svg` export (requires Playwright)
+- `.diagram/manifest.json` machine-readable artifact index
 
 Install Mermaid CLI for image export:
 

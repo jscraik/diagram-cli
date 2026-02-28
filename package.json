@@ -1,6 +1,6 @@
 {
   "name": "@brainwav/diagram",
-  "version": "1.0.3",
+  "version": "1.0.7",
   "description": "Generate architecture diagrams from codebases",
   "main": "src/diagram.js",
   "bin": {
@@ -51,6 +51,7 @@
     "src/video.js",
     "src/utils/commands.js",
     "README.md",
+    "scripts/refresh-diagram-context.sh",
     "LICENSE"
   ],
   "engines": {

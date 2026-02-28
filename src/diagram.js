@@ -226,6 +226,231 @@ function getExternalPackageName(importPath) {
   return importPath.split('/')[0] || null;
 }
 
+const ROLE_PATTERNS = {
+  user: [
+    'route', 'routes', 'controller', 'controllers', 'handler', 'handlers',
+    'api', 'middleware', 'page', 'pages', 'ui', 'frontend', 'web', 'client', 'request'
+  ],
+  auth: [
+    'auth', 'authentication', 'authorization', 'session', 'signin', 'login',
+    'signup', 'token', 'jwt', 'oauth', 'sso', 'passport', 'identity', 'acl',
+    'guard', 'permission', 'password', 'mfa', 'security'
+  ],
+  database: [
+    'db', 'database', 'data', 'datastore', 'repository', 'repo', 'model',
+    'schema', 'migration', 'query', 'querybuilder', 'prisma', 'typeorm',
+    'sequelize', 'mongoose', 'knex', 'drizzle', 'redis', 'postgres', 'mysql',
+    'sqlite', 'mongo', 'dynamodb', 'd1'
+  ],
+  events: [
+    'event', 'events', 'queue', 'worker', 'cron', 'scheduler', 'webhook',
+    'pubsub', 'bus', 'publish', 'subscriber', 'consumer', 'producer',
+    'listener', 'trigger'
+  ],
+  integrations: [
+    'integration', 'webhook', 'gateway', 'stripe', 'pay', 'sendgrid', 'twilio',
+    'sentry', 'github', 'slack', 'analytics', 'mail', 'smtp', 'storage'
+  ],
+  security: [
+    'security', 'threat', 'attack', 'rate', 'encrypt', 'decrypt', 'signature',
+    'hash', 'verify', 'csrf', 'xss', 'audit', 'compliance', 'policy', 'vault',
+    'kms', 'secret', 'key'
+  ],
+};
+
+const SUPPORTED_DIAGRAM_TYPES = Object.freeze([
+  'architecture',
+  'sequence',
+  'dependency',
+  'class',
+  'flow',
+  'database',
+  'user',
+  'events',
+  'auth',
+  'security',
+]);
+
+function textHasToken(text, token) {
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`(^|[\\/._-])${escaped}([\\/._-]|$)`, 'i');
+  return re.test(text);
+}
+
+function collectExternalImports(importEntries) {
+  const packages = new Set();
+  if (!Array.isArray(importEntries)) return [];
+
+  for (const entry of importEntries) {
+    const importPath = getImportPath(entry);
+    if (!importPath || importPath.startsWith('.')) {
+      continue;
+    }
+    const externalPackage = getExternalPackageName(importPath);
+    if (externalPackage) {
+      packages.add(externalPackage);
+    }
+  }
+
+  return [...packages];
+}
+
+function inferRoleTags(filePath, originalName, fileContent, importEntries, type) {
+  const content = (fileContent || '').toLowerCase();
+  const pathText = normalizePath(filePath || '').toLowerCase();
+  const nameText = (originalName || '').toLowerCase();
+  const externalImports = collectExternalImports(importEntries).join(' ').toLowerCase();
+  const combined = `${pathText} ${nameText} ${content} ${externalImports}`;
+
+  const tags = new Set();
+
+  for (const [tag, tokens] of Object.entries(ROLE_PATTERNS)) {
+    for (const token of tokens) {
+      if (textHasToken(combined, token)) {
+        tags.add(tag);
+        break;
+      }
+    }
+  }
+
+  if (type === 'service') {
+    tags.add('service');
+  }
+
+  if (tags.size === 0) {
+    tags.add('general');
+  }
+
+  return [...tags];
+}
+
+function hasRole(component, role) {
+  return (Array.isArray(component.roleTags) && component.roleTags.includes(role));
+}
+
+function componentsByRole(components, role) {
+  if (!Array.isArray(components)) return [];
+  return components.filter((component) => hasRole(component, role));
+}
+
+function getExternalPackageList(importEntries) {
+  const packages = collectExternalImports(importEntries);
+  if (!packages.length) return [];
+  return packages.map((pkg) => ({
+    name: pkg,
+    label: pkg,
+  }));
+}
+
+function mapSafeNames(components) {
+  const map = new Map();
+  const used = new Set();
+
+  for (const component of components) {
+    const rawName = sanitize(component.name || component.originalName || 'node');
+    if (!used.has(rawName)) {
+      map.set(component, rawName);
+      used.add(rawName);
+      continue;
+    }
+
+    let i = 1;
+    let candidate = `${rawName}_${i}`;
+    while (used.has(candidate)) {
+      i += 1;
+      candidate = `${rawName}_${i}`;
+    }
+    map.set(component, candidate);
+    used.add(candidate);
+  }
+
+  return map;
+}
+
+function byNameIndex(components) {
+  const map = new Map();
+  if (!Array.isArray(components)) return map;
+  for (const component of components) {
+    if (component && component.name) {
+      map.set(component.name, component);
+    }
+  }
+  return map;
+}
+
+function resolveDependencyComponent(component, componentsByName, name) {
+  if (!component || !name || !componentsByName) return null;
+  return componentsByName.get(name) || null;
+}
+
+function collectConnectedComponents(components, seedComponents, maxDepth = 2, maxNodes = 35) {
+  if (!Array.isArray(components)) return [];
+  if (!Array.isArray(seedComponents) || seedComponents.length === 0) return [];
+
+  const byName = byNameIndex(components);
+  const selected = new Map();
+  const queue = [];
+
+  for (const seed of seedComponents) {
+    if (seed && seed.name && !selected.has(seed.name)) {
+      selected.set(seed.name, seed);
+      queue.push(seed);
+    }
+  }
+
+  let depth = 0;
+  const visited = new Set();
+  while (queue.length > 0 && depth < maxDepth) {
+    const levelSize = queue.length;
+    for (let i = 0; i < levelSize; i++) {
+      const current = queue.shift();
+      if (!current || typeof current.name !== 'string') continue;
+      const depthKey = `${current.name}:${depth}`;
+      if (visited.has(depthKey)) continue;
+      visited.add(depthKey);
+
+      const next = [];
+      for (const depName of current.dependencies || []) {
+        const dependency = byName.get(depName);
+        if (dependency && !selected.has(depName)) {
+          selected.set(depName, dependency);
+          next.push(dependency);
+        }
+      }
+
+      for (const candidate of components) {
+        if (selected.has(candidate.name)) continue;
+        const reverseDependencies = Array.isArray(candidate.dependencies) ? candidate.dependencies : [];
+        if (reverseDependencies.includes(current.name)) {
+          selected.set(candidate.name, candidate);
+          next.push(candidate);
+        }
+      }
+
+      for (const n of next) {
+        if (selected.size >= maxNodes) break;
+        queue.push(n);
+      }
+      if (selected.size >= maxNodes) break;
+    }
+    depth += 1;
+  }
+
+  return [...selected.values()];
+}
+
+function inferDbIntent(component) {
+  const source = `${component.filePath || ''} ${component.originalName || ''} ${component.name || ''}`.toLowerCase();
+  const hasLookup = /(read|find|query|select|get|lookup|exists|fetch)/.test(source);
+  const hasWrite = /(create|insert|update|upsert|save|delete|remove|write|transaction)/.test(source);
+  return { hasLookup, hasWrite };
+}
+
+function classifyAsGeneral(component) {
+  if (!component || !Array.isArray(component.roleTags)) return false;
+  return component.roleTags.includes('general') && component.roleTags.length === 1;
+}
+
 // Analysis
 async function analyze(rootPath, options) {
   // Validate maxFiles with strict parsing
@@ -306,12 +531,16 @@ async function analyze(rootPath, options) {
       }
       seenNames.add(uniqueName);
 
+      const imports = extractImportsWithPositions(content, lang);
+      const type = inferType(filePath, content);
+
       components.push({
         name: uniqueName,
         originalName: baseName,
         filePath: rel,
-        type: inferType(filePath, content),
-        imports: extractImportsWithPositions(content, lang),
+        type,
+        imports,
+        roleTags: inferRoleTags(rel, baseName, content, imports, type),
         directory: dir,
       });
     } catch (e) {
@@ -563,6 +792,282 @@ function generateFlow(data) {
   return lines.join('\n');
 }
 
+function generateDatabase(data) {
+  if (!data || !Array.isArray(data.components)) {
+    return 'flowchart TD\n  Note["No data available"]';
+  }
+
+  const lines = ['flowchart TD'];
+  const seeds = componentsByRole(data.components, 'database');
+  if (seeds.length === 0) {
+    lines.push('  Note["No database-focused components found"]');
+    return lines.join('\n');
+  }
+
+  const connected = collectConnectedComponents(data.components, seeds, 2, 28);
+  const byName = byNameIndex(connected);
+  const safeNames = mapSafeNames(connected);
+
+  lines.push('  UserRequest["User request"]');
+  lines.push('  Decision{Record exists?}');
+
+  const addedEdges = new Set();
+  for (const comp of connected) {
+    if (!seeds.includes(comp)) continue;
+    const safe = safeNames.get(comp);
+    if (!safe) continue;
+    lines.push(`  ${safe}["${escapeMermaid(comp.originalName)}"]`);
+    lines.push(`  UserRequest --> ${safe}`);
+
+    const intent = inferDbIntent(comp);
+    if (intent.hasLookup) {
+      const lookup = `${safe}_lookup`;
+      const create = `${safe}_create`;
+      const update = `${safe}_update`;
+      lines.push(`  ${safe} --> ${lookup}["lookup query"]`);
+      lines.push(`  ${lookup} --> Decision`);
+      lines.push(`  Decision -->|found| ${update}["update or modify"]`);
+      lines.push(`  Decision -->|not found| ${create}["insert/create"]`);
+      lines.push(`  ${update} --> ${safe}_result["result"]`);
+      lines.push(`  ${create} --> ${safe}_result["result"]`);
+    } else if (intent.hasWrite) {
+      const write = `${safe}_write`;
+      lines.push(`  ${safe} --> ${write}["write/update"]`);
+      lines.push(`  ${write} --> ${safe}_result["result"]`);
+    } else {
+      const result = `${safe}_result`;
+      lines.push(`  ${safe} --> ${result}["result"]`);
+    }
+
+    for (const depName of comp.dependencies || []) {
+      const dep = byName.get(depName);
+      if (!dep || !safeNames.has(dep)) continue;
+      const edge = `${safe}->${safeNames.get(dep)}`;
+      if (!addedEdges.has(edge)) {
+        addedEdges.add(edge);
+        lines.push(`  ${safe} --> ${safeNames.get(dep)}`);
+      }
+    }
+  }
+
+  lines.push('  classDef dbNode fill:#0ea5e9,color:#fff');
+  lines.push('  classDef decisionNode fill:#0284c7,color:#fff');
+  return lines.join('\n');
+}
+
+function generateUserInteractions(data) {
+  if (!data || !Array.isArray(data.components)) {
+    return 'flowchart LR\n  Note["No data available"]';
+  }
+
+  const lines = ['flowchart LR'];
+  const seeds = componentsByRole(data.components, 'user');
+  if (seeds.length === 0) {
+    lines.push('  Note["No user-facing components found"]');
+    return lines.join('\n');
+  }
+
+  const connected = collectConnectedComponents(data.components, seeds, 1, 30);
+  const byName = byNameIndex(connected);
+  const safeNames = mapSafeNames(connected);
+  const edges = new Set();
+
+  lines.push('  User(("User"))');
+  for (const seed of seeds) {
+    const safe = safeNames.get(seed);
+    if (!safe) continue;
+    lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
+    lines.push(`  User --> ${safe}`);
+  }
+
+  for (const comp of connected) {
+    const from = safeNames.get(comp);
+    if (!from) continue;
+    for (const depName of comp.dependencies || []) {
+      const dep = byName.get(depName);
+      if (!dep) continue;
+      const to = safeNames.get(dep);
+      if (!to) continue;
+      const key = `${from}->${to}`;
+      if (!edges.has(key)) {
+        edges.add(key);
+        lines.push(`  ${from} --> ${to}`);
+      }
+    }
+  }
+
+  lines.push('  classDef userNode fill:#16a34a,color:#fff');
+  return lines.join('\n');
+}
+
+function generateEvents(data) {
+  if (!data || !Array.isArray(data.components)) {
+    return 'flowchart TD\n  Note["No data available"]';
+  }
+
+  const lines = ['flowchart TD'];
+  const seeds = componentsByRole(data.components, 'events');
+  if (seeds.length === 0) {
+    lines.push('  Note["No event/channels components found"]');
+    return lines.join('\n');
+  }
+
+  const connected = collectConnectedComponents(data.components, seeds, 2, 30);
+  const byName = byNameIndex(connected);
+  const safeNames = mapSafeNames(connected);
+  const edges = new Set();
+
+  lines.push('  subgraph Channels["Event channels / queues"]');
+  for (const component of connected) {
+    const safe = safeNames.get(component);
+    if (!safe) continue;
+    const isEventSource = seeds.includes(component);
+    if (isEventSource) {
+      lines.push(`    ${safe}{{"${escapeMermaid(component.originalName)}"}}`);
+    } else {
+      lines.push(`    ${safe}["${escapeMermaid(component.originalName)}"]`);
+    }
+  }
+  lines.push('  end');
+
+  for (const comp of connected) {
+    const from = safeNames.get(comp);
+    if (!from) continue;
+    for (const depName of comp.dependencies || []) {
+      const dep = byName.get(depName);
+      if (!dep) continue;
+      const to = safeNames.get(dep);
+      if (!to) continue;
+      const edge = `${from}->${to}`;
+      if (!edges.has(edge)) {
+        edges.add(edge);
+        const label = seeds.includes(comp) ? '|emit|' : '|consume|';
+        lines.push(`  ${from} -->${label} ${to}`);
+      }
+    }
+  }
+
+  lines.push('  classDef eventNode fill:#db2777,color:#fff');
+  return lines.join('\n');
+}
+
+function generateAuth(data) {
+  if (!data || !Array.isArray(data.components)) {
+    return 'flowchart TD\n  Note["No data available"]';
+  }
+
+  const lines = ['flowchart TD'];
+  const seeds = componentsByRole(data.components, 'auth');
+  if (seeds.length === 0) {
+    lines.push('  Note["No authentication components found"]');
+    return lines.join('\n');
+  }
+
+  const connected = collectConnectedComponents(data.components, seeds, 2, 24);
+  const byName = byNameIndex(connected);
+  const safeNames = mapSafeNames(connected);
+  const edges = new Set();
+
+  lines.push('  Request["Authentication request"]');
+  lines.push('  Boundary{"Auth Boundary"}');
+  lines.push('  Request --> Boundary');
+
+  for (const seed of seeds) {
+    const safe = safeNames.get(seed);
+    if (!safe) continue;
+    lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
+    const key = `Boundary->${safe}`;
+    if (!edges.has(key)) {
+      edges.add(key);
+      lines.push(`  Boundary --> ${safe}`);
+    }
+  }
+
+  for (const comp of connected) {
+    const from = safeNames.get(comp);
+    if (!from) continue;
+    for (const depName of comp.dependencies || []) {
+      const dep = byName.get(depName);
+      if (!dep) continue;
+      const to = safeNames.get(dep);
+      if (!to) continue;
+      const key = `${from}->${to}`;
+      if (!edges.has(key)) {
+        edges.add(key);
+        lines.push(`  ${from} --> ${to}`);
+      }
+    }
+  }
+
+  const providerSet = new Set();
+  for (const seed of seeds) {
+    for (const pkg of collectExternalImports(seed.imports || [])) {
+      providerSet.add(pkg);
+    }
+  }
+  for (const provider of providerSet) {
+    const providerNode = sanitize(provider);
+    lines.push(`  ${providerNode}[("${escapeMermaid(provider)}")]`);
+  }
+
+  lines.push('  classDef authNode fill:#7c3aed,color:#fff');
+  return lines.join('\n');
+}
+
+function generateSecurity(data) {
+  if (!data || !Array.isArray(data.components)) {
+    return 'flowchart TD\n  Note["No data available"]';
+  }
+
+  const lines = ['flowchart TD'];
+  const seeds = [
+    ...componentsByRole(data.components, 'security'),
+    ...componentsByRole(data.components, 'auth'),
+    ...componentsByRole(data.components, 'integrations'),
+  ].filter((value, index, arr) => arr.indexOf(value) === index);
+
+  if (seeds.length === 0) {
+    lines.push('  Note["No security-focused components found"]');
+    return lines.join('\n');
+  }
+
+  const connected = collectConnectedComponents(data.components, seeds, 2, 40);
+  const byName = byNameIndex(connected);
+  const safeNames = mapSafeNames(connected);
+  const edges = new Set();
+
+  lines.push('  Untrusted["Untrusted input"]');
+  for (const seed of seeds) {
+    const safe = safeNames.get(seed);
+    if (!safe) continue;
+    lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
+    const key = `Untrusted->${safe}`;
+    if (!edges.has(key)) {
+      edges.add(key);
+      lines.push(`  Untrusted --> ${safe}`);
+    }
+  }
+
+  for (const comp of connected) {
+    const from = safeNames.get(comp);
+    if (!from) continue;
+    for (const depName of comp.dependencies || []) {
+      const dep = byName.get(depName);
+      if (!dep) continue;
+      const to = safeNames.get(dep);
+      if (!to) continue;
+      const key = `${from}->${to}`;
+      if (!edges.has(key)) {
+        edges.add(key);
+        lines.push(`  ${from} --> ${to}`);
+      }
+    }
+  }
+
+  lines.push('  classDef securityNode fill:#dc2626,color:#fff');
+  return lines.join('\n');
+}
+
 function generate(data, type, focus) {
   switch (type) {
     case 'architecture': return generateArchitecture(data, focus);
@@ -570,10 +1075,77 @@ function generate(data, type, focus) {
     case 'dependency': return generateDependency(data, focus);
     case 'class': return generateClass(data);
     case 'flow': return generateFlow(data);
+    case 'database': return generateDatabase(data);
+    case 'user': return generateUserInteractions(data);
+    case 'events': return generateEvents(data);
+    case 'auth': return generateAuth(data);
+    case 'security': return generateSecurity(data);
     default: 
       console.warn(chalk.yellow(`⚠️  Unknown diagram type "${type}", using architecture`));
       return generateArchitecture(data, focus);
   }
+}
+
+function isPlaceholderDiagram(mermaidCode) {
+  if (!mermaidCode || typeof mermaidCode !== 'string') return true;
+  const compact = mermaidCode.toLowerCase();
+  return compact.includes('note["no data available"]')
+    || compact.includes('note["no components found')
+    || compact.includes('no services detected')
+    || compact.includes('note "no data available"')
+    || compact.includes('note "no classes found"')
+    || compact.includes('note["no database-focused components found"]')
+    || compact.includes('note["no user-facing components found"]')
+    || compact.includes('note["no event/channels components found"]')
+    || compact.includes('note["no authentication components found"]')
+    || compact.includes('note["no security-focused components found"]')
+    || compact.includes('no architecture data');
+}
+
+function toManifestEntry(type, filePath, mermaidCode, rootPath) {
+  const lines = typeof mermaidCode === 'string' ? mermaidCode.split('\n') : [];
+  return {
+    type,
+    file: path.basename(filePath),
+    outputPath: rootPath ? path.relative(rootPath, filePath) : filePath,
+    lines: lines.length,
+    bytes: Buffer.byteLength(mermaidCode || '', 'utf8'),
+    isPlaceholder: isPlaceholderDiagram(mermaidCode),
+  };
+}
+
+function parseCommaSeparatedList(value) {
+  if (!value || typeof value !== 'string') return [];
+  return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
+function buildManifestSummary(manifest) {
+  if (!manifest || !Array.isArray(manifest.diagrams)) {
+    return null;
+  }
+
+  const diagrams = manifest.diagrams
+    .map((diagram) => ({
+      ...diagram,
+      isPlaceholder: Boolean(diagram.isPlaceholder),
+    }))
+    .filter((entry) => entry && typeof entry.type === 'string' && entry.file);
+
+  const missing = SUPPORTED_DIAGRAM_TYPES.filter(
+    (type) => !diagrams.some((diagram) => diagram.type === type)
+  );
+  const placeholderTypes = diagrams.filter((diagram) => diagram.isPlaceholder).map((diagram) => diagram.type);
+
+  return {
+    generatedAt: manifest.generatedAt || new Date().toISOString(),
+    rootPath: manifest.rootPath,
+    diagramDir: manifest.diagramDir,
+    totalDiagrams: diagrams.length,
+    placeholders: placeholderTypes.length,
+    placeholderTypes,
+    missingTypes: missing,
+    diagrams,
+  };
 }
 
 // URL shortening for large diagrams
@@ -760,7 +1332,7 @@ program
 program
   .command('generate [path]')
   .description('Generate a diagram')
-  .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow', 'architecture')
+  .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, user, events, auth, security', 'architecture')
   .option('-f, --focus <module>', 'Focus on specific module')
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
@@ -868,16 +1440,132 @@ program
     
     if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
     
-    const types = ['architecture', 'sequence', 'dependency', 'class', 'flow'];
+    const types = [...SUPPORTED_DIAGRAM_TYPES];
+    const manifest = {
+      generatedAt: new Date().toISOString(),
+      rootPath: root,
+      diagramDir: path.relative(root, outDir) || '.',
+      diagrams: [],
+    };
     
     for (const type of types) {
       const mermaid = generate(data, type);
       const file = path.join(outDir, `${type}.mmd`);
       fs.writeFileSync(file, mermaid);
+      manifest.diagrams.push(toManifestEntry(type, file, mermaid, root));
       console.log(chalk.green('✅'), type, '→', file);
     }
+
+    const manifestPath = path.join(outDir, 'manifest.json');
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    console.log(chalk.green('✅ manifest'), '→', manifestPath);
     
     console.log(chalk.cyan('\n🔗 Preview all at: https://mermaid.live'));
+  });
+
+program
+  .command('manifest [path]')
+  .description('Summarize manifest.json from a diagram output directory')
+  .option('-d, --manifest-dir <dir>', 'Directory containing manifest.json', '.diagram')
+  .option('-o, --output <file>', 'Write summary JSON to a file')
+  .option('--require-types <list>', 'Require all listed diagram types, comma-separated')
+  .option(
+    '--fail-on-placeholder',
+    'Fail if any required diagram was a placeholder (or any placeholder if no required types are set)'
+  )
+  .action(async (targetPath, options) => {
+    const root = resolveRootPathOrExit(targetPath);
+    const manifestDir = path.join(root, options.manifestDir || '.diagram');
+    const manifestPath = path.join(manifestDir, 'manifest.json');
+
+    let safeManifestPath;
+    try {
+      safeManifestPath = validateExistingPathInRoot(manifestPath, root, 'manifest path');
+    } catch (err) {
+      console.error(chalk.red('❌ Manifest error:'), err.message);
+      process.exit(2);
+    }
+
+    let manifestRaw;
+    try {
+      manifestRaw = fs.readFileSync(safeManifestPath, 'utf8');
+    } catch (err) {
+      console.error(chalk.red('❌ Manifest read failed:'), err.message);
+      process.exit(2);
+    }
+
+    let parsedManifest;
+    try {
+      parsedManifest = JSON.parse(manifestRaw);
+    } catch (err) {
+      console.error(chalk.red('❌ Manifest parse failed:'), err.message);
+      process.exit(2);
+    }
+
+    const summary = buildManifestSummary(parsedManifest);
+    if (!summary) {
+      console.error(chalk.red('❌ Invalid manifest format'));
+      process.exit(2);
+    }
+
+    const required = parseCommaSeparatedList(options.requireTypes);
+    const missingRequired = required.filter((type) => !summary.diagrams.some((d) => d.type === type));
+    summary.required = {
+      requested: required,
+      missing: missingRequired,
+    };
+
+    if (required.length > 0 && missingRequired.length > 0) {
+      console.error(chalk.red(`❌ Manifest missing required diagram types: ${missingRequired.join(', ')}`));
+      process.exit(2);
+    }
+
+    const placeholderTypesToCheck = required.length > 0
+      ? summary.placeholderTypes.filter((type) => required.includes(type))
+      : summary.placeholderTypes;
+
+    if (options.failOnPlaceholder && placeholderTypesToCheck.length > 0) {
+      console.error(
+        chalk.yellow(
+          `⚠️  Manifest includes ${placeholderTypesToCheck.length} required placeholder diagram(s): ${placeholderTypesToCheck.join(', ')}`
+        )
+      );
+      process.exit(2);
+    }
+
+    if (options.output) {
+      let safeOutput;
+      try {
+        safeOutput = validateOutputPath(options.output, root);
+      } catch (err) {
+        console.error(chalk.red('❌ Output path error:'), err.message);
+        process.exit(2);
+      }
+
+      const outputDir = path.dirname(safeOutput);
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
+      }
+
+      fs.writeFileSync(safeOutput, `${JSON.stringify(summary, null, 2)}\n`);
+      console.log(chalk.green('✅ manifest summary'), '→', safeOutput);
+      return;
+    }
+
+    console.log(chalk.blue('\n📘 Manifest summary for'), safeManifestPath);
+    console.log(`  Total: ${summary.totalDiagrams}`);
+    console.log(`  Placeholder: ${summary.placeholders}`);
+    if (summary.missingTypes.length > 0) {
+      console.log(chalk.yellow(`  Missing expected (all supported): ${summary.missingTypes.join(', ')}`));
+    }
+    if (summary.placeholderTypes.length > 0) {
+      console.log(chalk.yellow(`  Placeholder types: ${summary.placeholderTypes.join(', ')}`));
+    }
+    console.log('');
+    for (const entry of summary.diagrams) {
+      const status = entry.isPlaceholder ? chalk.yellow('placeholder') : chalk.green('ok');
+      console.log(`  ${status} ${entry.type} -> ${entry.file}`);
+    }
   });
 
 program
