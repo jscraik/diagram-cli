@@ -47,10 +47,7 @@
     }
   ],
   "docsDriftRules": {
-    "docs/**/*.md": {
-      "codeRefs": ["src/**/*.js", "README.md"],
-      "maxStaleDays": 60
-    }
+    "docs/**/*.md": ["require-review"]
   },
   "reviewPolicy": {
     "timeoutSeconds": 600,
@@ -60,8 +57,7 @@
     "requiredFor": ["src/diagram.js", "src/rules.js"],
     "allowedTypes": [
       "png",
-      "jpeg",
-      "svg"
+      "jpeg"
     ],
     "maxFileSizeBytes": 2097152
   },
@@ -69,9 +65,6 @@
     "maxFiles": 8,
     "maxNetLOC": 300,
     "overrideLabel": "diff-budget-override"
-  },
-  "uiLoopPolicy": {
-    "enabled": false
   },
   "runtimePolicy": {
     "nodeVersion": "18.x"
