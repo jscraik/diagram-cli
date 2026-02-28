@@ -408,3 +408,4 @@ node src/diagram.js --help
 ## License
 
 MIT - see [LICENSE](LICENSE).
+
