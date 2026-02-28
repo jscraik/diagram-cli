@@ -11,6 +11,9 @@ const crypto = require('crypto');
 const zlib = require('zlib');
 const { getOpenCommand, getNpxCommandCandidates } = require('./utils/commands');
 
+// Read version from package.json
+const packageJson = require('../package.json');
+
 // Video generation (lazy loaded)
 let videoModule;
 function getVideoModule() {
@@ -1294,7 +1297,7 @@ function validateExistingPathInRoot(targetPath, rootPath, label = 'path') {
 program
   .name('diagram')
   .description('Generate architecture diagrams from code')
-  .version('1.0.0');
+  .version(packageJson.version);
 
 program
   .command('analyze [path]')
