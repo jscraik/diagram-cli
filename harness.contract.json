@@ -20,32 +20,6 @@
     ],
     "low": []
   },
-  "blastRadiusRules": [
-    {
-      "pattern": "src/**/*.js",
-      "checks": [
-        "test-run",
-        "lint"
-      ],
-      "description": "CLI core changes require tests"
-    },
-    {
-      "pattern": "src/rules/**/*.js",
-      "checks": [
-        "test-run",
-        "test-deep"
-      ],
-      "description": "Rules engine changes require deep regression"
-    },
-    {
-      "pattern": "harness.contract.json",
-      "checks": [
-        "contract-validate",
-        "policy-gate"
-      ],
-      "description": "Contract changes impact policy enforcement"
-    }
-  ],
   "docsDriftRules": {
     "docs/**/*.md": ["require-review"]
   },
@@ -65,6 +39,15 @@
     "maxFiles": 8,
     "maxNetLOC": 300,
     "overrideLabel": "diff-budget-override"
+  },
+  "uiLoopPolicy": {
+    "fastCommand": "npm ui:fast",
+    "verifyCommand": "npm ui:verify",
+    "exploreCommand": "npm ui:explore",
+    "sloTargets": {
+      "fastLoopSeconds": 30,
+      "verifyLoopSeconds": 120
+    }
   },
   "runtimePolicy": {
     "nodeVersion": "18.x"
@@ -122,7 +105,7 @@
   },
   "remediationPolicy": {
     "providerDefaults": {
-      "codeql": {
+      "greptile": {
         "autoApplyMaxTier": "medium",
         "dryRunOnlyByDefault": true
       },
@@ -131,25 +114,36 @@
         "dryRunOnlyByDefault": true
       }
     },
-    "canonicalRerunWorkflow": "greptile-rerun.yml",
-    "marker": "<!-- harness-remediation-rerun -->",
-    "timeoutMinutes": 20,
+    "marker": "[auto-remediate]",
+    "timeoutMinutes": 10,
     "retryLimit": 3,
     "requireEvidence": true
   },
-  "gapCasePolicy": {
-    "requiredEvidenceStatuses": [
-      "passed",
-      "approved"
+  "pilotGapCasePolicy": {
+    "enabled": false,
+    "defaultSlaHours": 72,
+    "requireClosureEvidence": true,
+    "storePath": ".harness/gap-cases.v1.json"
+  },
+  "pilotRollbackPolicy": {
+    "autoTrigger": true,
+    "requireManualRelease": true,
+    "completionMarkerPath": ".harness/rollback-marker.json",
+    "mode": "manual"
+  },
+  "pilotAuthzPolicy": {
+    "githubScopeAllowlist": [
+      "pull_requests:write",
+      "contents:read",
+      "issues:write"
     ],
-    "requiredCloseReasons": [
-      "fix",
-      "workaround",
-      "waived"
+    "repoAllowlist": [],
+    "branchAllowlist": [],
+    "protectedBranchDenylist": [
+      "main",
+      "master",
+      "release/*"
     ],
-    "defaultDueDays": 7,
-    "caseIdPrefix": "gap-",
-    "caseStore": ".harness/gap-cases.json",
-    "allowEvidencelessResolve": false
+    "enforceBranchProtection": true
   }
 }
