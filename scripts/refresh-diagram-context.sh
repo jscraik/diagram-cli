@@ -271,15 +271,14 @@ cat "$TMP_CONTEXT_SECTIONS" >> "$TMP_CONTEXT"
   cat "$TMP_CONTEXT_INDEX"
 } > "$TMP_LITE"
 
-CONTEXT_SHA="$(shasum -a 256 "$TMP_CONTEXT" | awk '{print $1}')"
 GIT_HEAD="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 CHANGED=true
 
 # Compare content without timestamp for deterministic change detection
+# Use sed to remove the "Generated:" line AND the following blank line for proper comparison
 if [[ -f "$CONTEXT_FILE" ]]; then
-  # Strip "Generated:" line from both files for comparison
-  existing_content="$(grep -v '^Generated: ' "$CONTEXT_FILE" 2>/dev/null || cat "$CONTEXT_FILE")"
-  new_content="$(grep -v '^Generated: ' "$TMP_CONTEXT" 2>/dev/null || cat "$TMP_CONTEXT")"
+  existing_content="$(sed '/^Generated: /d' "$CONTEXT_FILE" 2>/dev/null | sed '/^$/N;/^\n$/D')"
+  new_content="$(cat "$TMP_CONTEXT" | sed '/^$/N;/^\n$/D')"
   if [[ "$existing_content" == "$new_content" ]]; then
     CHANGED=false
   fi
@@ -309,6 +308,9 @@ fi
   echo
   cat "$TMP_CONTEXT_INDEX"
 } > "$TMP_LITE"
+
+# Compute hash AFTER final context is assembled so it matches the actual file
+CONTEXT_SHA="$(shasum -a 256 "$TMP_CONTEXT" | awk '{print $1}')"
 
 rm -f "$DIAGRAM_DIR"/*.mmd
 cp "$TMP_DIR"/diagrams/*.mmd "$DIAGRAM_DIR/"
