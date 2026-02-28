@@ -626,13 +626,6 @@ function validateOutputPath(outputPath, rootPath) {
     ? path.resolve(outputPath)
     : path.resolve(realRoot, outputPath);
 
-  if (!isAbsolute) {
-    const relative = path.relative(realRoot, resolved);
-    if (relative.startsWith('..') || path.isAbsolute(relative)) {
-      throw new Error(`Invalid path: directory traversal detected in "${outputPath}"`);
-    }
-  }
-
   const resolveViaExistingAncestor = (targetPath) => {
     const pending = [];
     let probe = targetPath;
@@ -651,6 +644,16 @@ function validateOutputPath(outputPath, rootPath) {
   };
 
   const canonicalResolved = resolveViaExistingAncestor(resolved);
+
+  // For relative paths, verify the resolved path stays within root after symlink resolution
+  // Absolute paths are allowed anywhere (user's explicit choice)
+  if (!isAbsolute) {
+    const relative = path.relative(realRoot, canonicalResolved);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error(`Invalid path: directory traversal detected in "${outputPath}"`);
+    }
+  }
+
   return canonicalResolved;
 }
 
