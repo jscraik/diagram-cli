@@ -58,7 +58,15 @@ function run() {
   );
   fs.writeFileSync(
     path.join(workspace, 'src', 'events.js'),
-    'const bus = require("eventemitter3");\nfunction publish(event) { bus.emit(event); }\nmodule.exports = { publish };\n'
+    'const bus = require("eventemitter3");\nconst hub = require("./evt-hub");\nfunction publish(event) { bus.emit(event); hub.publish(event); }\nmodule.exports = { publish };\n'
+  );
+  fs.writeFileSync(
+    path.join(workspace, 'src', 'evt-hub.js'),
+    'function publish(payload) { return payload; }\nmodule.exports = { publish };\n'
+  );
+  fs.writeFileSync(
+    path.join(workspace, 'src', 'pipeline.js'),
+    'const hub = require("./evt-hub");\nmodule.exports = function runPipeline(input) { return hub.publish(input); };\n'
   );
   fs.writeFileSync(
     path.join(workspace, 'src', 'auth.js'),
@@ -145,13 +153,36 @@ function run() {
     ['security', securityOutput, 'Untrusted input', 'security flow']
   ];
 
+  const generatedTextByType = new Map();
   for (const [type, output, marker, label] of generateAI) {
     const result = runCLI(['generate', '.', '--type', type, '--output', output], workspace);
     assert.strictEqual(result.status, 0, `generate ${type} expected success, got ${result.status}`);
     assert.ok(fs.existsSync(output), `${label} output should be written`);
     const text = fs.readFileSync(output, 'utf8');
     assert.ok(text.includes(marker), `expected ${type} output to include ${marker}`);
+    generatedTextByType.set(type, text);
   }
+
+  const databaseText = generatedTextByType.get('database');
+  assert.ok(databaseText.includes('classDef dbNode'), 'database diagram should define dbNode class style');
+  assert.ok(databaseText.includes('class Decision decisionNode'), 'database diagram should style Decision node');
+
+  const userText = generatedTextByType.get('user');
+  assert.ok(userText.includes('classDef userNode'), 'user diagram should define userNode class style');
+  assert.match(userText, /class\s+.+\s+userNode/, 'user diagram should assign userNode class');
+
+  const eventsText = generatedTextByType.get('events');
+  assert.ok(eventsText.includes('classDef eventNode'), 'events diagram should define eventNode class style');
+  assert.ok(eventsText.includes('-->|emit|'), 'events diagram should include emit-labeled edge');
+  assert.ok(eventsText.includes('-->|consume|'), 'events diagram should include consume-labeled edge');
+
+  const authText = generatedTextByType.get('auth');
+  assert.ok(authText.includes('classDef authNode'), 'auth diagram should define authNode class style');
+  assert.match(authText, /class\s+.+\s+authNode/, 'auth diagram should assign authNode class');
+
+  const securityText = generatedTextByType.get('security');
+  assert.ok(securityText.includes('classDef securityNode'), 'security diagram should define securityNode class style');
+  assert.match(securityText, /class\s+.+\s+securityNode/, 'security diagram should assign securityNode class');
 
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 
