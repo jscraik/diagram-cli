@@ -336,15 +336,6 @@ function componentsByRole(components, role) {
   return components.filter((component) => hasRole(component, role));
 }
 
-function getExternalPackageList(importEntries) {
-  const packages = collectExternalImports(importEntries);
-  if (!packages.length) return [];
-  return packages.map((pkg) => ({
-    name: pkg,
-    label: pkg,
-  }));
-}
-
 function mapSafeNames(components) {
   const map = new Map();
   const used = new Set();
@@ -379,11 +370,6 @@ function byNameIndex(components) {
     }
   }
   return map;
-}
-
-function resolveDependencyComponent(component, componentsByName, name) {
-  if (!component || !name || !componentsByName) return null;
-  return componentsByName.get(name) || null;
 }
 
 function collectConnectedComponents(components, seedComponents, maxDepth = 2, maxNodes = 35) {
@@ -442,16 +428,50 @@ function collectConnectedComponents(components, seedComponents, maxDepth = 2, ma
   return [...selected.values()];
 }
 
+function buildRoleDiagramContext(data, seeds, maxDepth = 2, maxNodes = 30) {
+  const connected = collectConnectedComponents(data.components, seeds, maxDepth, maxNodes);
+  return {
+    connected,
+    byName: byNameIndex(connected),
+    safeNames: mapSafeNames(connected),
+  };
+}
+
+function appendDependencyEdges(lines, sourceComponents, byName, safeNames, edges, edgeLabelFn) {
+  for (const comp of sourceComponents) {
+    const from = safeNames.get(comp);
+    if (!from) continue;
+    for (const depName of comp.dependencies || []) {
+      const dep = byName.get(depName);
+      if (!dep) continue;
+      const to = safeNames.get(dep);
+      if (!to) continue;
+      const key = `${from}->${to}`;
+      if (edges.has(key)) continue;
+      edges.add(key);
+
+      const label = typeof edgeLabelFn === 'function' ? edgeLabelFn(comp, dep) : null;
+      if (label) {
+        lines.push(`  ${from} -->|${label}| ${to}`);
+      } else {
+        lines.push(`  ${from} --> ${to}`);
+      }
+    }
+  }
+}
+
+function appendClassAssignment(lines, nodeIds, className) {
+  if (!Array.isArray(nodeIds) || nodeIds.length === 0) return;
+  const unique = [...new Set(nodeIds.filter(Boolean))];
+  if (unique.length === 0) return;
+  lines.push(`  class ${unique.join(',')} ${className}`);
+}
+
 function inferDbIntent(component) {
   const source = `${component.filePath || ''} ${component.originalName || ''} ${component.name || ''}`.toLowerCase();
   const hasLookup = /(read|find|query|select|get|lookup|exists|fetch)/.test(source);
   const hasWrite = /(create|insert|update|upsert|save|delete|remove|write|transaction)/.test(source);
   return { hasLookup, hasWrite };
-}
-
-function classifyAsGeneral(component) {
-  if (!component || !Array.isArray(component.roleTags)) return false;
-  return component.roleTags.includes('general') && component.roleTags.length === 1;
 }
 
 // Analysis
@@ -807,22 +827,23 @@ function generateDatabase(data) {
     return lines.join('\n');
   }
 
-  const connected = collectConnectedComponents(data.components, seeds, 2, 28);
-  const byName = byNameIndex(connected);
-  const safeNames = mapSafeNames(connected);
+  const { byName, safeNames } = buildRoleDiagramContext(data, seeds, 2, 28);
 
   lines.push('  UserRequest["User request"]');
   lines.push('  Decision{Record exists?}');
 
   const addedEdges = new Set();
-  for (const comp of connected) {
-    if (!seeds.includes(comp)) continue;
-    const safe = safeNames.get(comp);
+  const dbNodeIds = [];
+
+  for (const seed of seeds) {
+    const safe = safeNames.get(seed);
     if (!safe) continue;
-    lines.push(`  ${safe}["${escapeMermaid(comp.originalName)}"]`);
+
+    dbNodeIds.push(safe);
+    lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
     lines.push(`  UserRequest --> ${safe}`);
 
-    const intent = inferDbIntent(comp);
+    const intent = inferDbIntent(seed);
     if (intent.hasLookup) {
       const lookup = `${safe}_lookup`;
       const create = `${safe}_create`;
@@ -841,20 +862,14 @@ function generateDatabase(data) {
       const result = `${safe}_result`;
       lines.push(`  ${safe} --> ${result}["result"]`);
     }
-
-    for (const depName of comp.dependencies || []) {
-      const dep = byName.get(depName);
-      if (!dep || !safeNames.has(dep)) continue;
-      const edge = `${safe}->${safeNames.get(dep)}`;
-      if (!addedEdges.has(edge)) {
-        addedEdges.add(edge);
-        lines.push(`  ${safe} --> ${safeNames.get(dep)}`);
-      }
-    }
   }
+
+  appendDependencyEdges(lines, seeds, byName, safeNames, addedEdges);
 
   lines.push('  classDef dbNode fill:#0ea5e9,color:#fff');
   lines.push('  classDef decisionNode fill:#0284c7,color:#fff');
+  appendClassAssignment(lines, dbNodeIds, 'dbNode');
+  lines.push('  class Decision decisionNode');
   return lines.join('\n');
 }
 
@@ -870,36 +885,23 @@ function generateUserInteractions(data) {
     return lines.join('\n');
   }
 
-  const connected = collectConnectedComponents(data.components, seeds, 1, 30);
-  const byName = byNameIndex(connected);
-  const safeNames = mapSafeNames(connected);
+  const { connected, byName, safeNames } = buildRoleDiagramContext(data, seeds, 1, 30);
   const edges = new Set();
+  const userNodeIds = [];
 
   lines.push('  User(("User"))');
   for (const seed of seeds) {
     const safe = safeNames.get(seed);
     if (!safe) continue;
+    userNodeIds.push(safe);
     lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
     lines.push(`  User --> ${safe}`);
   }
 
-  for (const comp of connected) {
-    const from = safeNames.get(comp);
-    if (!from) continue;
-    for (const depName of comp.dependencies || []) {
-      const dep = byName.get(depName);
-      if (!dep) continue;
-      const to = safeNames.get(dep);
-      if (!to) continue;
-      const key = `${from}->${to}`;
-      if (!edges.has(key)) {
-        edges.add(key);
-        lines.push(`  ${from} --> ${to}`);
-      }
-    }
-  }
+  appendDependencyEdges(lines, connected, byName, safeNames, edges);
 
   lines.push('  classDef userNode fill:#16a34a,color:#fff');
+  appendClassAssignment(lines, userNodeIds, 'userNode');
   return lines.join('\n');
 }
 
@@ -915,10 +917,9 @@ function generateEvents(data) {
     return lines.join('\n');
   }
 
-  const connected = collectConnectedComponents(data.components, seeds, 2, 30);
-  const byName = byNameIndex(connected);
-  const safeNames = mapSafeNames(connected);
+  const { connected, byName, safeNames } = buildRoleDiagramContext(data, seeds, 2, 30);
   const edges = new Set();
+  const eventNodeIds = [];
 
   lines.push('  subgraph Channels["Event channels / queues"]');
   for (const component of connected) {
@@ -926,6 +927,7 @@ function generateEvents(data) {
     if (!safe) continue;
     const isEventSource = seeds.includes(component);
     if (isEventSource) {
+      eventNodeIds.push(safe);
       lines.push(`    ${safe}{{"${escapeMermaid(component.originalName)}"}}`);
     } else {
       lines.push(`    ${safe}["${escapeMermaid(component.originalName)}"]`);
@@ -933,24 +935,17 @@ function generateEvents(data) {
   }
   lines.push('  end');
 
-  for (const comp of connected) {
-    const from = safeNames.get(comp);
-    if (!from) continue;
-    for (const depName of comp.dependencies || []) {
-      const dep = byName.get(depName);
-      if (!dep) continue;
-      const to = safeNames.get(dep);
-      if (!to) continue;
-      const edge = `${from}->${to}`;
-      if (!edges.has(edge)) {
-        edges.add(edge);
-        const label = seeds.includes(comp) ? '|emit|' : '|consume|';
-        lines.push(`  ${from} -->${label} ${to}`);
-      }
-    }
-  }
+  appendDependencyEdges(
+    lines,
+    connected,
+    byName,
+    safeNames,
+    edges,
+    (comp) => (seeds.includes(comp) ? 'emit' : 'consume')
+  );
 
   lines.push('  classDef eventNode fill:#db2777,color:#fff');
+  appendClassAssignment(lines, eventNodeIds, 'eventNode');
   return lines.join('\n');
 }
 
@@ -966,10 +961,9 @@ function generateAuth(data) {
     return lines.join('\n');
   }
 
-  const connected = collectConnectedComponents(data.components, seeds, 2, 24);
-  const byName = byNameIndex(connected);
-  const safeNames = mapSafeNames(connected);
+  const { connected, byName, safeNames } = buildRoleDiagramContext(data, seeds, 2, 24);
   const edges = new Set();
+  const authNodeIds = [];
 
   lines.push('  Request["Authentication request"]');
   lines.push('  Boundary{"Auth Boundary"}');
@@ -978,6 +972,7 @@ function generateAuth(data) {
   for (const seed of seeds) {
     const safe = safeNames.get(seed);
     if (!safe) continue;
+    authNodeIds.push(safe);
     lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
     const key = `Boundary->${safe}`;
     if (!edges.has(key)) {
@@ -986,21 +981,7 @@ function generateAuth(data) {
     }
   }
 
-  for (const comp of connected) {
-    const from = safeNames.get(comp);
-    if (!from) continue;
-    for (const depName of comp.dependencies || []) {
-      const dep = byName.get(depName);
-      if (!dep) continue;
-      const to = safeNames.get(dep);
-      if (!to) continue;
-      const key = `${from}->${to}`;
-      if (!edges.has(key)) {
-        edges.add(key);
-        lines.push(`  ${from} --> ${to}`);
-      }
-    }
-  }
+  appendDependencyEdges(lines, connected, byName, safeNames, edges);
 
   const providerSet = new Set();
   for (const seed of seeds) {
@@ -1014,6 +995,7 @@ function generateAuth(data) {
   }
 
   lines.push('  classDef authNode fill:#7c3aed,color:#fff');
+  appendClassAssignment(lines, authNodeIds, 'authNode');
   return lines.join('\n');
 }
 
@@ -1034,15 +1016,15 @@ function generateSecurity(data) {
     return lines.join('\n');
   }
 
-  const connected = collectConnectedComponents(data.components, seeds, 2, 40);
-  const byName = byNameIndex(connected);
-  const safeNames = mapSafeNames(connected);
+  const { connected, byName, safeNames } = buildRoleDiagramContext(data, seeds, 2, 40);
   const edges = new Set();
+  const securityNodeIds = [];
 
   lines.push('  Untrusted["Untrusted input"]');
   for (const seed of seeds) {
     const safe = safeNames.get(seed);
     if (!safe) continue;
+    securityNodeIds.push(safe);
     lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
     const key = `Untrusted->${safe}`;
     if (!edges.has(key)) {
@@ -1051,23 +1033,10 @@ function generateSecurity(data) {
     }
   }
 
-  for (const comp of connected) {
-    const from = safeNames.get(comp);
-    if (!from) continue;
-    for (const depName of comp.dependencies || []) {
-      const dep = byName.get(depName);
-      if (!dep) continue;
-      const to = safeNames.get(dep);
-      if (!to) continue;
-      const key = `${from}->${to}`;
-      if (!edges.has(key)) {
-        edges.add(key);
-        lines.push(`  ${from} --> ${to}`);
-      }
-    }
-  }
+  appendDependencyEdges(lines, connected, byName, safeNames, edges);
 
   lines.push('  classDef securityNode fill:#dc2626,color:#fff');
+  appendClassAssignment(lines, securityNodeIds, 'securityNode');
   return lines.join('\n');
 }
 
@@ -1339,7 +1308,7 @@ program
   .option('-f, --focus <module>', 'Focus on specific module')
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
-  .option('--theme <theme>', 'Theme: default, dark, forest, neutral', 'default')
+  .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'default')
   .option('--open', 'Open in browser')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
@@ -1580,7 +1549,7 @@ program
   .option('-f, --fps <n>', 'Frames per second', '30')
   .option('--width <n>', 'Video width', '1280')
   .option('--height <n>', 'Video height', '720')
-  .option('--theme <theme>', 'Theme: default, dark, forest, neutral', 'dark')
+  .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'dark')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
@@ -1621,7 +1590,7 @@ program
   .description('Generate animated SVG with CSS animations')
   .option('-t, --type <type>', 'Diagram type', 'architecture')
   .option('-o, --output <file>', 'Output file', 'diagram-animated.svg')
-  .option('--theme <theme>', 'Theme', 'dark')
+  .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'dark')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
