@@ -33,7 +33,7 @@ CONTEXT_FILE="$CONTEXT_DIR/diagram-context.md"
 INDEX_FILE="$CONTEXT_DIR/diagram-context.index.json"
 LITE_FILE="$CONTEXT_DIR/diagram-context-lite.md"
 META_FILE="$CONTEXT_DIR/diagram-context.meta.json"
-LOG_FILE="$CONTEXT_DIR/refresh.log"
+LOG_FILE="$ROOT_DIR/.diagram-refresh.log"
 MIN_SECONDS="${DIAGRAM_REFRESH_MIN_SECONDS:-1800}"
 NOW_EPOCH="$(date +%s)"
 
@@ -250,10 +250,9 @@ done
 echo "$DIAGRAM_ENTRIES" > "$TMP_INDEX"
 INDEX_SHA="$(shasum -a 256 "$TMP_INDEX" | awk '{print $1}')"
 
+# Build context WITHOUT timestamp for deterministic comparison
 {
   echo '# Diagram Context Pack'
-  echo
-  echo "Generated: $authored_at"
   echo
   echo '## Agent-first index'
   echo
@@ -267,8 +266,6 @@ cat "$TMP_CONTEXT_SECTIONS" >> "$TMP_CONTEXT"
 {
   echo '# Diagram Context Pack (Lite)'
   echo
-  echo "Generated: $authored_at"
-  echo
   echo '## Diagram index (agent-first)'
   echo
   cat "$TMP_CONTEXT_INDEX"
@@ -278,9 +275,40 @@ CONTEXT_SHA="$(shasum -a 256 "$TMP_CONTEXT" | awk '{print $1}')"
 GIT_HEAD="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 CHANGED=true
 
-if [[ -f "$CONTEXT_FILE" ]] && cmp -s "$TMP_CONTEXT" "$CONTEXT_FILE"; then
-  CHANGED=false
+# Compare content without timestamp for deterministic change detection
+if [[ -f "$CONTEXT_FILE" ]]; then
+  # Strip "Generated:" line from both files for comparison
+  existing_content="$(grep -v '^Generated: ' "$CONTEXT_FILE" 2>/dev/null || cat "$CONTEXT_FILE")"
+  new_content="$(grep -v '^Generated: ' "$TMP_CONTEXT" 2>/dev/null || cat "$TMP_CONTEXT")"
+  if [[ "$existing_content" == "$new_content" ]]; then
+    CHANGED=false
+  fi
 fi
+
+# Now add timestamp to the final output files
+{
+  echo '# Diagram Context Pack'
+  echo
+  echo "Generated: $authored_at"
+  echo
+  echo '## Agent-first index'
+  echo
+  cat "$TMP_CONTEXT_INDEX"
+  echo
+  echo '## Detailed diagrams'
+  echo
+  cat "$TMP_CONTEXT_SECTIONS"
+} > "$TMP_CONTEXT"
+
+{
+  echo '# Diagram Context Pack (Lite)'
+  echo
+  echo "Generated: $authored_at"
+  echo
+  echo '## Diagram index (agent-first)'
+  echo
+  cat "$TMP_CONTEXT_INDEX"
+} > "$TMP_LITE"
 
 rm -f "$DIAGRAM_DIR"/*.mmd
 cp "$TMP_DIR"/diagrams/*.mmd "$DIAGRAM_DIR/"
