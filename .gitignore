@@ -6,3 +6,7 @@ yarn-error.log*
 pnpm-debug.log*
 coverage/
 diagrams/
+
+# Local tooling caches
+.narrative/meta/
+.playwright-mcp/
