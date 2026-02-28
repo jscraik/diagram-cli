@@ -139,8 +139,16 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run test:deep
-      - run: node src/diagram.js test . --format junit --output architecture-results.xml
+      - run: npm run ci:artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: diagram-ci-artifacts
+          path: .diagram
 ```
+
+The `.diagram/` directory is an AI-agent-facing, non-user-facing artifact output
+path in CI. It is uploaded as a workflow artifact and is not intended to be
+checked into source control by default.
 
 ## Troubleshooting
 

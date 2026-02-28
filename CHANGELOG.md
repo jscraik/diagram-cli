@@ -7,6 +7,14 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-02-28
+
+### Added
+
+- Add `ci:artifacts` script to generate `.diagram/` artifacts (all diagram variants + JUnit results) in CI.
+- Wire architecture workflow to emit and upload `.diagram/` artifacts from PR checks.
+- Ignore `.diagram/` by default to keep generated CI artifacts out of source control.
+
 ## [1.0.2] - 2026-02-27
 
 ### Changed

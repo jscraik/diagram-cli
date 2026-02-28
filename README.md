@@ -313,12 +313,16 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run test:deep
-      - run: node src/diagram.js test . --format junit --output architecture-results.xml
+      - run: npm run ci:artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: diagram-ci-artifacts
+          path: .diagram
       - uses: dorny/test-reporter@v1
         if: success() || failure()
         with:
           name: Architecture Tests
-          path: architecture-results.xml
+          path: .diagram/architecture-results.xml
           reporter: java-junit
 ```
 

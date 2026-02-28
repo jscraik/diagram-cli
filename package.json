@@ -1,6 +1,6 @@
 {
   "name": "@brainwav/diagram",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Generate architecture diagrams from codebases",
   "main": "src/diagram.js",
   "bin": {
@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node src/diagram.js analyze .",
     "test:deep": "node scripts/deep-regression.js",
+    "ci:artifacts": "mkdir -p .diagram && node src/diagram.js all . --output-dir .diagram && node src/diagram.js test . --format junit --output .diagram/architecture-results.xml",
     "prepublishOnly": "npm test",
     "release:prepare": "bash scripts/release-npm.sh",
     "release:prepare:initial": "bash scripts/release-npm.sh --initial",
