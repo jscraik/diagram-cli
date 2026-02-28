@@ -1,0 +1,162 @@
+{
+  "version": "1.2.0",
+  "riskTierRules": {
+    "src/diagram.js": "high",
+    "src/rules.js": "high",
+    "src/graph.js": "high",
+    "src/rules/**/*.js": "medium",
+    "src/formatters/**/*.js": "medium",
+    "src/utils/**/*.js": "low",
+    "scripts/**/*.js": "low",
+    "**/test*.js": "low"
+  },
+  "mergePolicy": {
+    "high": [
+      "review-gate",
+      "evidence-verify"
+    ],
+    "medium": [
+      "review-gate"
+    ],
+    "low": []
+  },
+  "blastRadiusRules": [
+    {
+      "pattern": "src/**/*.js",
+      "checks": [
+        "test-run",
+        "lint"
+      ],
+      "description": "CLI core changes require tests"
+    },
+    {
+      "pattern": "src/rules/**/*.js",
+      "checks": [
+        "test-run",
+        "test-deep"
+      ],
+      "description": "Rules engine changes require deep regression"
+    },
+    {
+      "pattern": "harness.contract.json",
+      "checks": [
+        "contract-validate",
+        "policy-gate"
+      ],
+      "description": "Contract changes impact policy enforcement"
+    }
+  ],
+  "docsDriftRules": {
+    "docs/**/*.md": {
+      "codeRefs": ["src/**/*.js", "README.md"],
+      "maxStaleDays": 60
+    }
+  },
+  "reviewPolicy": {
+    "timeoutSeconds": 600,
+    "timeoutAction": "fail"
+  },
+  "evidencePolicy": {
+    "requiredFor": ["src/diagram.js", "src/rules.js"],
+    "allowedTypes": [
+      "png",
+      "jpeg",
+      "svg"
+    ],
+    "maxFileSizeBytes": 2097152
+  },
+  "diffBudget": {
+    "maxFiles": 8,
+    "maxNetLOC": 300,
+    "overrideLabel": "diff-budget-override"
+  },
+  "uiLoopPolicy": {
+    "enabled": false
+  },
+  "runtimePolicy": {
+    "nodeVersion": "18.x"
+  },
+  "memoryPolicy": {
+    "enabled": true,
+    "provider": "local",
+    "sessionIdTemplate": "repo:diagram-cli:task:<id>",
+    "domain": "cli-tools",
+    "requiredTags": [
+      "repo",
+      "area",
+      "type"
+    ],
+    "maxObservationsPerStep": 3,
+    "allowedLevels": [
+      "observation",
+      "learning",
+      "pattern"
+    ],
+    "requireStartRead": true,
+    "requireCloseoutSummary": true,
+    "forbiddenContentPatterns": [
+      "token",
+      "api[_-]?key",
+      "secret",
+      "password",
+      "credential"
+    ]
+  },
+  "memoryMaintenancePolicy": {
+    "validateSchedule": "weekly",
+    "reflectSchedule": "weekly",
+    "questionSlaDays": 7,
+    "duplicateThreshold": 0.8
+  },
+  "memoryEvalPolicy": {
+    "trialsPerTask": 3,
+    "requiredMetrics": [
+      "pass^k",
+      "tool_errors",
+      "duplicate_rate"
+    ],
+    "passPowKThreshold": 0.8
+  },
+  "observabilityPolicy": {
+    "provider": "logs",
+    "collectorEndpoint": "http://localhost:4318"
+  },
+  "packageManagerPolicy": {
+    "allowedManagers": [
+      "npm"
+    ],
+    "requiredManager": "npm"
+  },
+  "remediationPolicy": {
+    "providerDefaults": {
+      "codeql": {
+        "autoApplyMaxTier": "medium",
+        "dryRunOnlyByDefault": true
+      },
+      "codex": {
+        "autoApplyMaxTier": "medium",
+        "dryRunOnlyByDefault": true
+      }
+    },
+    "canonicalRerunWorkflow": "greptile-rerun.yml",
+    "marker": "<!-- harness-remediation-rerun -->",
+    "timeoutMinutes": 20,
+    "retryLimit": 3,
+    "requireEvidence": true
+  },
+  "gapCasePolicy": {
+    "requiredEvidenceStatuses": [
+      "passed",
+      "approved"
+    ],
+    "requiredCloseReasons": [
+      "fix",
+      "workaround",
+      "waived"
+    ],
+    "defaultDueDays": 7,
+    "caseIdPrefix": "gap-",
+    "caseStore": ".harness/gap-cases.json",
+    "allowEvidencelessResolve": false
+  }
+}
