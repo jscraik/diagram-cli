@@ -2,6 +2,14 @@ name: Harness PR Pipeline
 
 on: pull_request
 
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+env:
+  REVIEW_CHECK_NAME: test
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -13,3 +21,50 @@ jobs:
       - run: npm install
       - run: npm test
       - run: npm run test:deep
+
+  harness-gates:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "25"
+      - run: npm install
+      - name: Run harness gates
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/harness-pr-gates.sh
+
+  review-gate-final:
+    needs: harness-gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "25"
+      - run: npm install
+      - name: Verify finalized review check status
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: >
+          node node_modules/@brainwav/coding-harness/dist/cli.js review-gate
+          --token "$GITHUB_TOKEN"
+          --owner "$REPO_OWNER"
+          --repo "$REPO_NAME"
+          --pr "$PR_NUMBER"
+          --sha "$HEAD_SHA"
+          --check "$REVIEW_CHECK_NAME"
+          --contract harness.contract.json
+          --json
