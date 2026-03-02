@@ -380,6 +380,110 @@ jobs:
           reporter: java-junit
 ```
 
+## PR Architecture Impact Analysis
+
+  Analyze the architecture impact of PR changes including blast radius
+  and risk scoring.
+
+### PR impact quick start
+
+```bash
+# Analyze PR changes (auto-detect base from GitHub Actions)
+diagram workflow pr .
+
+# With explicit refs
+diagram workflow pr . --base origin/main --head HEAD
+
+# With risk threshold
+diagram workflow pr . --risk-threshold medium --fail-on-risk
+
+# JSON output only
+diagram workflow pr . --json
+
+# Verbose output
+diagram workflow pr . --verbose
+```
+
+### Command options
+
+```bash
+diagram workflow pr [path] [options]
+```
+
+Options:
+  --base <ref>                    Base git ref (SHA, branch, tag)
+  --head <ref>                    Head git ref (default: HEAD)
+  -o, --output-dir <dir>          Output directory (default: .diagram/pr-impact)
+  --max-depth <n>                 Max blast radius depth (default: 2)
+  --max-nodes <n>                 Max blast radius nodes (default: 50)
+  --risk-threshold <level>        Risk threshold: none, low, medium, high
+  --fail-on-risk                  Exit 1 if risk exceeds threshold
+  --risk-override-reason <string> Override risk gate with documented reason
+  -j, --json                       JSON output only (skip HTML)
+  --verbose                       Show detailed output
+```
+
+### Output artifacts
+
+| File | Description |
+|------|-------------|
+| `pr-impact.json` | Full JSON report with delta, blast radius, and risk |
+| `pr-impact.html` | Human-readable HTML explainer |
+
+### Risk scoring
+
+The risk score uses differentiated weights:
+
+| Factor | Weight |
+|--------|-------|
+| Auth component changed | +3 |
+| Security boundary touched | +3 |
+| Database path touched | +2 |
+| Blast radius ≥ 5 nodes | +1 |
+| Edge delta ≥ 10 edges | +1 |
+
+**Severity mapping:**
+
+| Score | Level |
+|-------|-------|
+| 0-2 | low |
+| 3-5 | medium |
+| 6+ | high |
+
+### CI Integration
+
+```yaml
+# .github/workflows/architecture-impact.yml
+name: Architecture Impact Analysis
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+      - run: npm ci
+      - run: node src/diagram.js workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --verbose
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-impact
+          path: .diagram/pr-impact/
+
+  risk-gate:
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm ci
+      - run: node src/diagram.js workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --risk-threshold high --fail-on-risk
+```
+
 ## Documentation
 
 - Getting started: [docs/getting-started.md](docs/getting-started.md)
