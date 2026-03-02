@@ -179,3 +179,152 @@ diagram test --dry-run --verbose
 - [Next.js example config](../examples/nextjs.architecture.yml)
 - [Monorepo example config](../examples/monorepo.architecture.yml)
 - [Migration guide](migration-from-dependency-cruiser.md)
+
+---
+
+## PR Architecture Impact Analysis
+
+An the `diagram workflow pr` command analyzes the architecture impact of PR changes and including:
+ blast radius, risk scoring, and### Quick start
+
+```bash
+# Basic usage (analyzes current PR against merge base)
+diagram workflow pr . --base origin/main --head HEAD
+
+# With explicit refs
+diagram workflow pr . --base v1.0.0 --head v1.2.0
+
+# With risk threshold anddiagram workflow pr . --base origin/main --head HEAD \
+  --risk-threshold medium --fail-on-risk
+
+# JSON output only
+diagram workflow pr . --base HEAD~1 --head HEAD --json
+
+# Verbose output
+diagram workflow pr . --base HEAD~1 --head HEAD --verbose
+```
+
+### Command options
+
+| Option | Description |
+|--------|-------------|
+| `--base <ref>` | Base git ref (SHA, branch, tag). Required unless auto-detected. |
+| `--head <ref>` | Head git ref (SHA, branch, tag). Defaults to HEAD. |
+| `-o, --output-dir <dir>` | Output directory for artifacts. Default: `.diagram/pr-impact` |
+| `--max-depth <n>` | Maximum blast radius traversal depth. Default: 2. |
+| `--max-nodes <n>` | Maximum components in blast radius. Default: 50. |
+| `--risk-threshold <level>` | Risk threshold for gating: none, low, medium, high. Default: none. |
+| `--fail-on-risk` | Exit with code 1 if risk meets or exceeds threshold. |
+| `--risk-override-reason <string>` | Override risk gate with documented reason. |
+| `-j, --json` | Output as JSON only (skip HTML generation). |
+| `--verbose` | Show detailed output. |
+
+### Output artifacts
+
+| File | Description |
+|------|-------------|
+| `pr-impact.json` | Full JSON report with all analysis details |
+| `pr-impact.html` | Human-readable HTML explainer with visual summary |
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success, below risk threshold |
+| 1 | Risk threshold exceeded (with `--fail-on-risk`) |
+| 2 | Configuration or git error |
+
+### CI integration
+
+Add to your PR workflow:
+
+```yaml
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "25"
+      - run: npm install
+      - name: Run architecture impact analysis
+        run: node src/diagram.js workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --verbose
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-impact
+          path: .diagram/pr-impact/
+
+  risk-gate:
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm install
+      - run: node src/diagram.js workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --risk-threshold high --fail-on-risk
+```
+
+### Risk scoring
+
+The risk score uses differentiated weights:
+
+| Factor | Weight |
+|--------|-------|
+| Auth touch | +3 |
+| Security boundary touch | +3 |
+| Database path touch | +2 |
+| Blast radius ≥ 5 nodes | +1 |
+| Edge delta ≥ 10 edges | +1 |
+
+**Severity mapping:**
+| Score | Level |
+|-------|-------|
+| 0-2 | low |
+| 3-5 | medium |
+| 6+ | high |
+
+### Blast radius
+
+Blast radius represents components potentially impacted by the PR changes through transitive dependencies. The traversal is bounded by:
+- Depth: maximum hops from changed components (default: 2)
+- Node cap: maximum components to report (default: 50)
+
+When the node cap is hit:
+- `blastRadius.truncated: true` in output
+- `blastRadius.omittedCount` shows how many were cut
+
+### Example workflow
+
+```yaml
+# .github/workflows/architecture-impact.yml
+name: Architecture Impact Analysis
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm install
+      - run: node src/diagram.js workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --verbose
+      - uses: actions/upload-artifact@v4
+
+  risk-gate:
+    needs: analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm install
+      - run: node src/diagram.js workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --risk-threshold high --fail-on-risk
+```
