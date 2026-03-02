@@ -123,7 +123,10 @@ function formatConsole(results, options = {}, startTime = Date.now()) {
     // Violations
     const ruleViolations = Array.isArray(currentRule.violations) ? currentRule.violations : [];
     if (ruleViolations.length > 0) {
-      hasFailures = true;
+      // Only count as failure if baseline exceeded or no baseline
+      if (!currentRule.baseline || currentRule.baselineExceeded) {
+        hasFailures = true;
+      }
 
       // Group by file for cleaner output
       const byFile = {};
@@ -148,6 +151,16 @@ function formatConsole(results, options = {}, startTime = Date.now()) {
           }
         }
       }
+    }
+
+    // Baseline warning (violations within accepted baseline)
+    if (currentRule.baselineWarning) {
+      console.log(c.yellow(`   ${icons.warning} ${currentRule.baselineWarning}`));
+    }
+
+    // Baseline exceeded
+    if (currentRule.baselineExceeded) {
+      console.log(c.red(`   ${icons.error} Baseline exceeded by ${currentRule.baselineExceeded} violation(s)`));
     }
 
     // Skipped message

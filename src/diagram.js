@@ -1635,6 +1635,7 @@ program
   .option('--verbose', 'Show detailed output', false)
   .option('--init', 'Generate starter configuration file', false)
   .option('--force', 'Overwrite existing configuration with --init', false)
+  .option('--save-baseline', 'Save current violation counts as baseline', false)
   .action(async (targetPath, options) => {
     const { RulesEngine } = require('./rules');
     const { ComponentGraph } = require('./graph');
@@ -1754,7 +1755,10 @@ program
       console.log(chalk.blue('🧪 Validating'), rules.length, 'rules...\n');
     }
     const results = engine.validate(rules, graph);
-    
+
+    // Apply baseline logic
+    const baselineInfo = applyBaseline(results, config, options.saveBaseline, configPath, root, quietMachineOutput);
+
     // Validate output path if specified
     let safeOutput = options.output;
     if (safeOutput) {
@@ -2143,6 +2147,78 @@ async function analyzeAtRef(ref, root, options = {}) {
     languages,
     directories: [...directories].sort()
   };
+}
+
+/**
+ * Apply baseline logic to validation results
+ * @param {object} results - Validation results from engine.validate()
+ * @param {object} config - Parsed config object
+ * @param {boolean} saveBaseline - Whether to save current counts as baseline
+ * @param {string} configPath - Path to config file
+ * @param {string} root - Repository root path
+ * @param {boolean} quiet - Suppress output
+ * @returns {object} Baseline info { updated: boolean, counts: object }
+ */
+function applyBaseline(results, config, saveBaseline, configPath, root, quiet = false) {
+  const YAML = require('yaml');
+  const baselineCounts = {};
+  let configModified = false;
+
+  for (const rule of results.rules || []) {
+    const configRule = config.rules?.find(r => r.name === rule.name);
+    const violationCount = rule.violations?.length || 0;
+    const baseline = configRule?.baseline;
+
+    // Store count for potential saving
+    baselineCounts[rule.name] = violationCount;
+
+    if (baseline !== undefined) {
+      rule.baseline = baseline;
+
+      if (violationCount <= baseline) {
+        // Within baseline - pass with warning
+        rule.status = 'passed';
+        if (violationCount > 0) {
+          rule.baselineWarning = `Baseline allows ${baseline} violation(s), found ${violationCount}`;
+        }
+      } else {
+        // Exceeded baseline
+        rule.baselineExceeded = violationCount - baseline;
+        rule.status = 'failed';
+      }
+    }
+  }
+
+  // Save baseline if requested
+  if (saveBaseline) {
+    for (const rule of config.rules || []) {
+      const count = baselineCounts[rule.name] ?? 0;
+      if (rule.baseline !== count) {
+        rule.baseline = count;
+        configModified = true;
+      }
+    }
+
+    if (configModified) {
+      // Validate config path is within project root
+      const relativePath = path.relative(root, configPath);
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        if (!quiet) console.error(chalk.red('❌ Cannot save baseline: config path outside project'));
+        return { updated: false, counts: baselineCounts };
+      }
+
+      const yaml = YAML.stringify(config, { indent: 2, lineWidth: 0 });
+      fs.writeFileSync(configPath, yaml);
+      if (!quiet) {
+        console.log(chalk.green('✅ Baseline saved:'), configPath);
+        console.log(chalk.gray('   Run `diagram test` to verify'));
+      }
+    } else if (!quiet) {
+      console.log(chalk.gray('ℹ️  Baseline already up to date'));
+    }
+  }
+
+  return { updated: configModified, counts: baselineCounts };
 }
 
 /**

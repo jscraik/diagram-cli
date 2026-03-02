@@ -10,11 +10,17 @@ const ruleSchema = z.object({
   name: z.string()
     .min(1, 'Rule name is required')
     .max(100, 'Rule name must be less than 100 characters'),
-  
+
   description: z.string()
     .max(500, 'Description must be less than 500 characters')
     .optional(),
-  
+
+  baseline: z.number()
+    .int('Baseline must be an integer')
+    .min(0, 'Baseline must be non-negative')
+    .optional()
+    .describe('Accepted violation count. New violations beyond this will fail.'),
+
   layer: z.union([
     z.string().min(1, 'Layer pattern is required'),
     z.array(z.string().min(1, 'Layer pattern cannot be empty'))
