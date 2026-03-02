@@ -9,7 +9,6 @@ diagrams/
 .diagram/
 
 # Internal docs (do not commit)
-FORJAMIE.md
 
 # Local tooling caches
 .narrative/meta/
