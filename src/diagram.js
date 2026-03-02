@@ -2730,12 +2730,14 @@ function computeRiskFromDelta(delta, blastRadius) {
     factors.edgeDeltaCount = edgeDeltaCount;
   }
 
-  // Determine level
-  let level = 'low';
+  // Determine level (score 0 = none, 1-2 = low, 3-5 = medium, 6+ = high)
+  let level = 'none';
   if (score >= 6) {
     level = 'high';
   } else if (score >= 3) {
     level = 'medium';
+  } else if (score >= 1) {
+    level = 'low';
   }
 
   return { score, level, flags, factors };
