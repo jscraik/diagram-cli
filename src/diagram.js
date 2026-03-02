@@ -2566,27 +2566,14 @@ workflowCommand
       }
     }
 
-    // Write artifacts to disk
-    let artifactPaths;
-    try {
-      artifactPaths = writePrImpactArtifacts(outputDir, result, options.json);
-      if (!options.json) {
-        console.log(chalk.gray('   Output:'), artifactPaths.jsonPath);
-        if (artifactPaths.htmlPath) {
-          console.log(chalk.gray('   HTML:'), artifactPaths.htmlPath);
-        }
-      }
-    } catch (err) {
-      console.error(chalk.red('❌ Failed to write artifacts:'), err.message);
-      process.exit(2);
-    }
-
     // Exit code logic
     // 0 = success, below threshold
-    // 1 = success but failed quality gate
+    // 1 = risk threshold exceeded (no override)
     // 2 = config/git error (already handled above)
 
-    // Check risk threshold gate
+    // Check risk threshold gate BEFORE writing artifacts
+    // so the JSON reflects the override state correctly
+    let exitCode = 0;
     if (options.failOnRisk && threshold !== 'none') {
       const thresholdLevels = { low: 1, medium: 2, high: 3 };
       const riskLevels = { low: 1, medium: 2, high: 3 };
@@ -2600,21 +2587,36 @@ workflowCommand
           result.risk.override.applied = true;
           console.log(chalk.yellow('\n⚠️  Risk threshold exceeded, but override applied'));
           console.log(chalk.gray('   Reason:'), options.riskOverrideReason);
-          process.exit(0);
+          exitCode = 0;
+        } else {
+          console.error(chalk.red('\n❌ Risk threshold exceeded'));
+          console.error(chalk.gray('   Threshold:'), threshold);
+          console.error(chalk.gray('   Actual:'), result.risk.level);
+          console.error(chalk.gray('   Score:'), result.risk.score);
+          if (!options.json) {
+            console.log(chalk.gray('\n   Use --risk-override-reason to bypass'));
+          }
+          exitCode = 1;
         }
-
-        console.error(chalk.red('\n❌ Risk threshold exceeded'));
-        console.error(chalk.gray('   Threshold:'), threshold);
-        console.error(chalk.gray('   Actual:'), result.risk.level);
-        console.error(chalk.gray('   Score:'), result.risk.score);
-        if (!options.json) {
-          console.log(chalk.gray('\n   Use --risk-override-reason to bypass'));
-        }
-        process.exit(1);
       }
     }
 
-    process.exit(0);
+    // Write artifacts to disk (after risk check so override.applied is correct)
+    let artifactPaths;
+    try {
+      artifactPaths = writePrImpactArtifacts(outputDir, result, options.json);
+      if (!options.json && exitCode === 0) {
+        console.log(chalk.gray('   Output:'), artifactPaths.jsonPath);
+        if (artifactPaths.htmlPath) {
+          console.log(chalk.gray('   HTML:'), artifactPaths.htmlPath);
+        }
+      }
+    } catch (err) {
+      console.error(chalk.red('❌ Failed to write artifacts:'), err.message);
+      process.exit(2);
+    }
+
+    process.exit(exitCode);
   });
 
 /**
