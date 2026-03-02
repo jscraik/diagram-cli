@@ -326,7 +326,8 @@ Severity mapping:
 
 | Score | Severity |
 |-------|----------|
-| 0-2 | `low` |
+| 0 | `none` |
+| 1-2 | `low` |
 | 3-5 | `medium` |
 | 6+ | `high` |
 
