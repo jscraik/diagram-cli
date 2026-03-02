@@ -248,6 +248,7 @@ node src/diagram.js test . --format junit --output results.xml
 ## Recent Changes
 | Date | What | Commit |
 |------|------|--------|
+| 2026-03-02 | Merge Dependabot PRs: actions/checkout v6, setup-node v6, upload-artifact v7, test-reporter v2, commander v14 | various |
 | 2026-03-02 | Commit FORJAMIE.md for harness closeout compliance | `6beac64` |
 | 2026-03-02 | Pin chai to v4 for CommonJS compatibility (ESM-only breaking change) | `1e3dd8e` |
 | 2026-03-02 | Add Dependabot ignore rules for ESM-only packages (chalk v5+, glob v11+, chai v5+) | `5eecc6e` |
