@@ -1854,6 +1854,412 @@ function detectPrRefsFromEnv() {
   return { base: null, head: null };
 }
 
+/**
+ * Run git command with timeout and error handling
+ * @param {string[]} args - Git arguments
+ * @param {string} root - Repository root path
+ * @param {number} timeout - Timeout in milliseconds
+ * @returns {string} stdout from git command
+ * @throws {Error} If command fails or times out
+ */
+function runGitCommand(args, root, timeout = 30000) {
+  try {
+    const result = execFileSync('git', args, {
+      cwd: root,
+      encoding: 'utf8',
+      timeout,
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+      windowsHide: true
+    });
+    return result;
+  } catch (error) {
+    if (error.killed) {
+      throw new Error(`Git operation timed out after ${timeout}ms`);
+    }
+    const stderr = error.stderr || '';
+    if (stderr.includes('bad revision') || stderr.includes('unknown revision')) {
+      throw new Error(`Git ref not found in repository`);
+    }
+    if (stderr.includes('not a git repository')) {
+      throw new Error(`Not a git repository: ${root}`);
+    }
+    throw new Error(`Git command failed: ${stderr || error.message}`);
+  }
+}
+
+/**
+ * Get changed files between two refs with rename detection
+ * @param {string} baseSha - Base commit SHA
+ * @param {string} headSha - Head commit SHA
+ * @param {string} root - Repository root path
+ * @returns {{changed: string[], renamed: {from: string, to: string}[], deleted: string[], added: string[]}}
+ */
+function getChangedFiles(baseSha, headSha, root) {
+  // Use --name-status -M for rename detection (50% similarity threshold)
+  // -M detects renames, -M80% would use 80% threshold
+  const diffOutput = runGitCommand(
+    ['diff', '--name-status', '-M', `${baseSha}`, `${headSha}`],
+    root,
+    60000 // 60 second timeout for large diffs
+  );
+
+  const changed = [];
+  const renamed = [];
+  const deleted = [];
+  const added = [];
+
+  for (const line of diffOutput.trim().split('\n')) {
+    if (!line.trim()) continue;
+
+    // Parse git diff --name-status -M output
+    // Format: STATUS\told_path\tnew_path (for renames)
+    // Format: STATUS\tpath (for other changes)
+    const parts = line.split('\t');
+
+    switch (parts[0]) {
+      case 'A': // Added
+        added.push(parts[1]);
+        changed.push(parts[1]);
+        break;
+      case 'D': // Deleted
+        deleted.push(parts[1]);
+        break;
+      case 'M': // Modified
+        changed.push(parts[1]);
+        break;
+      case 'R100': // Renamed (100% similarity)
+      case 'R099': // Renamed (99% similarity)
+      case 'R098':
+      case 'R097':
+      case 'R096':
+      case 'R095':
+      case 'R094':
+      case 'R093':
+      case 'R092':
+      case 'R091':
+      case 'R090':
+        // Rename detection: R###\told_path\tnew_path
+        renamed.push({ from: parts[1], to: parts[2], similarity: parseInt(parts[0].slice(1)) });
+        changed.push(parts[2]); // Track new path as changed
+        break;
+      case 'C100': // Copied (100% similarity)
+      case 'C099':
+      case 'C098':
+      case 'C097':
+      case 'C096':
+      case 'C095':
+      case 'C094':
+      case 'C093':
+      case 'C092':
+      case 'C091':
+      case 'C090':
+        // Copy detection: C###\told_path\tnew_path
+        added.push(parts[2]);
+        changed.push(parts[2]);
+        break;
+      default:
+        // Unknown status - treat as changed
+        if (parts[1]) {
+          changed.push(parts[1]);
+        }
+    }
+  }
+
+  // Sort all arrays for deterministic output
+  return {
+    changed: [...changed].sort(),
+    renamed: renamed.sort((a, b) => a.from.localeCompare(b.from)),
+    deleted: [...deleted].sort(),
+    added: [...added].sort()
+  };
+}
+
+/**
+ * Read file content at a specific git ref
+ * @param {string} ref - Git ref (SHA, branch, tag)
+ * @param {string} filePath - Path to file relative to repo root
+ * @param {string} root - Repository root path
+ * @returns {string|null} File content or null if file doesn't exist at ref
+ */
+function readFileAtRef(ref, filePath, root) {
+  // Security: Validate filePath doesn't contain shell injection
+  if (/[`$(){};|&<>]/.test(filePath)) {
+    throw new Error('Invalid characters in file path');
+  }
+
+  // Security: Prevent directory traversal
+  const normalizedPath = path.normalize(filePath);
+  if (normalizedPath.startsWith('..') || path.isAbsolute(normalizedPath)) {
+    throw new Error('Directory traversal detected in file path');
+  }
+
+  try {
+    const content = runGitCommand(
+      ['show', `${ref}:${normalizedPath}`],
+      root,
+      10000 // 10 second timeout
+    );
+    return content;
+  } catch (error) {
+    // File doesn't exist at this ref
+    if (error.message.includes('does not exist') || error.message.includes('bad revision')) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get list of files at a specific git ref
+ * @param {string} ref - Git ref (SHA, branch, tag)
+ * @param {string} root - Repository root path
+ * @param {object} options - Filter options
+ * @returns {string[]} List of file paths at ref
+ */
+function listFilesAtRef(ref, root, options = {}) {
+  const { patterns = ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.py', '**/*.go', '**/*.rs'],
+          exclude = ['node_modules/**', '.git/**', 'dist/**', 'build/**'] } = options;
+
+  // Use git ls-tree to get all tracked files at ref
+  const output = runGitCommand(
+    ['ls-tree', '-r', '--name-only', ref],
+    root,
+    60000 // 60 second timeout for large repos
+  );
+
+  const allFiles = output.trim().split('\n').filter(f => f.trim());
+
+  // Filter by patterns and exclusions using minimatch-style matching
+  const micromatch = require('picomatch');
+  const includeMatchers = patterns.map(p => micromatch(p));
+  const excludeMatchers = exclude.map(p => micromatch(p));
+
+  const filteredFiles = allFiles.filter(filePath => {
+    // Check exclusions first
+    if (excludeMatchers.some(m => m(filePath))) {
+      return false;
+    }
+    // Check inclusions
+    return includeMatchers.some(m => m(filePath));
+  });
+
+  return filteredFiles.sort();
+}
+
+/**
+ * Analyze codebase at a specific git ref (snapshot analysis)
+ * @param {string} ref - Git ref (SHA, branch, tag)
+ * @param {string} root - Repository root path
+ * @param {object} options - Analysis options
+ * @returns {Promise<object>} Analysis result
+ */
+async function analyzeAtRef(ref, root, options = {}) {
+  const maxFiles = Math.min(Math.max(parseInt(options.maxFiles, 10) || 100, 1), 10000);
+
+  // Get file list at ref
+  const fileList = listFilesAtRef(ref, root, options).slice(0, maxFiles);
+
+  const components = [];
+  const languages = {};
+  const directories = new Set();
+  const entryPoints = [];
+  const seenNames = new Set();
+
+  for (const filePath of fileList) {
+    try {
+      // Read file content at ref
+      const content = readFileAtRef(ref, filePath, root);
+      if (content === null) continue;
+
+      // Security: Check content size (10MB limit)
+      if (content.length > 10 * 1024 * 1024) {
+        continue;
+      }
+
+      const lang = detectLanguage(filePath);
+      let rel = normalizePath(filePath);
+      const dir = path.dirname(rel);
+      if (dir === '.') {
+        rel = './' + rel;
+      }
+
+      languages[lang] = (languages[lang] || 0) + 1;
+      if (dir !== '.') directories.add(dir);
+
+      // Entry point detection
+      const entryPattern = /\/(index|main|app|server)\.(ts|js|tsx|jsx|mts|mjs|py|go|rs)$/i;
+      if (entryPattern.test(rel)) {
+        entryPoints.push(rel);
+      }
+
+      // Handle duplicate names
+      let baseName = path.basename(filePath, path.extname(filePath));
+      let uniqueName = baseName;
+      let counter = 1;
+      while (seenNames.has(uniqueName)) {
+        uniqueName = `${baseName}_${counter}`;
+        counter++;
+      }
+      seenNames.add(uniqueName);
+
+      const imports = extractImportsWithPositions(content, lang);
+      const type = inferType(filePath, content);
+
+      components.push({
+        name: uniqueName,
+        originalName: baseName,
+        filePath: rel,
+        type,
+        imports,
+        roleTags: inferRoleTags(rel, baseName, content, imports, type),
+        directory: dir,
+      });
+    } catch (e) {
+      // Skip files that can't be read or parsed
+      if (process.env.DEBUG) {
+        console.error(chalk.gray(`Skipped ${filePath}: ${e.message}`));
+      }
+    }
+  }
+
+  // Resolve dependencies (same logic as analyze())
+  for (const comp of components) {
+    comp.dependencies = [];
+    for (const imp of comp.imports) {
+      const importPath = getImportPath(imp);
+      if (!importPath) continue;
+      const resolved = resolveInternalImport(comp.filePath, importPath, root);
+      if (!resolved) continue;
+      const dep = findComponentByResolvedPath(components, resolved);
+      if (dep) comp.dependencies.push(dep.name);
+    }
+  }
+
+  return {
+    rootPath: root,
+    ref,
+    components,
+    entryPoints,
+    languages,
+    directories: [...directories].sort()
+  };
+}
+
+/**
+ * Compute delta between two analysis snapshots
+ * @param {object} baseAnalysis - Analysis at base ref
+ * @param {object} headAnalysis - Analysis at head ref
+ * @param {object} changedFiles - Changed files from getChangedFiles()
+ * @returns {object} Delta summary
+ */
+function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
+  const { changed, renamed, deleted, added } = changedFiles;
+
+  // Build component indexes by filePath
+  const baseByPath = new Map();
+  for (const c of baseAnalysis.components || []) {
+    baseByPath.set(c.filePath, c);
+  }
+
+  const headByPath = new Map();
+  for (const c of headAnalysis.components || []) {
+    headByPath.set(c.filePath, c);
+  }
+
+  // Find changed components
+  const changedComponents = [];
+  const unmodeledChanges = [];
+
+  for (const filePath of changed) {
+    const headComp = headByPath.get(filePath);
+    const baseComp = baseByPath.get(filePath);
+
+    if (headComp) {
+      // File exists in head
+      if (baseComp) {
+        // File exists in both - check if dependencies or roleTags changed
+        const depsChanged = !arraysEqual(
+          (baseComp.dependencies || []).sort(),
+          (headComp.dependencies || []).sort()
+        );
+        const rolesChanged = !arraysEqual(
+          (baseComp.roleTags || []).sort(),
+          (headComp.roleTags || []).sort()
+        );
+
+        if (depsChanged || rolesChanged) {
+          changedComponents.push({
+            filePath,
+            name: headComp.name,
+            type: headComp.type,
+            roleTags: headComp.roleTags,
+            dependenciesAdded: (headComp.dependencies || []).filter(d => !(baseComp.dependencies || []).includes(d)),
+            dependenciesRemoved: (baseComp.dependencies || []).filter(d => !(headComp.dependencies || []).includes(d)),
+            roleTagsAdded: (headComp.roleTags || []).filter(r => !(baseComp.roleTags || []).includes(r)),
+            roleTagsRemoved: (baseComp.roleTags || []).filter(r => !(headComp.roleTags || []).includes(r))
+          });
+        }
+      } else {
+        // New file in head
+        changedComponents.push({
+          filePath,
+          name: headComp.name,
+          type: headComp.type,
+          roleTags: headComp.roleTags,
+          dependenciesAdded: headComp.dependencies || [],
+          dependenciesRemoved: [],
+          roleTagsAdded: headComp.roleTags || [],
+          roleTagsRemoved: [],
+          isNew: true
+        });
+      }
+    } else {
+      // File changed but not modeled (e.g., config file, non-code)
+      unmodeledChanges.push(filePath);
+    }
+  }
+
+  // Compute dependency edge deltas
+  const baseEdges = new Set();
+  for (const c of baseAnalysis.components || []) {
+    for (const dep of c.dependencies || []) {
+      baseEdges.add(`${c.filePath}→${dep}`);
+    }
+  }
+
+  const headEdges = new Set();
+  for (const c of headAnalysis.components || []) {
+    for (const dep of c.dependencies || []) {
+      headEdges.add(`${c.filePath}→${dep}`);
+    }
+  }
+
+  const edgesAdded = [...headEdges].filter(e => !baseEdges.has(e)).sort();
+  const edgesRemoved = [...baseEdges].filter(e => !headEdges.has(e)).sort();
+
+  return {
+    changedComponents: changedComponents.sort((a, b) => a.filePath.localeCompare(b.filePath)),
+    unmodeledChanges: unmodeledChanges.sort(),
+    renamedFiles: renamed,
+    deletedFiles: deleted.sort(),
+    addedFiles: added.sort(),
+    dependencyEdgeDelta: {
+      added: edgesAdded,
+      removed: edgesRemoved,
+      count: edgesAdded.length + edgesRemoved.length
+    }
+  };
+}
+
+/**
+ * Helper to compare arrays
+ */
+function arraysEqual(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  return a.every((val, idx) => val === b[idx]);
+}
+
 // Workflow command group
 const workflowCommand = program
   .command('workflow')
@@ -1970,68 +2376,353 @@ workflowCommand
       process.exit(2);
     }
 
-    // Phase 1: Command skeleton - full implementation in Phase 2+
-    console.log(chalk.green('✅ Command validation passed'));
-    console.log(chalk.gray('   Base SHA:'), baseSha);
-    console.log(chalk.gray('   Head SHA:'), headSha);
-    console.log(chalk.gray('   Output dir:'), outputDir);
-    console.log(chalk.gray('   Max depth:'), maxDepth);
-    console.log(chalk.gray('   Max nodes:'), maxNodes);
-    console.log(chalk.gray('   Risk threshold:'), threshold);
+    // Phase 2: Git diff ingestion + snapshot preparation
+    if (!options.json && options.verbose) {
+      console.log(chalk.blue('\n📋 Step 1: Extracting changed files...'));
+    }
 
-    // Placeholder output for Phase 1
+    let changedFiles;
+    try {
+      changedFiles = getChangedFiles(baseSha, headSha, root);
+    } catch (error) {
+      console.error(chalk.red('❌ Git diff error:'), error.message);
+      process.exit(2);
+    }
+
+    if (!options.json && options.verbose) {
+      console.log(chalk.gray('   Changed:'), changedFiles.changed.length);
+      console.log(chalk.gray('   Renamed:'), changedFiles.renamed.length);
+      console.log(chalk.gray('   Added:'), changedFiles.added.length);
+      console.log(chalk.gray('   Deleted:'), changedFiles.deleted.length);
+    }
+
+    // Handle empty diff case
+    if (changedFiles.changed.length === 0 &&
+        changedFiles.renamed.length === 0 &&
+        changedFiles.added.length === 0 &&
+        changedFiles.deleted.length === 0) {
+      const emptyResult = {
+        schemaVersion: '1.0',
+        generatedAt: new Date().toISOString(),
+        base: baseSha,
+        head: headSha,
+        changedFiles: [],
+        renamedFiles: [],
+        unmodeledChanges: [],
+        changedComponents: [],
+        dependencyEdgeDelta: { added: [], removed: [], count: 0 },
+        blastRadius: {
+          depth: maxDepth,
+          truncated: false,
+          omittedCount: 0,
+          impactedComponents: []
+        },
+        risk: {
+          score: 0,
+          level: 'low',
+          flags: [],
+          factors: {
+            authTouch: false,
+            securityBoundaryTouch: false,
+            databasePathTouch: false,
+            blastRadiusSize: 0,
+            blastRadiusDepth: 0,
+            edgeDeltaCount: 0
+          },
+          override: {
+            applied: false,
+            reason: options.riskOverrideReason || null
+          }
+        },
+        _meta: {
+          status: 'no_changes',
+          message: 'No changes detected between base and head refs',
+          durationMs: Date.now() - startTime
+        }
+      };
+
+      if (options.json) {
+        console.log(JSON.stringify(emptyResult, null, 2));
+      } else {
+        console.log(chalk.green('\n✅ No architecture changes detected'));
+      }
+      process.exit(0);
+    }
+
+    // Phase 2: Analyze snapshots at base and head refs
+    if (!options.json && options.verbose) {
+      console.log(chalk.blue('\n📊 Step 2: Analyzing codebase snapshots...'));
+    }
+
+    let baseAnalysis, headAnalysis;
+    try {
+      const analysisOptions = {
+        maxFiles: 10000, // Use high limit for accurate delta
+        patterns: options.patterns,
+        exclude: options.exclude
+      };
+
+      baseAnalysis = await analyzeAtRef(baseSha, root, analysisOptions);
+      if (!options.json && options.verbose) {
+        console.log(chalk.gray('   Base components:'), baseAnalysis.components.length);
+      }
+
+      headAnalysis = await analyzeAtRef(headSha, root, analysisOptions);
+      if (!options.json && options.verbose) {
+        console.log(chalk.gray('   Head components:'), headAnalysis.components.length);
+      }
+    } catch (error) {
+      console.error(chalk.red('❌ Analysis error:'), error.message);
+      process.exit(2);
+    }
+
+    // Compute delta between snapshots
+    if (!options.json && options.verbose) {
+      console.log(chalk.blue('\n🔄 Step 3: Computing delta...'));
+    }
+
+    const delta = computeDelta(baseAnalysis, headAnalysis, changedFiles);
+
+    if (!options.json && options.verbose) {
+      console.log(chalk.gray('   Changed components:'), delta.changedComponents.length);
+      console.log(chalk.gray('   Unmodeled changes:'), delta.unmodeledChanges.length);
+      console.log(chalk.gray('   Edge delta:'), delta.dependencyEdgeDelta.count);
+    }
+
+    // Compute blast radius (Phase 3 - basic implementation)
+    if (!options.json && options.verbose) {
+      console.log(chalk.blue('\n💥 Step 4: Computing blast radius...'));
+    }
+
+    const blastRadius = computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes);
+
+    if (!options.json && options.verbose) {
+      console.log(chalk.gray('   Impacted components:'), blastRadius.impactedComponents.length);
+      console.log(chalk.gray('   Truncated:'), blastRadius.truncated);
+    }
+
+    // Compute risk score (Phase 4 - basic implementation)
+    if (!options.json && options.verbose) {
+      console.log(chalk.blue('\n⚠️  Step 5: Computing risk score...'));
+    }
+
+    const risk = computeRiskFromDelta(delta, blastRadius);
+
+    if (!options.json && options.verbose) {
+      console.log(chalk.gray('   Risk score:'), risk.score);
+      console.log(chalk.gray('   Risk level:'), risk.level);
+      console.log(chalk.gray('   Risk flags:'), risk.flags.join(', ') || 'none');
+    }
+
+    // Build final result
     const result = {
       schemaVersion: '1.0',
       generatedAt: new Date().toISOString(),
       base: baseSha,
       head: headSha,
-      changedFiles: [],
-      renamedFiles: [],
-      unmodeledChanges: [],
-      changedComponents: [],
-      dependencyEdgeDelta: { added: [], removed: [] },
+      changedFiles: changedFiles.changed,
+      renamedFiles: changedFiles.renamed,
+      deletedFiles: delta.deletedFiles,
+      addedFiles: delta.addedFiles,
+      unmodeledChanges: delta.unmodeledChanges,
+      changedComponents: delta.changedComponents,
+      dependencyEdgeDelta: delta.dependencyEdgeDelta,
       blastRadius: {
         depth: maxDepth,
-        truncated: false,
-        omittedCount: 0,
-        impactedComponents: []
+        truncated: blastRadius.truncated,
+        omittedCount: blastRadius.omittedCount,
+        impactedComponents: blastRadius.impactedComponents
       },
       risk: {
-        score: 0,
-        level: 'low',
-        flags: [],
-        factors: {
-          authTouch: false,
-          securityBoundaryTouch: false,
-          databasePathTouch: false,
-          blastRadiusSize: 0,
-          blastRadiusDepth: 0,
-          edgeDeltaCount: 0
-        },
+        score: risk.score,
+        level: risk.level,
+        flags: risk.flags,
+        factors: risk.factors,
         override: {
           applied: false,
           reason: options.riskOverrideReason || null
         }
       },
       _meta: {
-        status: 'placeholder',
-        message: 'Phase 1 skeleton - full analysis coming in Phase 2+',
-        durationMs: Date.now() - startTime
+        status: 'complete',
+        durationMs: Date.now() - startTime,
+        baseComponents: baseAnalysis.components.length,
+        headComponents: headAnalysis.components.length
       }
     };
 
+    // Output result
     if (options.json) {
       console.log(JSON.stringify(result, null, 2));
     } else {
-      console.log(chalk.yellow('\n⚠️  Phase 1 skeleton - full analysis coming in Phase 2+'));
-      console.log(chalk.gray('   Run with --json to see structured output'));
+      console.log(chalk.green('\n✅ PR Impact Analysis Complete'));
+      console.log(chalk.gray('   Duration:'), `${result._meta.durationMs}ms`);
+      console.log(chalk.gray('   Changed components:'), result.changedComponents.length);
+      console.log(chalk.gray('   Blast radius:'), result.blastRadius.impactedComponents.length);
+      console.log(chalk.gray('   Risk level:'), result.risk.level);
+      console.log(chalk.gray('   Risk score:'), result.risk.score);
+      if (result.risk.flags.length > 0) {
+        console.log(chalk.yellow('   Risk flags:'), result.risk.flags.join(', '));
+      }
+      console.log(chalk.gray('\n   Run with --json for full output'));
     }
 
     // Exit code logic
     // 0 = success, below threshold
-    // 1 = success but failed quality gate (for future implementation)
+    // 1 = success but failed quality gate
     // 2 = config/git error (already handled above)
+
+    // Check risk threshold gate
+    if (options.failOnRisk && threshold !== 'none') {
+      const thresholdLevels = { low: 1, medium: 2, high: 3 };
+      const riskLevels = { low: 1, medium: 2, high: 3 };
+
+      const thresholdNum = thresholdLevels[threshold] || 0;
+      const riskNum = riskLevels[result.risk.level] || 0;
+
+      if (riskNum >= thresholdNum) {
+        // Check for override
+        if (options.riskOverrideReason && options.riskOverrideReason.trim() !== '') {
+          result.risk.override.applied = true;
+          console.log(chalk.yellow('\n⚠️  Risk threshold exceeded, but override applied'));
+          console.log(chalk.gray('   Reason:'), options.riskOverrideReason);
+          process.exit(0);
+        }
+
+        console.error(chalk.red('\n❌ Risk threshold exceeded'));
+        console.error(chalk.gray('   Threshold:'), threshold);
+        console.error(chalk.gray('   Actual:'), result.risk.level);
+        console.error(chalk.gray('   Score:'), result.risk.score);
+        if (!options.json) {
+          console.log(chalk.gray('\n   Use --risk-override-reason to bypass'));
+        }
+        process.exit(1);
+      }
+    }
+
     process.exit(0);
   });
+
+/**
+ * Compute blast radius from delta
+ */
+function computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes) {
+  const impacted = new Set();
+  const visited = new Set();
+  const queue = [];
+
+  // Start from changed components
+  for (const comp of delta.changedComponents) {
+    queue.push({ name: comp.name, depth: 0 });
+    visited.add(comp.name);
+  }
+
+  // Also include components whose files were added
+  for (const filePath of delta.addedFiles) {
+    const comp = headAnalysis.components.find(c => c.filePath === filePath);
+    if (comp && !visited.has(comp.name)) {
+      queue.push({ name: comp.name, depth: 0 });
+      visited.add(comp.name);
+    }
+  }
+
+  // BFS traversal to find downstream dependencies
+  const byName = new Map();
+  for (const c of headAnalysis.components) {
+    byName.set(c.name, c);
+  }
+
+  while (queue.length > 0 && impacted.size < maxNodes) {
+    const { name, depth } = queue.shift();
+
+    if (depth > maxDepth) break;
+
+    const comp = byName.get(name);
+    if (!comp) continue;
+
+    // Find components that depend on this one (reverse dependencies)
+    for (const potentialDep of headAnalysis.components) {
+      if (potentialDep.dependencies && potentialDep.dependencies.includes(name)) {
+        if (!visited.has(potentialDep.name)) {
+          visited.add(potentialDep.name);
+          queue.push({ name: potentialDep.name, depth: depth + 1 });
+          if (impacted.size < maxNodes) {
+            impacted.add(potentialDep.name);
+          }
+        }
+      }
+    }
+  }
+
+  const truncated = visited.size > maxNodes;
+  const omittedCount = Math.max(0, visited.size - maxNodes);
+
+  return {
+    impactedComponents: [...impacted].sort(),
+    truncated,
+    omittedCount
+  };
+}
+
+/**
+ * Compute risk from delta using differentiated weights
+ */
+function computeRiskFromDelta(delta, blastRadius) {
+  let score = 0;
+  const flags = [];
+  const factors = {
+    authTouch: false,
+    securityBoundaryTouch: false,
+    databasePathTouch: false,
+    blastRadiusSize: 0,
+    blastRadiusDepth: 0,
+    edgeDeltaCount: 0
+  };
+
+  // Check for role touches (differentiated weights)
+  for (const comp of delta.changedComponents) {
+    const roles = comp.roleTags || [];
+
+    if (roles.includes('auth') && !factors.authTouch) {
+      score += 3;
+      flags.push('auth_touch');
+      factors.authTouch = true;
+    }
+    if (roles.includes('security') && !factors.securityBoundaryTouch) {
+      score += 3;
+      flags.push('security_boundary_touch');
+      factors.securityBoundaryTouch = true;
+    }
+    if (roles.includes('database') && !factors.databasePathTouch) {
+      score += 2;
+      flags.push('database_path_touch');
+      factors.databasePathTouch = true;
+    }
+  }
+
+  // Check blast radius size
+  const blastRadiusSize = blastRadius.impactedComponents.length;
+  if (blastRadiusSize >= 5) {
+    score += 1;
+    factors.blastRadiusSize = blastRadiusSize;
+  }
+
+  // Check edge delta count
+  const edgeDeltaCount = delta.dependencyEdgeDelta.count || 0;
+  if (edgeDeltaCount >= 10) {
+    score += 1;
+    factors.edgeDeltaCount = edgeDeltaCount;
+  }
+
+  // Determine level
+  let level = 'low';
+  if (score >= 6) {
+    level = 'high';
+  } else if (score >= 3) {
+    level = 'medium';
+  }
+
+  return { score, level, flags, factors };
+}
 
 program.parse();
