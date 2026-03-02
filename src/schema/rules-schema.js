@@ -39,16 +39,24 @@ const ruleSchema = z.object({
   must_import_from: z.array(z.string())
     .optional()
     .describe('List of patterns that files in this layer must import'),
-  
+
+  // Inward-only constraint: files in this layer cannot be imported by other inward_only layers
+  inward_only: z.boolean()
+    .optional()
+    .describe('If true, other inward_only layers cannot import from this layer'),
+
 }).refine(
   (data) => {
     // At least one constraint must be specified
-    return data.must_not_import_from || 
-           data.may_import_from || 
-           data.must_import_from;
+    // Must check for non-empty arrays (empty array is truthy but invalid)
+    const hasMustNotImport = Array.isArray(data.must_not_import_from) && data.must_not_import_from.length > 0;
+    const hasMayImport = Array.isArray(data.may_import_from) && data.may_import_from.length > 0;
+    const hasMustImport = Array.isArray(data.must_import_from) && data.must_import_from.length > 0;
+    const hasInwardOnly = data.inward_only === true;
+    return hasMustNotImport || hasMayImport || hasMustImport || hasInwardOnly;
   },
   {
-    message: 'Rule must specify at least one constraint (must_not_import_from, may_import_from, or must_import_from)',
+    message: 'Rule must specify at least one constraint (must_not_import_from, may_import_from, must_import_from, or inward_only)',
     path: ['constraints']
   }
 ).refine(

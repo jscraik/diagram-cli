@@ -328,6 +328,32 @@ rules:
 | `must_not_import_from` | Forbidden import patterns |
 | `may_import_from` | Whitelist of allowed imports |
 | `must_import_from` | Required import patterns |
+| `inward_only` | **Directional:** Other protected layers cannot import from this layer |
+
+### Directional constraints with `inward_only`
+
+Use `inward_only: true` to enforce directional import constraints (Clean Architecture/DDD pattern):
+
+```yaml
+rules:
+  # Domain layer - only allows inward imports
+  - name: "Domain isolation"
+    layer: "src/domain"
+    inward_only: true
+    # Domain can import from: src/domain/**, src/shared/**, external packages
+    # Domain CANNOT be imported by: other layers with inward_only
+
+  # UI layer - also protected
+  - name: "UI boundary"
+    layer: "src/ui"
+    inward_only: true
+    # Now UI and Domain are mutually isolated from each other
+```
+
+**How it works:**
+- Files in `inward_only` layers can import from: same layer, unprotected paths (no `inward_only` rule), external packages
+- Files in `inward_only` layers CANNOT be imported from: other layers that also have `inward_only: true`
+- Use unprotected paths (e.g., `src/shared/`) for code that needs to be shared between protected layers
 
 ### Command options
 

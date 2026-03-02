@@ -153,6 +153,31 @@ class RulesEngine {
 
     const seenRuleNames = new Set();
 
+    // Pre-compute inward_only layer matchers ONCE (performance optimization)
+    const MAX_INWARD_ONLY_RULES = 50;
+    const inwardOnlyMatchers = new Map();
+
+    for (const rule of safeRules) {
+      if (rule?.config?.inward_only === true && rule?.config?.layer) {
+        const ruleName = rule.name || 'unnamed';
+        const matchers = this.compileLayerPatterns({ layer: rule.config.layer });
+        inwardOnlyMatchers.set(ruleName, {
+          pattern: rule.config.layer,
+          matchers
+        });
+      }
+    }
+
+    // Security limit: prevent config explosion
+    if (inwardOnlyMatchers.size > MAX_INWARD_ONLY_RULES) {
+      throw new Error(
+        `Too many inward_only rules (${inwardOnlyMatchers.size}). Maximum is ${MAX_INWARD_ONLY_RULES}.`
+      );
+    }
+
+    // Build context for explicit parameter passing (no graph mutation)
+    const context = { inwardOnlyMatchers };
+
     for (let index = 0; index < safeRules.length; index++) {
       const rule = safeRules[index] || {};
       const ruleName =
@@ -224,7 +249,7 @@ class RulesEngine {
           if (typeof rule.validate !== 'function') {
             break;
           }
-          const violations = rule.validate(file, graph);
+          const violations = rule.validate(file, graph, context);
           if (Array.isArray(violations) && violations.length > 0) {
             ruleResult.violations.push(...violations);
           } else if (violations != null && !Array.isArray(violations)) {
