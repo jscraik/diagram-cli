@@ -1,23 +1,47 @@
-# Architecture rules for diagram-cli itself
+# Architecture rules for diagram-cli itself (dogfooding!)
 version: "1.0"
 
 rules:
-  - name: "Rule types are isolated"
-    description: "Rule implementations should only import from base and external packages"
-    layer: "src/rules/types/*.js"
-    must_not_import_from: ["src/diagram.js", "src/formatters/"]
+  # Use inward_only for core layers that should be protected
+  - name: "Rules engine isolation"
+    layer: "src/rules/**"
+    inward_only: true
+    # Other inward_only layers cannot import from rules engine
 
-  - name: "Formatters don't import rules"
-    description: "Output formatters should not depend on rule logic"
-    layer: "src/formatters/*.js"
-    must_not_import_from: ["src/rules", "src/rules/", "src/graph.js"]
-
-  - name: "Graph is dependency-free"
-    description: "ComponentGraph should not import CLI or rules"
+  - name: "Graph builder isolation"
     layer: "src/graph.js"
-    must_not_import_from: ["src/diagram.js", "src/rules"]
+    inward_only: true
+    # Core data structure - protected from other inward_only layers
 
-  - name: "Schema is standalone"
-    description: "Schema validation should not depend on runtime"
-    layer: "src/schema/*.js"
-    must_not_import_from: ["src/diagram.js", "src/rules", "src/graph.js"]
+  - name: "Schema purity"
+    layer: "src/schema/**"
+    inward_only: true
+    # Validation layer - pure, no runtime deps
+
+  # Explicit constraints for non-core layers
+  - name: "Formatters isolation"
+    layer: "src/formatters/**"
+    must_not_import_from:
+      - "src/rules"
+      - "src/graph.js"
+      - "src/schema"
+
+  - name: "Utils independence"
+    layer: "src/utils/**"
+    must_not_import_from:
+      - "src/rules"
+      - "src/graph.js"
+      - "src/formatters"
+      - "src/schema"
+      - "src/video.js"
+
+  - name: "Video isolation"
+    layer: "src/video.js"
+    must_not_import_from:
+      - "src/rules"
+      - "src/graph.js"
+      - "src/schema"
+      - "src/formatters"
+
+  # CLI entrypoint can import from anywhere (it's the orchestrator)
+  # No constraint on src/diagram.js
