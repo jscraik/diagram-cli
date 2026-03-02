@@ -1,10 +1,10 @@
 # diagram-cli: Living Map
 
-Internal development overview for this repo. Not checked into source control.
+Internal development overview for this repo. Tracked for harness closeout compliance.
 
 ## TL;DR
 CLI tool that scans source code and generates Mermaid architecture diagrams. No AI, no network calls. Static analysis only.
-Uses `@brainwav/coding-harness` v0.3.10 for agentic development control plane (risk tiers, pilot policies, preflight gates).
+Uses `@brainwav/coding-harness` v0.5.3 for agentic development control plane (risk tiers, pilot policies, preflight gates).
 ---
 
 ## Quickstart
@@ -228,7 +228,7 @@ node src/diagram.js test . --format junit --output results.xml
 3. **Mermaid CLI rendering** - Optional dep for SVG/PNG; not bundled
 4. **Sequence/flow limits** - Capped at 6/8 components to avoid noise
 5. **Path matching** - Uses picomatch; Windows paths may need normalization
-6. **Harness blast-radius** - v0.3.10 uses built-in defaults; `blastRadiusRules` not configurable in contract
+6. **ESM-only deps** - Chalk v5+, glob v11+, chai v5+ are ESM-only; pinned to CommonJS-compatible versions
 ---
 ## Improvements Backlog
 | Priority | Item | Why |
@@ -248,6 +248,10 @@ node src/diagram.js test . --format junit --output results.xml
 ## Recent Changes
 | Date | What | Commit |
 |------|------|--------|
+| 2026-03-02 | Commit FORJAMIE.md for harness closeout compliance | `6beac64` |
+| 2026-03-02 | Pin chai to v4 for CommonJS compatibility (ESM-only breaking change) | `1e3dd8e` |
+| 2026-03-02 | Add Dependabot ignore rules for ESM-only packages (chalk v5+, glob v11+, chai v5+) | `5eecc6e` |
+| 2026-03-02 | Standardize Node version to 20 across all CI jobs | `8b4de69` |
 | 2026-03-02 | Fix CI Node version inconsistency (standardize to 20 LTS), improve null byte error messages | `d0a2c49` |
 | 2026-03-02 | Add CI caching, Dependabot, and pre-commit hook | `19d0eeb` |
 | 2026-03-02 | Fix mocha transitive deps vulnerabilities (serialize-javascript, diff) | `5fb018e` |
