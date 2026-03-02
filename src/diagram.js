@@ -1775,4 +1775,263 @@ program
     process.exit(exitCode);
   });
 
+// ============================================================================
+// Workflow Commands
+// ============================================================================
+
+/**
+ * Validate git ref exists and is accessible
+ * @param {string} ref - Git ref (SHA, branch, tag)
+ * @param {string} root - Repository root path
+ * @returns {string} Resolved SHA
+ * @throws {Error} If ref is invalid or not found
+ */
+function validateGitRef(ref, root) {
+  if (!ref || typeof ref !== 'string' || ref.trim() === '') {
+    throw new Error('Git ref is required');
+  }
+
+  // Security: Check for shell injection attempts
+  if (/[`$(){};|&<>]/.test(ref)) {
+    throw new Error('Invalid characters in git ref');
+  }
+
+  try {
+    // Use execFileSync for synchronous git operations with timeout
+    const sha = execFileSync('git', ['rev-parse', '--verify', ref], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 10000, // 10 second timeout
+      maxBuffer: 1024 * 1024 // 1MB buffer
+    }).trim();
+
+    return sha;
+  } catch (error) {
+    if (error.killed) {
+      throw new Error(`Git operation timed out resolving ref: ${ref}`);
+    }
+    throw new Error(`Git ref not found: ${ref}`);
+  }
+}
+
+/**
+ * Check if repository has shallow clone (missing base refs)
+ * @param {string} root - Repository root path
+ * @returns {boolean} True if shallow clone
+ */
+function isShallowClone(root) {
+  try {
+    const shallowFile = path.join(root, '.git', 'shallow');
+    return fs.existsSync(shallowFile);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Detect PR refs from environment (GitHub Actions)
+ * @returns {{base: string|null, head: string|null}}
+ */
+function detectPrRefsFromEnv() {
+  const env = process.env;
+
+  // GitHub Actions PR context
+  if (env.GITHUB_EVENT_NAME === 'pull_request') {
+    try {
+      const eventPath = env.GITHUB_EVENT_PATH;
+      if (eventPath && fs.existsSync(eventPath)) {
+        const event = JSON.parse(fs.readFileSync(eventPath, 'utf8'));
+        return {
+          base: event.pull_request?.base?.sha || null,
+          head: event.pull_request?.head?.sha || null
+        };
+      }
+    } catch {
+      // Fall through to defaults
+    }
+  }
+
+  return { base: null, head: null };
+}
+
+// Workflow command group
+const workflowCommand = program
+  .command('workflow')
+  .description('Architecture impact workflows for CI and review');
+
+workflowCommand
+  .command('pr [path]')
+  .description('Generate architecture impact report for a PR (base → head diff)')
+  .option('--base <ref>', 'Base git ref (SHA, branch, or tag) - required unless auto-detected')
+  .option('--head <ref>', 'Head git ref (SHA, branch, or tag) - defaults to HEAD')
+  .option('-o, --output-dir <dir>', 'Output directory for artifacts', '.diagram/pr-impact')
+  .option('-d, --manifest-dir <dir>', 'Directory containing manifest.json', '.diagram')
+  .option('--max-depth <n>', 'Maximum blast radius traversal depth', '2')
+  .option('--max-nodes <n>', 'Maximum components in blast radius output', '50')
+  .option('--risk-threshold <level>', 'Risk threshold: none, low, medium, high', 'none')
+  .option('--fail-on-risk', 'Exit with code 1 if risk exceeds threshold', false)
+  .option('--risk-override-reason <string>', 'Override risk gate with documented reason (requires --fail-on-risk)')
+  .option('-j, --json', 'Output as JSON only (skip HTML generation)', false)
+  .option('--verbose', 'Show detailed output', false)
+  .action(async (targetPath, options) => {
+    const root = resolveRootPathOrExit(targetPath);
+    const startTime = Date.now();
+
+    // Validate and resolve refs
+    let baseRef = options.base;
+    let headRef = options.head || 'HEAD';
+
+    // Auto-detect PR refs if not provided
+    if (!baseRef) {
+      const envRefs = detectPrRefsFromEnv();
+      if (envRefs.base) {
+        baseRef = envRefs.base;
+        if (options.verbose) {
+          console.log(chalk.gray('Auto-detected base ref from environment:', baseRef));
+        }
+      } else {
+        // Try to use merge-base with origin/main or main
+        try {
+          const defaultBranch = fs.existsSync(path.join(root, '.git', 'refs', 'heads', 'main'))
+            ? 'main'
+            : 'master';
+          baseRef = `origin/${defaultBranch}`;
+          if (options.verbose) {
+            console.log(chalk.gray(`Using default base ref: ${baseRef}`));
+          }
+        } catch {
+          console.error(chalk.red('❌ No base ref provided and could not auto-detect.'));
+          console.log(chalk.gray('Specify --base <ref> or run from a PR context.'));
+          process.exit(2);
+        }
+      }
+    }
+
+    // Check for shallow clone warning
+    if (isShallowClone(root)) {
+      console.warn(chalk.yellow('⚠️  Shallow clone detected. Base refs may be unavailable.'));
+      console.log(chalk.gray('   Use fetch-depth: 0 in CI or run: git fetch --unshallow'));
+    }
+
+    // Validate refs
+    let baseSha, headSha;
+    try {
+      baseSha = validateGitRef(baseRef, root);
+      headSha = validateGitRef(headRef, root);
+    } catch (error) {
+      console.error(chalk.red('❌ Git ref error:'), error.message);
+      process.exit(2);
+    }
+
+    if (options.verbose) {
+      console.log(chalk.blue('📊 PR Impact Analysis'));
+      console.log(chalk.gray('  Base:'), baseRef, '→', baseSha);
+      console.log(chalk.gray('  Head:'), headRef, '→', headSha);
+    }
+
+    // Validate risk threshold
+    const validThresholds = ['none', 'low', 'medium', 'high'];
+    const threshold = (options.riskThreshold || 'none').toLowerCase();
+    if (!validThresholds.includes(threshold)) {
+      console.error(chalk.red('❌ Invalid risk threshold:'), options.riskThreshold);
+      console.log(chalk.gray('Valid values:', validThresholds.join(', ')));
+      process.exit(2);
+    }
+
+    // Validate override reason
+    if (options.riskOverrideReason && !options.failOnRisk) {
+      console.error(chalk.red('❌ --risk-override-reason requires --fail-on-risk'));
+      process.exit(2);
+    }
+
+    if (options.riskOverrideReason && typeof options.riskOverrideReason !== 'string') {
+      console.error(chalk.red('❌ --risk-override-reason must be a non-empty string'));
+      process.exit(2);
+    }
+
+    // Validate numeric options
+    const maxDepth = parseInt(options.maxDepth, 10);
+    const maxNodes = parseInt(options.maxNodes, 10);
+    if (isNaN(maxDepth) || maxDepth < 1) {
+      console.error(chalk.red('❌ --max-depth must be a positive integer'));
+      process.exit(2);
+    }
+    if (isNaN(maxNodes) || maxNodes < 1) {
+      console.error(chalk.red('❌ --max-nodes must be a positive integer'));
+      process.exit(2);
+    }
+
+    // Validate output directory
+    let outputDir;
+    try {
+      outputDir = validateOutputPath(options.outputDir, root);
+    } catch (err) {
+      console.error(chalk.red('❌ Output path error:'), err.message);
+      process.exit(2);
+    }
+
+    // Phase 1: Command skeleton - full implementation in Phase 2+
+    console.log(chalk.green('✅ Command validation passed'));
+    console.log(chalk.gray('   Base SHA:'), baseSha);
+    console.log(chalk.gray('   Head SHA:'), headSha);
+    console.log(chalk.gray('   Output dir:'), outputDir);
+    console.log(chalk.gray('   Max depth:'), maxDepth);
+    console.log(chalk.gray('   Max nodes:'), maxNodes);
+    console.log(chalk.gray('   Risk threshold:'), threshold);
+
+    // Placeholder output for Phase 1
+    const result = {
+      schemaVersion: '1.0',
+      generatedAt: new Date().toISOString(),
+      base: baseSha,
+      head: headSha,
+      changedFiles: [],
+      renamedFiles: [],
+      unmodeledChanges: [],
+      changedComponents: [],
+      dependencyEdgeDelta: { added: [], removed: [] },
+      blastRadius: {
+        depth: maxDepth,
+        truncated: false,
+        omittedCount: 0,
+        impactedComponents: []
+      },
+      risk: {
+        score: 0,
+        level: 'low',
+        flags: [],
+        factors: {
+          authTouch: false,
+          securityBoundaryTouch: false,
+          databasePathTouch: false,
+          blastRadiusSize: 0,
+          blastRadiusDepth: 0,
+          edgeDeltaCount: 0
+        },
+        override: {
+          applied: false,
+          reason: options.riskOverrideReason || null
+        }
+      },
+      _meta: {
+        status: 'placeholder',
+        message: 'Phase 1 skeleton - full analysis coming in Phase 2+',
+        durationMs: Date.now() - startTime
+      }
+    };
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(chalk.yellow('\n⚠️  Phase 1 skeleton - full analysis coming in Phase 2+'));
+      console.log(chalk.gray('   Run with --json to see structured output'));
+    }
+
+    // Exit code logic
+    // 0 = success, below threshold
+    // 1 = success but failed quality gate (for future implementation)
+    // 2 = config/git error (already handled above)
+    process.exit(0);
+  });
+
 program.parse();
