@@ -72,8 +72,62 @@ rules:
 | `must_not_import_from` | No* | string[] | Forbidden imports |
 | `may_import_from` | No* | string[] | Allowlist imports |
 | `must_import_from` | No* | string[] | Required imports |
+| `inward_only` | No* | boolean | **Directional:** Other protected layers cannot import from this layer |
 
-`*` At least one of the three constraint arrays must be present.
+`*` At least one constraint must be present (`must_not_import_from`, `may_import_from`, `must_import_from`, or `inward_only`).
+
+### Directional constraints with `inward_only`
+
+The `inward_only: true` flag enables directional import constraints for Clean Architecture and DDD patterns. When enabled, files in that layer can only be imported by:
+
+- Same layer hierarchy (e.g., `src/domain/**` can import from `src/domain/**`)
+- Unprotected paths (paths NOT covered by any `inward_only` rule)
+- External packages (node_modules, npm:)
+
+**Example: Hexagonal Architecture**
+
+```yaml
+version: "1.0"
+
+rules:
+  # Core domain - no outer layer can import from it
+  - name: "Domain core"
+    layer: "src/domain"
+    inward_only: true
+
+  # Application layer - also protected
+  - name: "Application services"
+    layer: "src/application"
+    inward_only: true
+
+  # Infrastructure can import from anyone
+  - name: "Infrastructure"
+    layer: "src/infrastructure"
+    # No inward_only - can be imported by any layer
+
+  # Shared utilities - no protection, can be used anywhere
+  # (no rule needed for unprotected paths)
+```
+
+**How cross-layer blocking works:**
+
+If `src/domain` and `src/application` both have `inward_only: true`:
+- Domain cannot be imported by Application
+- Application cannot be imported by Domain
+- Both can still import from `src/shared/` (unprotected)
+- Both can still import from external packages
+
+**When to use `inward_only`:**
+
+- Clean Architecture: Protect domain layer from outer layers
+- DDD bounded contexts: Isolate contexts from each other
+- Plugin architectures: Prevent plugins from importing each other
+
+**Security limits:**
+
+- Maximum 50 `inward_only` rules per config
+- Pattern length: 200 characters max
+- Brace depth: 3 levels max (ReDoS protection)
 
 Pattern restrictions:
 

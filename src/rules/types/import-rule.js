@@ -5,21 +5,43 @@ const picomatch = require('picomatch');
 /**
  * Import constraint rule
  * Validates imports against allowed/forbidden patterns
+ * Supports inward_only for directional layer constraints
  */
 class ImportRule extends Rule {
-  validate(file, graph) {
+  /**
+   * Get compiled layer matchers for this rule
+   * @returns {Array<Function>}
+   */
+  get layerMatchers() {
+    if (!this._layerMatchers) {
+      const layers = Array.isArray(this.layer) ? this.layer : [this.layer];
+      this._layerMatchers = layers
+        .filter(l => typeof l === 'string' && l.trim() !== '')
+        .map(l => picomatch(l.trim(), { dot: true }));
+    }
+    return this._layerMatchers;
+  }
+
+  /**
+   * Validate a file against this rule
+   * @param {Object} file - Component file object
+   * @param {ComponentGraph} graph - Component graph for lookups
+   * @param {Object} context - Optional context with inwardOnlyMatchers
+   * @returns {Array<Violation>} Array of violations
+   */
+  validate(file, graph, context = {}) {
     const violations = [];
     const imports = Array.isArray(file?.imports) ? file.imports : [];
-    
+
     const truncateText = (value, max = 100) => String(value ?? '').slice(0, max);
-    
+
     // Helper to safely extract import path
     const getImportPath = (importInfo) => {
       if (typeof importInfo === 'string') return importInfo;
       if (importInfo && typeof importInfo.path === 'string') return importInfo.path;
       return null;
     };
-    
+
     // Helper to safely extract line number
     const getLineNumber = (importInfo) => {
       if (importInfo && Number.isInteger(importInfo.line) && importInfo.line > 0) {
@@ -117,7 +139,94 @@ class ImportRule extends Rule {
       }
     }
 
+    // Check inward_only constraint (who imports THIS file)
+    // This checks DEPENDENTS, not dependencies
+    if (this.config.inward_only === true) {
+      const protectedMatchers = context?.inwardOnlyMatchers;
+      if (protectedMatchers && protectedMatchers.size > 0 && file?.name) {
+        // Get who imports THIS file (dependents)
+        const dependents = graph.getDependents(file.name);
+
+        for (const dependent of dependents) {
+          if (!dependent?.filePath) continue;
+
+          // Fast path: skip if dependent is in same layer
+          if (this.layerMatchers.length > 0 && this.matchesLayer(dependent.filePath, this.layerMatchers)) {
+            continue;
+          }
+
+          // Check if dependent is in ANOTHER protected layer
+          for (const [ruleName, { matchers }] of protectedMatchers) {
+            if (ruleName === this.name) continue; // Skip self
+
+            if (matchers && matchers.length > 0 && this.matchesLayer(dependent.filePath, matchers)) {
+              violations.push({
+                ruleName: this.name,
+                severity: 'error',
+                file: dependent.filePath,        // The VIOLATOR (dependent file)
+                line: this._findImportLine(dependent, file.filePath),
+                message: `Cannot import from protected layer "${this.name}": layer "${ruleName}" has inward_only constraint`,
+                suggestion: `Move shared logic to an unprotected module (e.g., src/shared/) or remove inward_only from one layer`,
+                relatedFile: file.filePath        // The PROTECTED file
+              });
+              break; // One violation per dependent, not per matching rule
+            }
+          }
+        }
+      }
+    }
+
     return violations;
+  }
+
+  /**
+   * Find the line number of the import that targets a specific file
+   * @param {Object} dependent - Dependent component with imports
+   * @param {string} targetFilePath - The file being imported
+   * @returns {number|undefined}
+   */
+  _findImportLine(dependent, targetFilePath) {
+    const imports = dependent?.imports || [];
+    for (const imp of imports) {
+      const importPath = typeof imp === 'string' ? imp : imp?.path;
+      if (!importPath) continue;
+
+      // Check if this import resolves to targetFilePath
+      if (this._resolvesTo(importPath, dependent.filePath, targetFilePath)) {
+        return typeof imp === 'object' ? imp.line : undefined;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Check if an import path resolves to a target file path
+   * @param {string} importPath - The import path (may be relative)
+   * @param {string} fromFile - The file containing the import
+   * @param {string} targetFilePath - The expected resolved path
+   * @returns {boolean}
+   */
+  _resolvesTo(importPath, fromFile, targetFilePath) {
+    // External packages never match internal paths
+    if (!importPath?.startsWith('.')) {
+      return false;
+    }
+
+    const fromDir = path.dirname(fromFile || '.');
+    const resolved = path.normalize(path.join(fromDir, importPath));
+
+    // Check with common extensions
+    const extensions = ['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs'];
+    for (const ext of extensions) {
+      if (resolved + ext === targetFilePath) return true;
+    }
+
+    // Check index files
+    for (const ext of extensions) {
+      if (path.join(resolved, 'index' + ext) === targetFilePath) return true;
+    }
+
+    return resolved === targetFilePath;
   }
 
   /**
