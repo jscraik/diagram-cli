@@ -13,6 +13,14 @@ updates:
       prefix: "deps"
     labels:
       - "dependencies"
+    ignore:
+      # ESM-only packages - incompatible with CommonJS
+      - dependency-name: "chalk"
+        versions: [">=5.0.0"]
+      - dependency-name: "glob"
+        versions: [">=11.0.0"]
+      - dependency-name: "chai"
+        versions: [">=5.0.0"]
     groups:
       # Group mocha and related test deps together
       test-deps:

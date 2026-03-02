@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: "25"
+          node-version: "20"
           cache: "npm"
       - run: npm install
       - name: Run harness gates
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "25"
+          node-version: "20"
           cache: "npm"
       - run: npm install
       - name: Verify finalized review check status
