@@ -2564,7 +2564,21 @@ workflowCommand
       if (result.risk.flags.length > 0) {
         console.log(chalk.yellow('   Risk flags:'), result.risk.flags.join(', '));
       }
-      console.log(chalk.gray('\n   Run with --json for full output'));
+    }
+
+    // Write artifacts to disk
+    let artifactPaths;
+    try {
+      artifactPaths = writePrImpactArtifacts(outputDir, result, options.json);
+      if (!options.json) {
+        console.log(chalk.gray('   Output:'), artifactPaths.jsonPath);
+        if (artifactPaths.htmlPath) {
+          console.log(chalk.gray('   HTML:'), artifactPaths.htmlPath);
+        }
+      }
+    } catch (err) {
+      console.error(chalk.red('❌ Failed to write artifacts:'), err.message);
+      process.exit(2);
     }
 
     // Exit code logic
@@ -2723,6 +2737,162 @@ function computeRiskFromDelta(delta, blastRadius) {
   }
 
   return { score, level, flags, factors };
+}
+
+/**
+ * Escape HTML special characters to prevent XSS
+ * @param {string} str - String to escape
+ * @returns {string} Escaped string
+ */
+function escapeHtml(str) {
+  if (typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Generate HTML explainer for PR impact
+ * @param {object} result - PR impact result
+ * @returns {string} HTML content
+ */
+function generateHtmlExplainer(result) {
+  const riskColors = {
+    low: '#22c55e',
+    medium: '#eab308',
+    high: '#ef4444'
+  };
+
+  const riskColor = riskColors[result.risk.level] || '#6b7280';
+
+  const changedComponentsHtml = result.changedComponents.map(comp => `
+    <div class="component">
+      <div class="component-name">${escapeHtml(comp.name)}</div>
+      <div class="component-path">${escapeHtml(comp.filePath)}</div>
+      <div class="component-roles">${(comp.roleTags || []).map(r => `<span class="role-tag">${escapeHtml(r)}</span>`).join(' ')}</div>
+      ${comp.isNew ? '<span class="badge new">NEW</span>' : ''}
+    </div>
+  `).join('');
+
+  const blastRadiusHtml = result.blastRadius.impactedComponents.map(name => `
+    <li>${escapeHtml(name)}</li>
+  `).join('');
+
+  const riskFlagsHtml = result.risk.flags.map(flag => `
+    <li class="risk-flag">${escapeHtml(flag)}</li>
+  `).join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PR Impact Analysis</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      line-height: 1.6;
+      color: #1f2937;
+      background: #f9fafb;
+      padding: 2rem;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #111827; }
+    h2 { font-size: 1.25rem; margin: 1.5rem 0 0.75rem; color: #374151; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .summary-card { background: white; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .summary-card .label { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+    .summary-card .value { font-size: 1.5rem; font-weight: 600; margin-top: 0.25rem; }
+    .risk-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: 600; font-size: 0.875rem; color: white; }
+    .component { background: white; padding: 1rem; border-radius: 0.5rem; margin-bottom: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .component-name { font-weight: 600; color: #111827; }
+    .component-path { font-size: 0.875rem; color: #6b7280; font-family: monospace; }
+    .component-roles { margin-top: 0.5rem; }
+    .role-tag { display: inline-block; padding: 0.125rem 0.5rem; background: #e5e7eb; border-radius: 0.25rem; font-size: 0.75rem; margin-right: 0.25rem; }
+    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 600; }
+    .badge.new { background: #dbeafe; color: #1d4ed8; }
+    .risk-flag { padding: 0.25rem 0; color: #dc2626; }
+    ul { list-style: none; }
+    li { padding: 0.25rem 0; }
+    .meta { font-size: 0.75rem; color: #9ca3af; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; }
+    .empty { color: #9ca3af; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 PR Impact Analysis</h1>
+
+    <div class="summary">
+      <div class="summary-card">
+        <div class="label">Changed Components</div>
+        <div class="value">${result.changedComponents.length}</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Blast Radius</div>
+        <div class="value">${result.blastRadius.impactedComponents.length}${result.blastRadius.truncated ? '+' : ''}</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Risk Level</div>
+        <div class="value"><span class="risk-badge" style="background: ${riskColor}">${result.risk.level.toUpperCase()}</span></div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Risk Score</div>
+        <div class="value">${result.risk.score}</div>
+      </div>
+    </div>
+
+    ${result.risk.flags.length > 0 ? `
+    <h2>⚠️ Risk Flags</h2>
+    <ul>${riskFlagsHtml}</ul>
+    ` : ''}
+
+    <h2>📦 Changed Components</h2>
+    ${result.changedComponents.length > 0 ? changedComponentsHtml : '<p class="empty">No components changed</p>'}
+
+    ${result.blastRadius.impactedComponents.length > 0 ? `
+    <h2>💥 Blast Radius (Impacted Components)</h2>
+    <ul>${blastRadiusHtml}</ul>
+    ${result.blastRadius.truncated ? `<p class="empty">+ ${result.blastRadius.omittedCount} more components (truncated at ${result.blastRadius.depth} depth)</p>` : ''}
+    ` : ''}
+
+    <div class="meta">
+      <p>Generated: ${result.generatedAt}</p>
+      <p>Base: ${result.base} | Head: ${result.head}</p>
+      <p>Duration: ${result._meta.durationMs}ms</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Write PR impact artifacts to disk
+ * @param {string} outputDir - Output directory path
+ * @param {object} result - PR impact result
+ * @param {boolean} skipHtml - Skip HTML generation
+ */
+function writePrImpactArtifacts(outputDir, result, skipHtml = false) {
+  // Create output directory if needed
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
+  }
+
+  // Write JSON
+  const jsonPath = path.join(outputDir, 'pr-impact.json');
+  fs.writeFileSync(jsonPath, JSON.stringify(result, null, 2) + '\n');
+
+  // Write HTML (unless --json flag)
+  if (!skipHtml) {
+    const htmlPath = path.join(outputDir, 'pr-impact.html');
+    const htmlContent = generateHtmlExplainer(result);
+    fs.writeFileSync(htmlPath, htmlContent);
+  }
+
+  return { jsonPath, htmlPath: skipHtml ? null : path.join(outputDir, 'pr-impact.html') };
 }
 
 program.parse();
