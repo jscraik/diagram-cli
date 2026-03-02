@@ -66,10 +66,11 @@
     "node": ">=18"
   },
   "devDependencies": {
-    "chai": "^6.2.2",
+    "chai": "^4.5.0",
     "mocha": "^11.3.0"
   },
   "overrides": {
+    "chai": "^4.5.0",
     "serialize-javascript": "^7.0.0",
     "diff": "^8.0.3"
   }
