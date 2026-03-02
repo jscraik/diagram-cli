@@ -23,6 +23,11 @@ jobs:
         with:
           node-version: "25"
 
+      - name: Configure npm for private packages
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+
       - name: Install dependencies
         run: npm install
 
@@ -56,6 +61,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "25"
+
+      - name: Configure npm for private packages
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+
+      - name: Install dependencies
+        run: npm install
 
       - name: Check risk threshold
         env:
