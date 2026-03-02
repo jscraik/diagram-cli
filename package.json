@@ -7,7 +7,8 @@
     "diagram": "src/diagram.js"
   },
   "scripts": {
-    "test": "node src/diagram.js analyze .",
+    "test": "mocha",
+    "test:watch": "mocha --watch",
     "test:deep": "node scripts/deep-regression.js",
     "ci:artifacts": "mkdir -p .diagram && node src/diagram.js all . --output-dir .diagram && node src/diagram.js test . --format junit --output .diagram/architecture-results.xml",
     "prepublishOnly": "npm test",
@@ -63,5 +64,9 @@
   ],
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "chai": "^6.2.2",
+    "mocha": "^11.3.0"
   }
 }
