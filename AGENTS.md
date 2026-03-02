@@ -13,6 +13,7 @@ This repository contains the diagram-cli Node.js tool for static codebase archit
 - Package manager: npm (inferred from package-lock.json).
 - Non-standard build/typecheck commands: npm test, npm run test:deep, and npm run ci:artifacts.
 - Default compatibility posture: canonical-only.
+- Node version: 20 LTS (standardized in CI).
 
 ## Package-manager command map
 - install: `npm install`
