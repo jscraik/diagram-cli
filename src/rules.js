@@ -65,7 +65,8 @@ class RulesEngine {
       throw new Error(`Invalid ${context}: pattern must be a non-empty string`);
     }
     if (pattern.includes('\0')) {
-      throw new Error(`Invalid ${context}: null bytes are not allowed`);
+      const preview = pattern.slice(0, 50) + (pattern.length > 50 ? '...' : '');
+      throw new Error(`Invalid ${context}: null bytes are not allowed in pattern: "${preview}"`);
     }
 
     const normalizedPattern = path.posix.normalize(pattern.trim().replace(/\\/g, '/'));
