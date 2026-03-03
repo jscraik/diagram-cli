@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { glob } = require('glob');
 const chalk = require('chalk');
-const { spawn, execFileSync } = require('child_process');
+const { spawn, spawnSync, execFileSync } = require('child_process');
 const os = require('os');
 const crypto = require('crypto');
 const zlib = require('zlib');
@@ -1541,6 +1541,81 @@ program
   });
 
 program
+  .command('diff <base> <head>')
+  .description('Compare architecture diagrams between two git refs')
+  .option('-j, --json', 'Output as JSON')
+  .option('-m, --max-files <n>', 'Max files to analyze per ref', '100')
+  .option('-p, --patterns <list>', 'File patterns to include (comma-separated)')
+  .option('-e, --exclude <list>', 'Paths to exclude (comma-separated)')
+  .option('--verbose', 'Show detailed output')
+  .action(async (baseRef, headRef, options) => {
+    const root = resolveRootPathOrExit('.');
+    const verbose = options.verbose || false;
+
+    // Validate refs exist
+    const baseCheck = spawnSync('git', ['rev-parse', '--verify', baseRef], {
+      cwd: root,
+      stdio: ['ignore', 'ignore', 'pipe'],
+      encoding: 'utf-8'
+    });
+    if (baseCheck.status !== 0) {
+      console.error(chalk.red('❌ Invalid base ref:'), baseRef);
+      process.exit(2);
+    }
+
+    const headCheck = spawnSync('git', ['rev-parse', '--verify', headRef], {
+      cwd: root,
+      stdio: ['ignore', 'ignore', 'pipe'],
+      encoding: 'utf-8'
+    });
+    if (headCheck.status !== 0) {
+      console.error(chalk.red('❌ Invalid head ref:'), headRef);
+      process.exit(2);
+    }
+
+    if (!options.json) {
+      console.log(chalk.blue('\n🔍 Architecture Diff'));
+      console.log(chalk.gray(`   Base: ${baseRef}`));
+      console.log(chalk.gray(`   Head: ${headRef}`));
+      console.log('');
+    }
+
+    const analysisOptions = {
+      maxFiles: parseInt(options.maxFiles, 10) || 100,
+      patterns: options.patterns,
+      exclude: options.exclude
+    };
+
+    // Analyze at both refs
+    let baseAnalysis, headAnalysis;
+    try {
+      baseAnalysis = await analyzeAtRef(baseRef, root, analysisOptions);
+      if (verbose && !options.json) {
+        console.log(chalk.gray(`   Base components: ${baseAnalysis.components.length}`));
+      }
+
+      headAnalysis = await analyzeAtRef(headRef, root, analysisOptions);
+      if (verbose && !options.json) {
+        console.log(chalk.gray(`   Head components: ${headAnalysis.components.length}`));
+      }
+    } catch (e) {
+      console.error(chalk.red('❌ Analysis error:'), e.message);
+      process.exit(2);
+    }
+
+    // Build comparison
+    const diff = computeArchitectureDiff(baseAnalysis, headAnalysis);
+
+    if (options.json) {
+      console.log(JSON.stringify(diff, null, 2));
+      return;
+    }
+
+    // Console output
+    printArchitectureDiff(diff, baseRef, headRef);
+  });
+
+program
   .command('video [path]')
   .description('Generate an animated video of the diagram')
   .option('-t, --type <type>', 'Diagram type', 'architecture')
@@ -2965,6 +3040,185 @@ function buildSummaryMeta(result) {
     head: result.head || 'unknown',
     durationMs: result._meta?.durationMs || 0
   };
+}
+
+/**
+ * Compute architecture diff between two analysis results
+ * @param {object} base - Base analysis result
+ * @param {object} head - Head analysis result
+ * @returns {object} Diff result
+ */
+function computeArchitectureDiff(base, head) {
+  const baseComponents = new Map(base.components.map(c => [c.filePath, c]));
+  const headComponents = new Map(head.components.map(c => [c.filePath, c]));
+
+  // Find added, removed, and changed components
+  const added = [];
+  const removed = [];
+  const changed = [];
+
+  for (const [filePath, comp] of headComponents) {
+    if (!baseComponents.has(filePath)) {
+      added.push({ filePath, name: comp.name, type: comp.type });
+    } else {
+      const baseComp = baseComponents.get(filePath);
+      // Check if dependencies changed
+      const baseDeps = new Set((baseComp.dependencies || []).map(d => d.filePath));
+      const headDeps = new Set((comp.dependencies || []).map(d => d.filePath));
+
+      const depsAdded = [...headDeps].filter(d => !baseDeps.has(d));
+      const depsRemoved = [...baseDeps].filter(d => !headDeps.has(d));
+
+      if (depsAdded.length > 0 || depsRemoved.length > 0) {
+        changed.push({
+          filePath,
+          name: comp.name,
+          type: comp.type,
+          dependenciesAdded: depsAdded,
+          dependenciesRemoved: depsRemoved
+        });
+      }
+    }
+  }
+
+  for (const [filePath, comp] of baseComponents) {
+    if (!headComponents.has(filePath)) {
+      removed.push({ filePath, name: comp.name, type: comp.type });
+    }
+  }
+
+  // Count edges
+  const baseEdgeCount = base.components.reduce((sum, c) => sum + (c.dependencies || []).length, 0);
+  const headEdgeCount = head.components.reduce((sum, c) => sum + (c.dependencies || []).length, 0);
+
+  // Type distribution
+  const baseTypes = {};
+  const headTypes = {};
+  for (const c of base.components) {
+    baseTypes[c.type] = (baseTypes[c.type] || 0) + 1;
+  }
+  for (const c of head.components) {
+    headTypes[c.type] = (headTypes[c.type] || 0) + 1;
+  }
+
+  // Language distribution
+  const baseLangs = { ...base.languages };
+  const headLangs = { ...head.languages };
+
+  return {
+    summary: {
+      baseComponents: base.components.length,
+      headComponents: head.components.length,
+      componentDelta: head.components.length - base.components.length,
+      baseEdges: baseEdgeCount,
+      headEdges: headEdgeCount,
+      edgeDelta: headEdgeCount - baseEdgeCount,
+      addedCount: added.length,
+      removedCount: removed.length,
+      changedCount: changed.length
+    },
+    types: {
+      base: baseTypes,
+      head: headTypes
+    },
+    languages: {
+      base: baseLangs,
+      head: headLangs
+    },
+    components: {
+      added: added.sort((a, b) => a.filePath.localeCompare(b.filePath)),
+      removed: removed.sort((a, b) => a.filePath.localeCompare(b.filePath)),
+      changed: changed.sort((a, b) => a.filePath.localeCompare(b.filePath))
+    }
+  };
+}
+
+/**
+ * Print architecture diff to console
+ * @param {object} diff - Diff result from computeArchitectureDiff
+ * @param {string} baseRef - Base ref name
+ * @param {string} headRef - Head ref name
+ */
+function printArchitectureDiff(diff, baseRef, headRef) {
+  const { summary, types, languages, components } = diff;
+
+  // Summary section
+  console.log(chalk.cyan('📊 Summary'));
+  console.log(`   Components: ${summary.baseComponents} → ${summary.headComponents} (${formatDelta(summary.componentDelta)})`);
+  console.log(`   Edges: ${summary.baseEdges} → ${summary.headEdges} (${formatDelta(summary.edgeDelta)})`);
+  console.log('');
+
+  // Type distribution
+  console.log(chalk.cyan('📦 Component Types'));
+  const allTypes = new Set([...Object.keys(types.base), ...Object.keys(types.head)]);
+  for (const type of allTypes) {
+    const baseCount = types.base[type] || 0;
+    const headCount = types.head[type] || 0;
+    const delta = headCount - baseCount;
+    console.log(`   ${type}: ${baseCount} → ${headCount} (${formatDelta(delta)})`);
+  }
+  console.log('');
+
+  // Language distribution
+  console.log(chalk.cyan('💻 Languages'));
+  const allLangs = new Set([...Object.keys(languages.base), ...Object.keys(languages.head)]);
+  for (const lang of allLangs) {
+    const baseCount = languages.base[lang] || 0;
+    const headCount = languages.head[lang] || 0;
+    const delta = headCount - baseCount;
+    console.log(`   ${lang}: ${baseCount} → ${headCount} (${formatDelta(delta)})`);
+  }
+  console.log('');
+
+  // Added components
+  if (components.added.length > 0) {
+    console.log(chalk.green(`➕ Added (${components.added.length})`));
+    for (const c of components.added) {
+      console.log(`   + ${c.filePath} (${c.type})`);
+    }
+    console.log('');
+  }
+
+  // Removed components
+  if (components.removed.length > 0) {
+    console.log(chalk.red(`➖ Removed (${components.removed.length})`));
+    for (const c of components.removed) {
+      console.log(`   - ${c.filePath} (${c.type})`);
+    }
+    console.log('');
+  }
+
+  // Changed components
+  if (components.changed.length > 0) {
+    console.log(chalk.yellow(`📝 Changed (${components.changed.length})`));
+    for (const c of components.changed) {
+      console.log(`   ~ ${c.filePath}`);
+      if (c.dependenciesAdded.length > 0) {
+        console.log(chalk.gray(`     +deps: ${c.dependenciesAdded.slice(0, 3).join(', ')}${c.dependenciesAdded.length > 3 ? '...' : ''}`));
+      }
+      if (c.dependenciesRemoved.length > 0) {
+        console.log(chalk.gray(`     -deps: ${c.dependenciesRemoved.slice(0, 3).join(', ')}${c.dependenciesRemoved.length > 3 ? '...' : ''}`));
+      }
+    }
+    console.log('');
+  }
+
+  // No changes
+  if (components.added.length === 0 && components.removed.length === 0 && components.changed.length === 0) {
+    console.log(chalk.gray('   No architectural changes detected'));
+    console.log('');
+  }
+}
+
+/**
+ * Format a delta value with +/- sign and color
+ * @param {number} delta - Delta value
+ * @returns {string} Formatted string
+ */
+function formatDelta(delta) {
+  if (delta > 0) return chalk.green(`+${delta}`);
+  if (delta < 0) return chalk.red(`${delta}`);
+  return chalk.gray('0');
 }
 
 /**

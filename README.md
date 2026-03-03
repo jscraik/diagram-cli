@@ -157,6 +157,24 @@ Options:
 - `--require-types <list>` require specific diagram types, comma-separated
 - `--fail-on-placeholder` fail if any diagram entry is a placeholder
 
+### `diagram diff <base> <head>`
+
+Compare architecture diagrams between two git refs.
+
+```bash
+diagram diff HEAD~3 HEAD
+diagram diff v1.0.0 v2.0.0 --json
+diagram diff origin/main HEAD --verbose
+```
+
+Options:
+
+- `-j, --json` output as JSON
+- `-m, --max-files <n>` max files to analyze per ref (default: `100`)
+- `-p, --patterns <list>` file patterns to include (comma-separated)
+- `-e, --exclude <list>` paths to exclude (comma-separated)
+- `--verbose` show detailed output
+
 ### `diagram video [path]`
 
 Generate an animated video (`.mp4`, `.webm`, `.mov`) from a Mermaid diagram.
