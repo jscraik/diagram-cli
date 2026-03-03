@@ -1309,84 +1309,150 @@ program
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'default')
+  .option('--watch', 'Watch for file changes and regenerate', false)
   .option('--open', 'Open in browser')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     const requestedTheme = String(options.theme || 'default').toLowerCase();
     const safeTheme = normalizeThemeOption(options.theme, 'default');
     if (requestedTheme !== safeTheme) {
+      const suggestion = findClosestMatch(options.theme, ALLOWED_THEMES);
       console.warn(chalk.yellow(`⚠️  Unknown theme "${options.theme}", using "${safeTheme}"`));
-    }
-    console.log(chalk.blue('Generating'), options.type, 'diagram for', root);
-    
-    const data = await analyze(root, options);
-    const mermaid = generate(data, options.type, options.focus);
-    
-    console.log(chalk.green('\n📐 Mermaid Diagram:\n'));
-    console.log('```mermaid');
-    console.log(mermaid);
-    console.log('```\n');
-    
-    // Preview URL
-    const { url, large } = createMermaidUrl(mermaid);
-    
-    if (large || !url) {
-      console.log(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
-      console.log(chalk.cyan('💾 Save to file:'), 'diagram generate . --output diagram.svg');
-    } else {
-      console.log(chalk.cyan('🔗 Preview:'), url);
-    }
-    
-    // Save to file if requested
-    if (options.output) {
-      // Validate output path for security
-      let safeOutput;
-      try {
-        safeOutput = validateOutputPath(options.output, root);
-      } catch (err) {
-        console.error(chalk.red('❌ Output path error:'), err.message);
-        process.exit(2);
+      if (suggestion) {
+        console.warn(formatSuggestion(suggestion));
       }
-      
-      // Ensure output directory exists
-      const outputDir = path.dirname(safeOutput);
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
-      }
-      
-      const ext = path.extname(options.output).toLowerCase();
-      if (ext === '.md' || ext === '.mmd') {
-        fs.writeFileSync(safeOutput, mermaid);
-        console.log(chalk.green('✅ Saved to'), options.output);
+    }
+
+    // Generate function for reuse
+    const doGenerate = async () => {
+      console.log(chalk.blue('Generating'), options.type, 'diagram for', root);
+      console.log(chalk.gray(new Date().toLocaleTimeString()));
+
+      const data = await analyze(root, options);
+      const mermaid = generate(data, options.type, options.focus);
+
+      console.log(chalk.green('\n📐 Mermaid Diagram:\n'));
+      console.log('```mermaid');
+      console.log(mermaid);
+      console.log('```\n');
+
+      // Preview URL
+      const { url, large } = createMermaidUrl(mermaid);
+
+      if (large || !url) {
+        console.log(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
+        console.log(chalk.cyan('💾 Save to file:'), 'diagram generate . --output diagram.svg');
       } else {
-        // Try to render
-        let tempFile = null;
+        console.log(chalk.cyan('🔗 Preview:'), url);
+      }
+
+      // Save to file if requested
+      if (options.output) {
+        // Validate output path for security
+        let safeOutput;
         try {
-          // Use crypto for secure random filename
-          const randomId = crypto.randomBytes(16).toString('hex');
-          tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}-${randomId}.mmd`);
-          fs.writeFileSync(tempFile, `%%{init: {'theme': '${safeTheme}'}}%%\n${mermaid}`);
-          runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent']);
-          fs.unlinkSync(tempFile);
-          console.log(chalk.green('✅ Rendered to'), options.output);
-        } catch (e) {
-          if (tempFile && fs.existsSync(tempFile)) {
-            try { fs.unlinkSync(tempFile); } catch (e2) {}
-          }
-          console.error(chalk.red('❌ Could not render output file. Install mermaid-cli: npm i -g @mermaid-js/mermaid-cli'));
-          if (process.env.DEBUG) console.error(chalk.gray(e.message));
+          safeOutput = validateOutputPath(options.output, root);
+        } catch (err) {
+          console.error(chalk.red('❌ Output path error:'), err.message);
           process.exit(2);
         }
+
+        // Ensure output directory exists
+        const outputDir = path.dirname(safeOutput);
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
+        }
+
+        const ext = path.extname(options.output).toLowerCase();
+        if (ext === '.md' || ext === '.mmd') {
+          fs.writeFileSync(safeOutput, mermaid);
+          console.log(chalk.green('✅ Saved to'), options.output);
+        } else {
+          // Try to render
+          let tempFile = null;
+          try {
+            // Use crypto for secure random filename
+            const randomId = crypto.randomBytes(16).toString('hex');
+            tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}-${randomId}.mmd`);
+            fs.writeFileSync(tempFile, `%%{init: {'theme': '${safeTheme}'}}%%\n${mermaid}`);
+            runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent']);
+            fs.unlinkSync(tempFile);
+            console.log(chalk.green('✅ Rendered to'), options.output);
+          } catch (e) {
+            if (tempFile && fs.existsSync(tempFile)) {
+              try { fs.unlinkSync(tempFile); } catch (e2) {}
+            }
+            console.error(chalk.red('❌ Could not render output file. Install mermaid-cli: npm i -g @mermaid-js/mermaid-cli'));
+            if (process.env.DEBUG) console.error(chalk.gray(e.message));
+            process.exit(2);
+          }
+        }
       }
-    }
-    
-    if (options.open && url) {
-      // Security: Validate URL protocol
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        console.error(chalk.red('❌ Invalid URL protocol'));
-      } else {
-        openPreviewUrl(url);
+
+      if (options.open && url) {
+        // Security: Validate URL protocol
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          console.error(chalk.red('❌ Invalid URL protocol'));
+        } else {
+          openPreviewUrl(url);
+        }
       }
+
+      return { mermaid, url };
+    };
+
+    // Initial generation
+    await doGenerate();
+
+    // Watch mode
+    if (options.watch) {
+      console.log(chalk.cyan('\n👁️  Watching for changes... (Ctrl+C to stop)\n'));
+
+      let debounceTimer = null;
+      const patterns = (options.patterns || '**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs').split(',');
+      const excludePatterns = (options.exclude || 'node_modules/**,.git/**,dist/**').split(',');
+
+      // Watch the root directory recursively
+      const watcher = fs.watch(root, { recursive: true }, (eventType, filename) => {
+        if (!filename) return;
+
+        // Check if file matches patterns
+        const matchesPattern = patterns.some(p => {
+          const regex = new RegExp(p.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*').replace(/\./g, '\\.'));
+          return regex.test(filename);
+        });
+
+        // Check if file is excluded
+        const isExcluded = excludePatterns.some(p => {
+          const regex = new RegExp(p.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*').replace(/\./g, '\\.'));
+          return regex.test(filename);
+        });
+
+        if (matchesPattern && !isExcluded) {
+          // Debounce rapid changes
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(async () => {
+            console.log(chalk.gray(`\n📝 Change detected: ${filename}`));
+            try {
+              await doGenerate();
+              console.log(chalk.cyan('\n👁️  Watching for changes... (Ctrl+C to stop)\n'));
+            } catch (e) {
+              console.error(chalk.red('❌ Generation failed:'), e.message);
+            }
+          }, 300);
+        }
+      });
+
+      watcher.on('error', (err) => {
+        console.error(chalk.red('❌ Watch error:'), err.message);
+      });
+
+      // Handle graceful shutdown
+      process.on('SIGINT', () => {
+        console.log(chalk.gray('\n\n👋 Stopping watch mode...'));
+        watcher.close();
+        process.exit(0);
+      });
     }
   });
 
