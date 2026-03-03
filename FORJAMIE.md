@@ -239,11 +239,11 @@ node src/diagram.js test . --format junit --output results.xml
 |----------|------|-----|------------|
 | P1 | Add incremental analysis | Large repos are slow on every run | Medium |
 | P1 | Cache parsed imports | Re-scan unchanged files is wasteful | Medium |
-| P2 | **GitHub Action: PR comment with impact summary** | Posts PR impact as comment on PRs - uses existing JSON output | Low |
-| P2 | **Add `--watch` to `diagram generate`** | Re-generate on file change for live preview | Low |
-| P2 | **Add Mermaid diagram validation** | Warn if generated Mermaid has syntax errors | Tiny |
-| P2 | **Add `diagram diff` command** | Compare two branches' diagrams visually | Medium |
-| P2 | **Improve error messages with suggestions** | Add "did you mean?" to common errors | Tiny |
+| ✅ | ~~GitHub Action: PR comment with impact summary~~ | ~~Posts PR impact as comment on PRs (2026-03-03) | — |
+| ✅ | ~~Add `--watch` to `diagram generate`~~ | ~~Re-generate on file change for live preview (2026-03-03) | — |
+| ✅ | ~~Add Mermaid diagram validation~~ | ~~Warn if generated Mermaid has syntax errors (2026-03-03) | — |
+| ✅ | ~~Add `diagram diff` command~~ | ~~Compare two branches' diagrams visually (2026-03-03) | — |
+| ✅ | ~~Improve error messages with suggestions~~ | ~~Add "did you mean?" to common errors (2026-03-03) | — |
 | ✅ | ~~Enhanced HTML explainer~~ | ~~Added 6 reviewer-friendly sections (2026-03-03) | — |
 | ✅ | ~~Watch mode~~ | ~~Added `npm run test:watch` for TDD (2026-03-02) | — |
 | ✅ | ~~More language support~~ | ~~TS/JS dominant; Python/Go/Rust remain (2026-03-02) | — |
@@ -258,6 +258,11 @@ node src/diagram.js test . --format junit --output results.xml
 ## Recent Changes
 | Date | What | Commit |
 |------|------|--------|
+| 2026-03-03 | Add `diagram diff <base> <head>` command to compare architecture between git refs (closes #22) | `fc40aaa` |
+| 2026-03-03 | Add `--watch` mode to `diagram generate` with native fs.watch and debouncing (closes #20) | `b57a46e` |
+| 2026-03-03 | Add GitHub Action for PR comment with architecture impact summary (closes #19) | `b8e6e91` |
+| 2026-03-03 | Add "did you mean?" suggestions with Levenshtein distance for common errors (closes #23) | `d47e369` |
+| 2026-03-03 | Add Mermaid diagram syntax validation with `validateMermaidSyntax` (closes #21) | `9ca0e16` |
 | 2026-03-03 | Enhance pr-impact.html with reviewer-friendly sections (Executive Summary, Change Story, Risk Reasoning, Blast Radius, Action Checklist) + 25 new tests | `ef38ea8` |
 | 2026-03-03 | Tailor optional coding-harness components for diagram-cli (hooks, templates, env checks, context files) | `93deff2` |
 | 2026-03-02 | Merge Dependabot PRs: actions/checkout v6, setup-node v6, upload-artifact v7, test-reporter v2, commander v14 | various |
