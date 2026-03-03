@@ -7,6 +7,10 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Add `diagram diff <base> <head>` command to compare architecture diagrams between two git refs. Shows component counts, edge counts, type distribution, and lists added/removed/changed components with `--json` output support.
+
 ### Changed
 
 - Enhanced `pr-impact.html` output with structured reviewer-friendly sections: Executive Summary, Change Story (grouped by file status), Risk Reasoning, Blast Radius with truncation metadata, and Action Checklist. No changes to `pr-impact.json` schema or CLI options.
