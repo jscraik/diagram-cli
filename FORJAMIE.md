@@ -4,7 +4,7 @@ Internal development overview for this repo. Tracked for harness closeout compli
 
 ## TL;DR
 CLI tool that scans source code and generates Mermaid architecture diagrams. No AI, no network calls. Static analysis only.
-Uses `@brainwav/coding-harness` v0.5.3 for agentic development control plane (risk tiers, pilot policies, preflight gates).
+Uses `@brainwav/coding-harness` v0.5.7 for agentic development control plane (risk tiers, pilot policies, preflight gates).
 ---
 
 ## Quickstart
@@ -113,7 +113,7 @@ To invoke: "Use diagram-cli to generate an architecture diagram for this repo"
 | Chalk | Terminal colors |
 | cli-table3 | Table output |
 | YAML | Config file parsing |
-| @brainwav/coding-harness@0.3.10 | Agentic dev control plane (risk tiers, pilot policies, gates) |
+| @brainwav/coding-harness@0.5.7 | Agentic dev control plane (risk tiers, pilot policies, gates) |
 | **Test deps:**
 | Mocha | Test framework |
 | Chai | Assertions |
@@ -165,7 +165,7 @@ ls .diagram/
 ```bash
 # Preflight check before commits
 node node_modules/@brainwav/coding-harness/dist/cli.js preflight-gate --contract harness.contract.json
-# Check blast radius for changed files (uses built-in defaults in v0.3.10)
+# Check blast radius for changed files (uses built-in defaults in v0.5.7)
 node node_modules/@brainwav/coding-harness/dist/cli.js blast-radius --files src/rules.js,src/graph.js
 # Risk tier classification
 node node_modules/@brainwav/coding-harness/dist/cli.js risk-tier --contract harness.contract.json --files "src/**/*.js"
@@ -248,6 +248,7 @@ node src/diagram.js test . --format junit --output results.xml
 ## Recent Changes
 | Date | What | Commit |
 |------|------|--------|
+| 2026-03-03 | Tailor optional coding-harness components for diagram-cli (hooks, templates, env checks, context files) | pending |
 | 2026-03-02 | Merge Dependabot PRs: actions/checkout v6, setup-node v6, upload-artifact v7, test-reporter v2, commander v14 | various |
 | 2026-03-02 | Commit FORJAMIE.md for harness closeout compliance | `6beac64` |
 | 2026-03-02 | Pin chai to v4 for CommonJS compatibility (ESM-only breaking change) | `1e3dd8e` |

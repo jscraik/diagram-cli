@@ -1,6 +1,6 @@
 {
-  "repo": "jscraik/diagram-cli",
-  "session_id": "repo:diagram-cli:task:harness-bootstrap",
+  "repo": "diagram-cli",
+  "session_id": "repo:diagram-cli:task:harness-optional-tailoring",
   "preamble": {
     "bootstrap": true,
     "search": true
@@ -8,19 +8,26 @@
   "entries": [
     {
       "level": "observation",
-      "content": "Harness policy gates are configured in CI and validated against harness.contract.json.",
-      "tags": ["repo", "area", "type"],
-      "session_id": "repo:diagram-cli:task:harness-bootstrap",
+      "content": "Optional coding-harness components are installed and tailored for diagram-cli's npm/CommonJS workflow.",
+      "tags": [
+        "repo",
+        "area",
+        "type",
+        "repo:diagram-cli",
+        "area:harness",
+        "type:setup"
+      ],
+      "session_id": "repo:diagram-cli:task:harness-optional-tailoring",
       "source": "harness",
-      "observed_at": "2026-02-28T00:00:00Z"
+      "observed_at": "2026-03-03T00:00:00Z"
     }
   ],
   "closeout": {
     "forjamie_updated": true,
-    "date": "2026-01-01T00:00:00Z"
+    "date": "2026-03-03T00:00:00Z"
   },
   "meta": {
-    "created_at": "2026-02-28T00:00:00Z",
+    "created_at": "2026-03-03T00:00:00Z",
     "version": "1.0"
   }
 }

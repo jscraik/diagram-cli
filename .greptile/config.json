@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "strictness": 2,
+  "fileChangeLimit": 300,
+  "commentTypes": [
+    "bug-risk",
+    "security",
+    "performance",
+    "architecture",
+    "maintainability"
+  ],
+  "enableCrossFileGraphQueries": true,
+  "requireIndependentValidation": true,
+  "confidence": {
+    "minMergeScore": 4,
+    "targetScore": 5
+  },
+  "rules": [
+    {
+      "id": "diagram-command-contract",
+      "glob": "src/diagram.js",
+      "description": "CLI command flags and output contracts must remain backward compatible unless explicitly documented.",
+      "severity": "high"
+    },
+    {
+      "id": "no-main-direct-push",
+      "glob": "**/*",
+      "description": "No direct push to main; all changes flow through PR with review artifacts.",
+      "severity": "high"
+    },
+    {
+      "id": "harness-policy-alignment",
+      "glob": "harness.contract.json",
+      "description": "Changes to harness policy require matching updates to docs/workflows and evidence notes.",
+      "severity": "high"
+    }
+  ],
+  "ignorePatterns": [
+    "dist/**",
+    "coverage/**",
+    "node_modules/**",
+    ".pnpm-store/**"
+  ]
+}

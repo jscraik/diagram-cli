@@ -1,0 +1,34 @@
+{
+  "contextFiles": [
+    {
+      "path": "harness.contract.json",
+      "role": "primary governance contract"
+    },
+    {
+      "path": "src/schema/rules-schema.js",
+      "role": "architecture rule schema"
+    },
+    {
+      "path": "src/diagram.js",
+      "role": "main CLI entrypoint"
+    },
+    {
+      "path": "src/rules.js",
+      "role": "rule execution and validation logic"
+    },
+    {
+      "path": "scripts/harness-pr-gates.sh",
+      "role": "CI harness gate orchestration"
+    }
+  ],
+  "apiSpecs": [
+    "src/diagram.js",
+    "src/graph.js",
+    "src/rules.js",
+    "src/video.js"
+  ],
+  "schemaFiles": [
+    "src/schema/**/*.js",
+    "examples/*.architecture.yml"
+  ]
+}

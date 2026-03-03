@@ -1,0 +1,14 @@
+{
+	"ignore": [
+		"node_modules",
+		"dist",
+		"coverage",
+		"artifacts",
+		".git",
+		".diagram",
+		".harness",
+		".memory-metrics.json",
+		".greptile",
+		"AI/diagrams"
+	]
+}

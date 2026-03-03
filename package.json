@@ -17,7 +17,8 @@
     "release:publish": "bash scripts/release-npm.sh --publish",
     "release:publish:initial": "bash scripts/release-npm.sh --publish --initial",
     "harness": "node node_modules/@brainwav/coding-harness/dist/cli.js",
-    "harness:pr-gates": "bash scripts/harness-pr-gates.sh"
+    "harness:pr-gates": "bash scripts/harness-pr-gates.sh",
+    "postinstall": "simple-git-hooks"
   },
   "keywords": [
     "diagrams",
@@ -29,7 +30,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@brainwav/coding-harness": "^0.5.3",
+    "@brainwav/coding-harness": "^0.5.7",
     "@octokit/plugin-retry": "^8.1.0",
     "@octokit/plugin-throttling": "^11.0.3",
     "@octokit/request-error": "^7.1.0",
@@ -67,11 +68,17 @@
   },
   "devDependencies": {
     "chai": "^4.5.0",
-    "mocha": "^11.3.0"
+    "mocha": "^11.3.0",
+    "simple-git-hooks": "^2.13.1"
   },
   "overrides": {
     "chai": "^4.5.0",
     "serialize-javascript": "^7.0.0",
     "diff": "^8.0.3"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npm test",
+    "commit-msg": "node scripts/validate-commit-msg.js $1",
+    "pre-push": "npm run test:deep"
   }
 }
