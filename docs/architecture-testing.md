@@ -277,8 +277,15 @@ diagram workflow pr . --base HEAD~1 --head HEAD --verbose
 
 | File | Description |
 |------|-------------|
-| `pr-impact.json` | Full JSON report with all analysis details |
-| `pr-impact.html` | Human-readable HTML explainer with visual summary |
+| `pr-impact.json` | Full JSON report with all analysis details (machine-readable, stable contract) |
+| `pr-impact.html` | Human-readable HTML explainer with structured review narrative |
+
+#### Compatibility and Output Model
+
+- **`.diagram/pr-impact/pr-impact.json`** — Machine-readable artifact with stable schema. Use for CI tooling, dashboards, and automated processing.
+- **`.diagram/pr-impact/pr-impact.html`** — Human-readable narrative for reviewers. Includes Executive Summary, Change Story, Risk Reasoning, Blast Radius, and Action Checklist sections.
+
+**Empty diff behavior:** When base and head refs are identical, no artifacts are generated. The command exits 0 with a status message (non-JSON) or empty result JSON (`--json`).
 
 ### Exit codes
 
