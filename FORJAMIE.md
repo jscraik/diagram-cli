@@ -10,12 +10,14 @@ Uses `@brainwav/coding-harness` v0.5.7 for agentic development control plane (ri
 ## Quickstart
 ```bash
 npm install                    # Install deps
-npm test                       # Mocha test suite (22 tests)
+npm test                       # Mocha test suite (47 tests)
 npm run test:watch             # Watch mode for TDD
 npm run test:deep              # Deep regression suite
 node src/diagram.js --help     # CLI reference
 # Generate diagrams
 node src/diagram.js all . --output-dir .diagram
+# PR impact analysis
+node src/diagram.js workflow pr . --base origin/main --head HEAD
 # Refresh AI context pack
 bash scripts/refresh-diagram-context.sh --force
 # Harness (agentic control plane)
@@ -100,6 +102,7 @@ To invoke: "Use diagram-cli to generate an architecture diagram for this repo"
 | `test/setup.js` | MockGraph utility |
 | `test/rules.test.js` | ImportRule tests |
 | `test/rules.inward_only.test.js` | inward_only feature tests |
+| `test/pr-impact.test.js` | PR impact HTML explainer tests (25 tests) |
 | `.mocharc.json` | Mocha config |
 ---
 ## Tech Stack
@@ -189,9 +192,10 @@ Outputs:
 ---
 ## Test Infrastructure
 - **MockGraph utility** (`test/setup.js`): Creates fake graphs for unit tests without full codebase
-- **Test files**: `test/rules.test.js`, `test/rules.inward_only.test.js`
+- **Test files**: `test/rules.test.js`, `test/rules.inward_only.test.js`, `test/pr-impact.test.js`
 - **Config**: `.mocharc.json` - Mocha with Chai assertions, spec reporter
-- **Commands**: `npm test` (22 tests), `npm run test:watch`
+- **Commands**: `npm test` (47 tests), `npm run test:watch`
+- **PR Impact tests**: HTML section rendering, deterministic ordering, escaping, blast-radius metadata
 
 ## CI/CD Infrastructure
 - **GitHub Actions**: npm caching enabled, Node 20 LTS across all jobs
@@ -231,24 +235,31 @@ node src/diagram.js test . --format junit --output results.xml
 6. **ESM-only deps** - Chalk v5+, glob v11+, chai v5+ are ESM-only; pinned to CommonJS-compatible versions
 ---
 ## Improvements Backlog
-| Priority | Item | Why |
-|----------|------|-----|
-| P1 | Add incremental analysis | Large repos are slow on every run |
-| P1 | Cache parsed imports | Re-scan unchanged files is wasteful |
-| ✅ | ~~Watch mode~~ | ~~Added `npm run test:watch` for TDD (2026-03-02) |
-| ✅ | ~~More language support~~ | ~~TS/JS dominant; Python/Go/Rust remain (2026-03-02) |
-| P3 | Plugin system | Allow custom diagram generators |
-| ✅ | ~~Baseline violations~~ | ~~Added `--save-baseline` for incremental rule adoption (2026-03-02) |
-| ✅ | ~~Inward-only directionality~~ | ~~Added `inward_only: true` for directional layer constraints (2026-03-02) |
-| ✅ | ~~Test infrastructure~~ | ~~Added Mocha/Chai with MockGraph utility (22 tests) (2026-03-02) |
-| ✅ | ~~CI caching~~ | ~~Added npm cache to GitHub Actions (2026-03-02) |
-| ✅ | ~~Dependabot~~ | ~~Weekly npm + github-actions updates (2026-03-02) |
-| ✅ | ~~Pre-commit hook~~ | ~~Runs tests before commits (2026-03-02) |
+| Priority | Item | Why | Complexity |
+|----------|------|-----|------------|
+| P1 | Add incremental analysis | Large repos are slow on every run | Medium |
+| P1 | Cache parsed imports | Re-scan unchanged files is wasteful | Medium |
+| P2 | **GitHub Action: PR comment with impact summary** | Posts PR impact as comment on PRs - uses existing JSON output | Low |
+| P2 | **Add `--watch` to `diagram generate`** | Re-generate on file change for live preview | Low |
+| P2 | **Add Mermaid diagram validation** | Warn if generated Mermaid has syntax errors | Tiny |
+| P2 | **Add `diagram diff` command** | Compare two branches' diagrams visually | Medium |
+| P2 | **Improve error messages with suggestions** | Add "did you mean?" to common errors | Tiny |
+| ✅ | ~~Enhanced HTML explainer~~ | ~~Added 6 reviewer-friendly sections (2026-03-03) | — |
+| ✅ | ~~Watch mode~~ | ~~Added `npm run test:watch` for TDD (2026-03-02) | — |
+| ✅ | ~~More language support~~ | ~~TS/JS dominant; Python/Go/Rust remain (2026-03-02) | — |
+| P3 | Plugin system | Allow custom diagram generators | High |
+| ✅ | ~~Baseline violations~~ | ~~Added `--save-baseline` for incremental rule adoption (2026-03-02) | — |
+| ✅ | ~~Inward-only directionality~~ | ~~Added `inward_only: true` for directional layer constraints (2026-03-02) | — |
+| ✅ | ~~Test infrastructure~~ | ~~Added Mocha/Chai with MockGraph utility (47 tests) (2026-03-02) | — |
+| ✅ | ~~CI caching~~ | ~~Added npm cache to GitHub Actions (2026-03-02) | — |
+| ✅ | ~~Dependabot~~ | ~~Weekly npm + github-actions updates (2026-03-02) | — |
+| ✅ | ~~Pre-commit hook~~ | ~~Runs tests before commits (2026-03-02) | — |
 ---
 ## Recent Changes
 | Date | What | Commit |
 |------|------|--------|
-| 2026-03-03 | Tailor optional coding-harness components for diagram-cli (hooks, templates, env checks, context files) | pending |
+| 2026-03-03 | Enhance pr-impact.html with reviewer-friendly sections (Executive Summary, Change Story, Risk Reasoning, Blast Radius, Action Checklist) + 25 new tests | `ef38ea8` |
+| 2026-03-03 | Tailor optional coding-harness components for diagram-cli (hooks, templates, env checks, context files) | `93deff2` |
 | 2026-03-02 | Merge Dependabot PRs: actions/checkout v6, setup-node v6, upload-artifact v7, test-reporter v2, commander v14 | various |
 | 2026-03-02 | Commit FORJAMIE.md for harness closeout compliance | `6beac64` |
 | 2026-03-02 | Pin chai to v4 for CommonJS compatibility (ESM-only breaking change) | `1e3dd8e` |
