@@ -7,6 +7,10 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Enhanced `pr-impact.html` output with structured reviewer-friendly sections: Executive Summary, Change Story (grouped by file status), Risk Reasoning, Blast Radius with truncation metadata, and Action Checklist. No changes to `pr-impact.json` schema or CLI options.
+
 ## [1.0.7] - 2026-02-28
 
 ### Added

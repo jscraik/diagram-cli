@@ -453,10 +453,23 @@ Options:
 
 | File | Description |
 |------|-------------|
-| `pr-impact.json` | Full JSON report with delta, blast radius, and risk |
-| `pr-impact.html` | Human-readable HTML explainer |
+| `pr-impact.json` | Full JSON report with delta, blast radius, and risk (machine-readable, stable contract) |
+| `pr-impact.html` | Human-readable HTML explainer with structured review narrative |
 
-### Risk scoring
+#### HTML Explainer Sections
+
+The `pr-impact.html` artifact provides a reviewer-friendly narrative organized into sections:
+
+1. **Executive Summary** — High-level impact overview: files touched, components changed, risk level
+2. **Change Story** — Files grouped by status: modified, renamed, added, deleted, unmodeled
+3. **Changed Components** — Architecture components with role tags and NEW badges
+4. **Risk Reasoning** — Human-readable explanations of why the PR is flagged
+5. **Blast Radius** — Downstream components that may be affected (with truncation metadata)
+6. **Action Checklist** — Suggested review actions based on risk factors
+
+The explainer follows the narrative flow: *what changed → why it's risky → what to review next*.
+
+**Note:** Empty diffs (identical base/head) do not generate artifacts. Use `--json` for machine output only.
 
 The risk score uses differentiated weights:
 
