@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { glob } = require('glob');
 const chalk = require('chalk');
-const { spawn, execFileSync } = require('child_process');
+const { spawn, spawnSync, execFileSync } = require('child_process');
 const os = require('os');
 const crypto = require('crypto');
 const zlib = require('zlib');
@@ -1252,6 +1252,94 @@ function normalizeThemeOption(theme, fallback = 'default') {
   return ALLOWED_THEMES.includes(normalized) ? normalized : fallback;
 }
 
+/**
+ * Validate Mermaid syntax using mermaid-cli
+ * @param {string} mermaid - Mermaid diagram source
+ * @param {string} theme - Theme name
+ * @returns {{valid: boolean, errors: Array<{line?: number, message: string}>}}
+ */
+function validateMermaidSyntax(mermaid, theme = 'default') {
+  const result = { valid: true, errors: [] };
+
+  // Basic syntax checks (no external dependency required)
+  const lines = mermaid.split('\n');
+
+  // Check for common issues
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineNum = i + 1;
+
+    // Check for unbalanced quotes in labels
+    const quoteCount = (line.match(/"/g) || []).length;
+    if (quoteCount % 2 !== 0) {
+      result.errors.push({ line: lineNum, message: 'Unbalanced quotes in label' });
+      result.valid = false;
+    }
+
+    // Check for invalid arrow syntax
+    if (line.includes('-->') && line.includes('---')) {
+      result.errors.push({ line: lineNum, message: 'Mixed arrow syntax (-->) and comment syntax (---)' });
+      result.valid = false;
+    }
+
+    // Check for empty node labels
+    if (/\[\s*\]/.test(line) && !line.includes('%%')) {
+      result.errors.push({ line: lineNum, message: 'Empty node label []' });
+      result.valid = false;
+    }
+  }
+
+  // Check for required diagram type declaration
+  const firstNonCommentLine = lines.find(l => !l.trim().startsWith('%%'));
+  const validDiagramTypes = ['graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 'erDiagram', 'gantt', 'pie', 'journey', 'gitGraph', 'mindmap', 'timeline'];
+  const hasValidType = validDiagramTypes.some(type => firstNonCommentLine?.trim().startsWith(type));
+
+  if (!hasValidType && firstNonCommentLine) {
+    result.errors.push({ line: 1, message: 'Missing or invalid diagram type declaration' });
+    result.valid = false;
+  }
+
+  // Try to validate with mmdc if available
+  try {
+    const randomId = crypto.randomBytes(8).toString('hex');
+    const tempFile = path.join(os.tmpdir(), `diagram-validate-${Date.now()}-${randomId}.mmd`);
+    fs.writeFileSync(tempFile, `%%{init: {'theme': '${theme}'}}%%\n${mermaid}`);
+
+    // Use spawnSync for safer execution (no shell interpolation)
+    const { status, stderr } = cp.spawnSync(
+      'npx',
+      ['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '--dryRun'],
+      { encoding: 'utf8', timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+
+    fs.unlinkSync(tempFile);
+
+    if (status !== 0 && result.errors.length === 0) {
+      // mmdc validation failed - parse error message
+      const output = stderr || '';
+      const lineMatch = output.match(/line (\d+)/i);
+      const errorLine = lineMatch ? parseInt(lineMatch[1], 10) : undefined;
+
+      let errorMsg = 'Mermaid syntax error';
+      if (output.includes('Error parsing')) {
+        errorMsg = 'Parse error in Mermaid syntax';
+      } else if (output.includes('lexing error')) {
+        errorMsg = 'Lexing error - invalid characters or syntax';
+      }
+
+      result.errors.push({ line: errorLine, message: errorMsg });
+      result.valid = false;
+    }
+  } catch (e) {
+    // mmdc not available or failed - rely on basic checks only
+    if (process.env.DEBUG) {
+      console.log(chalk.gray('Mermaid CLI not available for validation, using basic checks only'));
+    }
+  }
+
+  return result;
+}
+
 function validateExistingPathInRoot(targetPath, rootPath, label = 'path') {
   const realRoot = fs.realpathSync(rootPath);
   const realTarget = fs.realpathSync(targetPath);
@@ -1309,6 +1397,8 @@ program
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'default')
+  .option('--validate', 'Validate Mermaid syntax', false)
+  .option('--fail-on-validation-error', 'Exit with error if validation fails', false)
   .option('--open', 'Open in browser')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
@@ -1318,15 +1408,35 @@ program
       console.warn(chalk.yellow(`⚠️  Unknown theme "${options.theme}", using "${safeTheme}"`));
     }
     console.log(chalk.blue('Generating'), options.type, 'diagram for', root);
-    
+
     const data = await analyze(root, options);
     const mermaid = generate(data, options.type, options.focus);
-    
+
+    // Validate Mermaid syntax if requested
+    if (options.validate) {
+      console.log(chalk.blue('\n🔍 Validating Mermaid syntax...'));
+      const validationResult = validateMermaidSyntax(mermaid, safeTheme);
+
+      if (validationResult.valid) {
+        console.log(chalk.green('✅ Mermaid syntax is valid'));
+      } else {
+        console.log(chalk.yellow('⚠️  Mermaid syntax issues detected:'));
+        for (const error of validationResult.errors) {
+          console.log(chalk.yellow(`   Line ${error.line || '?'}: ${error.message}`));
+        }
+
+        if (options.failOnValidationError) {
+          console.error(chalk.red('❌ Validation failed (exit 1)'));
+          process.exit(1);
+        }
+      }
+    }
+
     console.log(chalk.green('\n📐 Mermaid Diagram:\n'));
     console.log('```mermaid');
     console.log(mermaid);
     console.log('```\n');
-    
+
     // Preview URL
     const { url, large } = createMermaidUrl(mermaid);
     
