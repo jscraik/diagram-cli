@@ -18,7 +18,8 @@
     "release:publish:initial": "bash scripts/release-npm.sh --publish --initial",
     "harness": "node node_modules/@brainwav/coding-harness/dist/cli.js",
     "harness:pr-gates": "bash scripts/harness-pr-gates.sh",
-    "postinstall": "simple-git-hooks"
+    "postinstall": "simple-git-hooks",
+    "harness:check": "bash scripts/harness-check.sh"
   },
   "keywords": [
     "diagrams",
@@ -30,7 +31,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@brainwav/coding-harness": "^0.5.7",
+    "@brainwav/coding-harness": "^0.6.0",
     "@octokit/plugin-retry": "^8.1.0",
     "@octokit/plugin-throttling": "^11.0.3",
     "@octokit/request-error": "^7.1.0",

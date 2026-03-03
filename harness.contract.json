@@ -50,7 +50,7 @@
     }
   },
   "runtimePolicy": {
-    "nodeVersion": "18.x"
+    "nodeVersion": "20.x"
   },
   "memoryPolicy": {
     "enabled": true,
