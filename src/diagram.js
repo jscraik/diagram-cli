@@ -1259,65 +1259,91 @@ function normalizeThemeOption(theme, fallback = 'default') {
 }
 
 /**
- * Calculate Levenshtein distance between two strings
- * @param {string} a - First string
- * @param {string} b - Second string
- * @returns {number} Distance
+ * Validate Mermaid syntax using mermaid-cli
+ * @param {string} mermaid - Mermaid diagram source
+ * @param {string} theme - Theme name
+ * @returns {{valid: boolean, errors: Array<{line?: number, message: string}>}}
  */
-function levenshteinDistance(a, b) {
-  const matrix = [];
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
+function validateMermaidSyntax(mermaid, theme = 'default') {
+  const result = { valid: true, errors: [] };
+
+  // Basic syntax checks (no external dependency required)
+  const lines = mermaid.split('\n');
+
+  // Check for common issues
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineNum = i + 1;
+
+    // Check for unbalanced quotes in labels
+    const quoteCount = (line.match(/"/g) || []).length;
+    if (quoteCount % 2 !== 0) {
+      result.errors.push({ line: lineNum, message: 'Unbalanced quotes in label' });
+      result.valid = false;
+    }
+
+    // Check for invalid arrow syntax
+    if (line.includes('-->') && line.includes('---')) {
+      result.errors.push({ line: lineNum, message: 'Mixed arrow syntax (-->) and comment syntax (---)' });
+      result.valid = false;
+    }
+
+    // Check for empty node labels
+    if (/\[\s*\]/.test(line) && !line.includes('%%')) {
+      result.errors.push({ line: lineNum, message: 'Empty node label []' });
+      result.valid = false;
+    }
   }
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
+
+  // Check for required diagram type declaration
+  const firstNonCommentLine = lines.find(l => !l.trim().startsWith('%%'));
+  const validDiagramTypes = ['graph', 'flowchart', 'sequenceDiagram', 'classDiagram', 'erDiagram', 'gantt', 'pie', 'journey', 'gitGraph', 'mindmap', 'timeline'];
+  const hasValidType = validDiagramTypes.some(type => firstNonCommentLine?.trim().startsWith(type));
+
+  if (!hasValidType && firstNonCommentLine) {
+    result.errors.push({ line: 1, message: 'Missing or invalid diagram type declaration' });
+    result.valid = false;
   }
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
+
+  // Try to validate with mmdc if available
+  try {
+    const randomId = crypto.randomBytes(8).toString('hex');
+    const tempFile = path.join(os.tmpdir(), `diagram-validate-${Date.now()}-${randomId}.mmd`);
+    fs.writeFileSync(tempFile, `%%{init: {'theme': '${theme}'}}%%\n${mermaid}`);
+
+    // Use spawnSync for safer execution (no shell interpolation)
+    const { status, stderr } = cp.spawnSync(
+      'npx',
+      ['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '--dryRun'],
+      { encoding: 'utf8', timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+
+    fs.unlinkSync(tempFile);
+
+    if (status !== 0 && result.errors.length === 0) {
+      // mmdc validation failed - parse error message
+      const output = stderr || '';
+      const lineMatch = output.match(/line (\d+)/i);
+      const errorLine = lineMatch ? parseInt(lineMatch[1], 10) : undefined;
+
+      let errorMsg = 'Mermaid syntax error';
+      if (output.includes('Error parsing')) {
+        errorMsg = 'Parse error in Mermaid syntax';
+      } else if (output.includes('lexing error')) {
+        errorMsg = 'Lexing error - invalid characters or syntax';
       }
+
+      result.errors.push({ line: errorLine, message: errorMsg });
+      result.valid = false;
     }
-  }
-  return matrix[b.length][a.length];
-}
-
-/**
- * Find the closest matching string from a list
- * @param {string} input - User input
- * @param {string[]} options - Valid options
- * @param {number} maxDistance - Maximum distance to consider (default: 3)
- * @returns {string|null} Best match or null if none close enough
- */
-function findClosestMatch(input, options, maxDistance = 3) {
-  const inputLower = input.toLowerCase();
-  let bestMatch = null;
-  let bestDistance = maxDistance + 1;
-
-  for (const option of options) {
-    const distance = levenshteinDistance(inputLower, option.toLowerCase());
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestMatch = option;
+  } catch (e) {
+    // mmdc not available or failed - rely on basic checks only
+    if (process.env.DEBUG) {
+      console.log(chalk.gray('Mermaid CLI not available for validation, using basic checks only'));
     }
   }
 
-  return bestDistance <= maxDistance ? bestMatch : null;
-}
-
-/**
- * Format a suggestion message
- * @param {string} suggestion - The suggested value
- * @returns {string} Formatted suggestion
- */
-function formatSuggestion(suggestion) {
-  return chalk.cyan(`Did you mean: ${suggestion}?`);
+  return result;
 }
 
 function validateExistingPathInRoot(targetPath, rootPath, label = 'path') {
@@ -1377,6 +1403,8 @@ program
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'default')
+  .option('--validate', 'Validate Mermaid syntax', false)
+  .option('--fail-on-validation-error', 'Exit with error if validation fails', false)
   .option('--open', 'Open in browser')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
@@ -1390,15 +1418,35 @@ program
       }
     }
     console.log(chalk.blue('Generating'), options.type, 'diagram for', root);
-    
+
     const data = await analyze(root, options);
     const mermaid = generate(data, options.type, options.focus);
-    
+
+    // Validate Mermaid syntax if requested
+    if (options.validate) {
+      console.log(chalk.blue('\n🔍 Validating Mermaid syntax...'));
+      const validationResult = validateMermaidSyntax(mermaid, safeTheme);
+
+      if (validationResult.valid) {
+        console.log(chalk.green('✅ Mermaid syntax is valid'));
+      } else {
+        console.log(chalk.yellow('⚠️  Mermaid syntax issues detected:'));
+        for (const error of validationResult.errors) {
+          console.log(chalk.yellow(`   Line ${error.line || '?'}: ${error.message}`));
+        }
+
+        if (options.failOnValidationError) {
+          console.error(chalk.red('❌ Validation failed (exit 1)'));
+          process.exit(1);
+        }
+      }
+    }
+
     console.log(chalk.green('\n📐 Mermaid Diagram:\n'));
     console.log('```mermaid');
     console.log(mermaid);
     console.log('```\n');
-    
+
     // Preview URL
     const { url, large } = createMermaidUrl(mermaid);
     
