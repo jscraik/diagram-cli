@@ -29,7 +29,7 @@ run_packaged_cli_smoke_test() {
   smoke_dir="$(mktemp -d)"
   trap 'rm -rf "$pack_dir" "$smoke_dir"' RETURN
 
-  pack_file="$(npm pack --json --pack-destination "$pack_dir" | jq -r '.[0].filename')"
+  pack_file="$(npm pack --json --ignore-scripts --pack-destination "$pack_dir" | jq -r '.[0].filename')"
   if [[ -z "$pack_file" || "$pack_file" == "null" ]]; then
     fail "Could not determine packed artifact filename."
   fi
@@ -38,7 +38,21 @@ run_packaged_cli_smoke_test() {
     cd "$smoke_dir"
     npm init -y >/dev/null 2>&1
     npm install "$pack_dir/$pack_file" >/dev/null
+
+    mkdir -p workspace/src
+    cat > workspace/src/index.js <<'EOF'
+const util = require('./util');
+module.exports = util;
+EOF
+    cat > workspace/src/util.js <<'EOF'
+module.exports = { ok: true };
+EOF
+
     ./node_modules/.bin/diagram --help >/dev/null
+    ./node_modules/.bin/diagram analyze workspace --json >/dev/null
+    ./node_modules/.bin/diagram generate workspace --type architecture --output workspace/architecture.mmd >/dev/null
+    ./node_modules/.bin/diagram test workspace --init >/dev/null
+    ./node_modules/.bin/diagram test workspace >/dev/null
   )
 }
 

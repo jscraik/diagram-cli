@@ -18,7 +18,7 @@
     "release:publish:initial": "bash scripts/release-npm.sh --publish --initial",
     "harness": "node node_modules/@brainwav/coding-harness/dist/cli.js",
     "harness:pr-gates": "bash scripts/harness-pr-gates.sh",
-    "postinstall": "simple-git-hooks",
+    "prepare": "simple-git-hooks",
     "harness:check": "bash scripts/harness-check.sh"
   },
   "keywords": [
@@ -57,9 +57,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "files": [
-    "src/diagram.js",
-    "src/video.js",
-    "src/utils/commands.js",
+    "src/**/*.js",
     "README.md",
     "scripts/refresh-diagram-context.sh",
     "LICENSE"

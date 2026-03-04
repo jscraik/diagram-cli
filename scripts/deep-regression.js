@@ -41,6 +41,37 @@ function run() {
     'Windows ffmpeg candidates should include .exe paths'
   );
 
+  // Packed artifact should include runtime files required by CLI commands
+  const repoRoot = path.join(__dirname, '..');
+  const packDryRun = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+    cwd: repoRoot,
+    encoding: 'utf8'
+  });
+  assert.strictEqual(packDryRun.status, 0, `npm pack --dry-run failed: ${packDryRun.stderr}`);
+  const packInfo = JSON.parse(packDryRun.stdout);
+  const packedFiles = new Set((packInfo[0]?.files || []).map((entry) => entry.path));
+  const requiredRuntimeFiles = [
+    'src/diagram.js',
+    'src/video.js',
+    'src/utils/commands.js',
+    'src/rules.js',
+    'src/graph.js',
+    'src/formatters/index.js',
+    'src/rules/factory.js',
+    'src/rules/types/import-rule.js',
+    'src/schema/rules-schema.js',
+    'src/core/analysis-generation.js',
+    'src/workflow/pr-impact.js',
+    'src/workflow/git-helpers.js',
+    'src/workflow/pr-command.js'
+  ];
+  for (const requiredFile of requiredRuntimeFiles) {
+    assert.ok(
+      packedFiles.has(requiredFile),
+      `Packed artifact is missing required runtime file: ${requiredFile}`
+    );
+  }
+
   // Integration checks with special characters/spaces in paths
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-regression-'));
   const workspace = path.join(tmpRoot, 'workspace with spaces [x] & chars');
