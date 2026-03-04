@@ -1052,9 +1052,15 @@ function generate(data, type, focus) {
     case 'events': return generateEvents(data);
     case 'auth': return generateAuth(data);
     case 'security': return generateSecurity(data);
-    default: 
+    default: {
+      const validTypes = ['architecture', 'sequence', 'dependency', 'class', 'flow', 'database', 'user', 'events', 'auth', 'security'];
+      const suggestion = findClosestMatch(type, validTypes);
       console.warn(chalk.yellow(`⚠️  Unknown diagram type "${type}", using architecture`));
+      if (suggestion) {
+        console.warn(formatSuggestion(suggestion));
+      }
       return generateArchitecture(data, focus);
+    }
   }
 }
 
@@ -1252,6 +1258,68 @@ function normalizeThemeOption(theme, fallback = 'default') {
   return ALLOWED_THEMES.includes(normalized) ? normalized : fallback;
 }
 
+/**
+ * Calculate Levenshtein distance between two strings
+ * @param {string} a - First string
+ * @param {string} b - Second string
+ * @returns {number} Distance
+ */
+function levenshteinDistance(a, b) {
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Find the closest matching string from a list
+ * @param {string} input - User input
+ * @param {string[]} options - Valid options
+ * @param {number} maxDistance - Maximum distance to consider (default: 3)
+ * @returns {string|null} Best match or null if none close enough
+ */
+function findClosestMatch(input, options, maxDistance = 3) {
+  const inputLower = input.toLowerCase();
+  let bestMatch = null;
+  let bestDistance = maxDistance + 1;
+
+  for (const option of options) {
+    const distance = levenshteinDistance(inputLower, option.toLowerCase());
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestMatch = option;
+    }
+  }
+
+  return bestDistance <= maxDistance ? bestMatch : null;
+}
+
+/**
+ * Format a suggestion message
+ * @param {string} suggestion - The suggested value
+ * @returns {string} Formatted suggestion
+ */
+function formatSuggestion(suggestion) {
+  return chalk.cyan(`Did you mean: ${suggestion}?`);
+}
+
 function validateExistingPathInRoot(targetPath, rootPath, label = 'path') {
   const realRoot = fs.realpathSync(rootPath);
   const realTarget = fs.realpathSync(targetPath);
@@ -1315,7 +1383,11 @@ program
     const requestedTheme = String(options.theme || 'default').toLowerCase();
     const safeTheme = normalizeThemeOption(options.theme, 'default');
     if (requestedTheme !== safeTheme) {
+      const suggestion = findClosestMatch(options.theme, ALLOWED_THEMES);
       console.warn(chalk.yellow(`⚠️  Unknown theme "${options.theme}", using "${safeTheme}"`));
+      if (suggestion) {
+        console.warn(formatSuggestion(suggestion));
+      }
     }
     console.log(chalk.blue('Generating'), options.type, 'diagram for', root);
     
