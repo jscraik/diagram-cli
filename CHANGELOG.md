@@ -7,36 +7,6 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Added
-
-- Add `diagram diff <base> <head>` command to compare architecture diagrams between two git refs. Shows component counts, edge counts, type distribution, and lists added/removed/changed components with `--json` output support.
-
-### Changed
-
-- Enhanced `pr-impact.html` output with structured reviewer-friendly sections: Executive Summary, Change Story (grouped by file status), Risk Reasoning, Blast Radius with truncation metadata, and Action Checklist. No changes to `pr-impact.json` schema or CLI options.
-
-## [1.0.7] - 2026-02-28
-
-### Added
-
-- Add CI manifest validation to architecture workflow so `diagram manifest` can fail PRs when required core diagrams are placeholders or missing while allowing AI-only diagram types to be optional.
-- Update `diagram manifest --fail-on-placeholder` to scope placeholder enforcement to `--require-types` when provided.
-
-## [1.0.6] - 2026-02-28
-
-### Added
-
-- Include `scripts/refresh-diagram-context.sh` in the npm package file allowlist.
-
-## [1.0.5] - 2026-02-28
-
-### Added
-
-- Add AI-focused diagram generators: `database`, `user`, `events`, `auth`, and `security` to help with control flow, interaction mapping, auth paths, and security reasoning.
-- Extend role-aware analysis metadata (`roleTags`) so generated diagrams can target user-facing, event, auth, database, and security intent.
-- Add `diagram all` manifest output (`manifest.json`) under output directories to provide a machine-readable index of generated diagram artifacts and placeholder status.
-- Add `diagram manifest` command to summarize manifest files, enforce required diagram types, and optionally fail on placeholders for CI.
-
 ## [1.0.3] - 2026-02-28
 
 ### Added

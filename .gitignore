@@ -7,10 +7,6 @@ pnpm-debug.log*
 coverage/
 diagrams/
 .diagram/
-.harness/
-.memory-metrics.json
-
-# Internal docs (do not commit)
 
 # Local tooling caches
 .narrative/meta/
