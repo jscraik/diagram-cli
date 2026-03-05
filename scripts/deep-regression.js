@@ -20,6 +20,93 @@ function runCLI(args, cwd) {
   });
 }
 
+function extractJsonSegment(text, startIndex) {
+  const opening = text[startIndex];
+  if (opening !== '{' && opening !== '[') {
+    return null;
+  }
+
+  const stack = [opening];
+  let inString = false;
+  let escaping = false;
+
+  for (let index = startIndex + 1; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (inString) {
+      if (escaping) {
+        escaping = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaping = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === '{' || char === '[') {
+      stack.push(char);
+      continue;
+    }
+
+    if (char === '}' || char === ']') {
+      const expected = char === '}' ? '{' : '[';
+      if (stack.at(-1) !== expected) {
+        return null;
+      }
+      stack.pop();
+      if (stack.length === 0) {
+        return text.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+function parseJsonFromOutput(rawOutput, commandLabel) {
+  const text = String(rawOutput || '').trim();
+  if (!text) {
+    throw new Error(`${commandLabel} produced empty JSON output`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index];
+      if (char !== '{' && char !== '[') {
+        continue;
+      }
+      if (char === '[' && /[A-Za-z]/.test(text[index + 1] || '')) {
+        continue;
+      }
+
+      const candidate = extractJsonSegment(text, index);
+      if (!candidate) {
+        continue;
+      }
+      try {
+        return JSON.parse(candidate);
+      } catch (_candidateError) {
+        // continue searching for a valid JSON segment
+      }
+    }
+
+    const preview = text.slice(0, 200).replace(/\s+/g, ' ');
+    throw new Error(`${commandLabel} did not return valid JSON. Output preview: ${preview}`);
+  }
+}
+
 function run() {
   // Cross-platform command selection tests
   assert.deepStrictEqual(getOpenCommand('https://example.com', 'darwin'), {
@@ -47,8 +134,12 @@ function run() {
     cwd: repoRoot,
     encoding: 'utf8'
   });
-  assert.strictEqual(packDryRun.status, 0, `npm pack --dry-run failed: ${packDryRun.stderr}`);
-  const packInfo = JSON.parse(packDryRun.stdout);
+  assert.strictEqual(
+    packDryRun.status,
+    0,
+    `npm pack --dry-run failed: ${packDryRun.stderr || packDryRun.stdout}`
+  );
+  const packInfo = parseJsonFromOutput(packDryRun.stdout, 'npm pack --dry-run --json');
   const packedFiles = new Set((packInfo[0]?.files || []).map((entry) => entry.path));
   const requiredRuntimeFiles = [
     'src/diagram.js',
@@ -63,7 +154,12 @@ function run() {
     'src/core/analysis-generation.js',
     'src/workflow/pr-impact.js',
     'src/workflow/git-helpers.js',
-    'src/workflow/pr-command.js'
+    'src/workflow/pr-command.js',
+    'src/confidence/pipeline.js',
+    'src/incremental/cache.js',
+    'src/ir/architecture-ir.js',
+    'src/analyzers/default-analyzer.js',
+    'src/analyzers/index.js',
   ];
   for (const requiredFile of requiredRuntimeFiles) {
     assert.ok(
@@ -116,7 +212,7 @@ function run() {
 
   const analysis = runCLI(['analyze', '.', '--json'], workspace);
   assert.strictEqual(analysis.status, 0, `analyze failed: ${analysis.stderr}`);
-  const parsed = JSON.parse(analysis.stdout);
+  const parsed = parseJsonFromOutput(analysis.stdout, 'diagram analyze --json');
   assert.ok(Array.isArray(parsed.components), 'analyze --json should return components');
 
   const jsonOutput = path.join(workspace, 'reports', 'result file.json');
