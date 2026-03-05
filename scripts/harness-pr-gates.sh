@@ -116,7 +116,16 @@ if [[ "${tier}" == "medium" || "${tier}" == "high" ]]; then
 fi
 
 if [[ "${tier}" == "high" ]]; then
-  evidence_csv="$(printf '%s\n' "${changed_files[@]}" | rg -N '\.(png|jpe?g)$' | paste -sd, - || true)"
+  evidence_files=()
+  for changed_file in "${changed_files[@]}"; do
+    if [[ "${changed_file}" =~ \.(png|jpe?g)$ ]]; then
+      evidence_files+=("${changed_file}")
+    fi
+  done
+  evidence_csv=""
+  if (( ${#evidence_files[@]} > 0 )); then
+    evidence_csv="$(IFS=,; echo "${evidence_files[*]}")"
+  fi
   echo "Running evidence-verify..."
   if [[ -n "${evidence_csv}" ]]; then
     "${HARNESS_CLI[@]}" evidence-verify --contract "${CONTRACT_PATH}" --changed "${changed_csv}" --files "${evidence_csv}" --json
