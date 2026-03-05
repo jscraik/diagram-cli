@@ -170,6 +170,45 @@ function run() {
   assert.ok(summaryParsed.totalDiagrams >= expectedTypes.length, 'manifest summary should include generated diagrams');
   assert.deepStrictEqual(summaryParsed.required.missing, [], 'manifest summary should have no missing required types');
 
+  // Confidence pipeline capability checks should produce report artifact
+  const confidenceOnly = runCLI([
+    'generate',
+    '.',
+    '--type',
+    'architecture',
+    '--capability-check-only',
+    '--confidence-report'
+  ], workspace);
+  assert.strictEqual(confidenceOnly.status, 0, `confidence capability check expected success, got ${confidenceOnly.status}`);
+  const confidenceReportPath = path.join(workspace, '.diagram', 'confidence', 'confidence-report.json');
+  assert.ok(fs.existsSync(confidenceReportPath), 'confidence report artifact should be written');
+  const confidenceReport = JSON.parse(fs.readFileSync(confidenceReportPath, 'utf8'));
+  assert.strictEqual(confidenceReport.schemaVersion, '1.0', 'confidence report should include schemaVersion');
+
+  // Typed IR artifact should be emitted on demand
+  const emitIrResult = runCLI([
+    'analyze',
+    '.',
+    '--emit-ir',
+    '--max-files',
+    '100'
+  ], workspace);
+  assert.strictEqual(emitIrResult.status, 0, `emit-ir analyze expected success, got ${emitIrResult.status}`);
+  const irPath = path.join(workspace, '.diagram', 'ir', 'architecture-ir.json');
+  assert.ok(fs.existsSync(irPath), 'typed IR artifact should be written');
+  const irPayload = JSON.parse(fs.readFileSync(irPath, 'utf8'));
+  assert.strictEqual(irPayload.schemaVersion, '1.0', 'typed IR should include schema version');
+
+  // Incremental mode should create cache artifact and support cache hit on repeat runs
+  const incrementalRun1 = runCLI(['analyze', '.', '--incremental', '--max-files', '100', '--json'], workspace);
+  assert.strictEqual(incrementalRun1.status, 0, `incremental analyze run1 expected success, got ${incrementalRun1.status}`);
+  const cacheDir = path.join(workspace, '.diagram', 'cache');
+  assert.ok(fs.existsSync(cacheDir), 'incremental cache directory should be created');
+  const cacheFiles = fs.readdirSync(cacheDir).filter((entry) => entry.endsWith('.json'));
+  assert.ok(cacheFiles.length > 0, 'incremental mode should write at least one cache file');
+  const incrementalRun2 = runCLI(['analyze', '.', '--incremental', '--max-files', '100', '--json'], workspace);
+  assert.strictEqual(incrementalRun2.status, 0, `incremental analyze run2 expected success, got ${incrementalRun2.status}`);
+
   const databaseOutput = path.join(workspace, 'diagrams', 'database.mmd');
   const userOutput = path.join(workspace, 'diagrams', 'user.mmd');
   const eventsOutput = path.join(workspace, 'diagrams', 'events.mmd');

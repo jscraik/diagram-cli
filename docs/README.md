@@ -13,6 +13,8 @@ Maintainer and contributor documentation for `diagram-cli`.
   quick verification.
 - [Architecture testing](architecture-testing.md) - `diagram test` rules,
   formats, and CI usage.
+- [Confidence pipeline](confidence-pipeline.md) - confidence artifact contract,
+  strict confidence mode, and fallback semantics.
 - [Migration from dependency-cruiser](migration-from-dependency-cruiser.md) -
   Rule translation guidance.
 - [Release and publish](release-and-publish.md) - Versioning and npm
