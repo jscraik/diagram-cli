@@ -317,6 +317,49 @@ function run() {
   );
   assert.strictEqual(incrementalRun2.status, 0, `incremental analyze run2 expected success, got ${incrementalRun2.status}`);
 
+  // Strict confidence should not fail on expected incremental bypass reasons
+  const strictIncrementalCacheMiss = runCLI(
+    ['generate', '.', '--type', 'architecture', '--incremental', '--strict-confidence'],
+    workspace,
+    { CI: '' }
+  );
+  assert.strictEqual(
+    strictIncrementalCacheMiss.status,
+    0,
+    `strict confidence + incremental cache miss expected success, got ${strictIncrementalCacheMiss.status}`
+  );
+  const strictCacheMissReport = JSON.parse(fs.readFileSync(confidenceReportPath, 'utf8'));
+  assert.strictEqual(
+    strictCacheMissReport.fallback?.used,
+    false,
+    'cache miss should not be treated as confidence fallback degradation'
+  );
+  assert.ok(
+    !(strictCacheMissReport.fallback?.reasons || []).includes('incremental_cache_miss'),
+    'cache miss should not emit incremental fallback reason'
+  );
+
+  const strictIncrementalCi = runCLI(
+    ['generate', '.', '--type', 'architecture', '--incremental', '--strict-confidence'],
+    workspace,
+    { CI: 'true' }
+  );
+  assert.strictEqual(
+    strictIncrementalCi.status,
+    0,
+    `strict confidence + incremental CI bypass expected success, got ${strictIncrementalCi.status}`
+  );
+  const strictCiReport = JSON.parse(fs.readFileSync(confidenceReportPath, 'utf8'));
+  assert.strictEqual(
+    strictCiReport.fallback?.used,
+    false,
+    'CI incremental bypass should not be treated as confidence fallback degradation'
+  );
+  assert.ok(
+    !(strictCiReport.fallback?.reasons || []).includes('incremental_incremental_disabled_in_ci'),
+    'CI bypass should not emit malformed incremental fallback reason'
+  );
+
   const databaseOutput = path.join(workspace, 'diagrams', 'database.mmd');
   const userOutput = path.join(workspace, 'diagrams', 'user.mmd');
   const eventsOutput = path.join(workspace, 'diagrams', 'events.mmd');

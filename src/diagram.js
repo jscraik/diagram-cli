@@ -192,6 +192,9 @@ function runMermaidCli(args) {
 async function runAnalysisPipeline(rootPath, options, commandName) {
   const analyzerName = options.analyzer || 'default';
   const incrementalRequested = Boolean(options.incremental);
+  const cacheKey = incrementalRequested && !process.env.CI
+    ? buildCacheKey(commandName, { ...options, analyzer: analyzerName })
+    : null;
   const incrementalState = {
     requested: incrementalRequested,
     used: false,
@@ -201,7 +204,6 @@ async function runAnalysisPipeline(rootPath, options, commandName) {
   if (incrementalRequested && process.env.CI) {
     incrementalState.reason = 'incremental_disabled_in_ci';
   } else if (incrementalRequested) {
-    const cacheKey = buildCacheKey(commandName, { ...options, analyzer: analyzerName });
     const cached = readCachedAnalysis(rootPath, cacheKey);
     if (cached.hit) {
       incrementalState.used = true;
@@ -217,8 +219,7 @@ async function runAnalysisPipeline(rootPath, options, commandName) {
 
   const { analyzer, analysis } = await runAnalyzer(analyzerName, rootPath, options);
 
-  if (incrementalRequested && !process.env.CI) {
-    const cacheKey = buildCacheKey(commandName, { ...options, analyzer: analyzerName });
+  if (cacheKey) {
     writeCachedAnalysis(rootPath, cacheKey, {
       ...analysis,
       _meta: {
@@ -511,7 +512,11 @@ program
       fallbackReasons.push(...(validationResult.meta.fallbackReasons || []));
     }
     if (pipeline.incremental.requested && !pipeline.incremental.used) {
-      fallbackReasons.push(`incremental_${pipeline.incremental.reason}`);
+      const incrementalReason = pipeline.incremental.reason || 'unknown';
+      const expectedIncrementalBypassReasons = new Set(['cache_miss', 'incremental_disabled_in_ci']);
+      if (!expectedIncrementalBypassReasons.has(incrementalReason)) {
+        fallbackReasons.push(`incremental_${incrementalReason}`);
+      }
     }
     const fallback = {
       used: fallbackReasons.length > 0,
