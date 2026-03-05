@@ -7,6 +7,12 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Add confidence pipeline artifacts and strict confidence flags for `diagram generate` and `diagram workflow pr`.
+- Add typed IR emission (`--emit-ir`) and analyzer plugin boundary (`default` analyzer plugin).
+- Add incremental cache opt-in (`--incremental`) with explicit fallback semantics and CI-safe defaults.
+
 ## [1.0.3] - 2026-02-28
 
 ### Added

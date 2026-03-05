@@ -102,6 +102,9 @@ Options:
 - `-p, --patterns <list>` file patterns (default: `**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs`)
 - `-e, --exclude <list>` exclude patterns
 - `-m, --max-files <n>` max files to analyze (default: `100`)
+- `--analyzer <name>` analyzer plugin (default: `default`)
+- `--emit-ir` write typed IR artifact to `.diagram/ir/architecture-ir.json`
+- `--incremental` use incremental cache at `.diagram/cache` when available
 - `-j, --json` JSON output
 
 ### `diagram generate [path]`
@@ -124,7 +127,13 @@ Options:
 - `-f, --focus <module>` focus on one module or directory
 - `-o, --output <file>` write `.mmd`, `.svg`, or `.png`
 - `-m, --max-files <n>` max files to analyze
+- `--analyzer <name>` analyzer plugin (default: `default`)
+- `--emit-ir` write typed IR artifact to `.diagram/ir/architecture-ir.json`
+- `--incremental` use incremental cache at `.diagram/cache` when available
 - `--theme <theme>` `default|dark|forest|neutral`
+- `--confidence-report` write confidence report to `.diagram/confidence/confidence-report.json`
+- `--strict-confidence` exit 1 when confidence degrades (required capability failure, validation failure, or fallback use)
+- `--capability-check-only` run capability checks only and exit
 - `--open` open generated preview URL
 
 ### `diagram all [path]`
@@ -139,6 +148,9 @@ diagram all . --output-dir ./docs/diagrams
 Options:
 
 - `-o, --output-dir <dir>` output directory (default: `./diagrams`)
+- `--analyzer <name>` analyzer plugin (default: `default`)
+- `--emit-ir` write typed IR artifact to `.diagram/ir/architecture-ir.json`
+- `--incremental` use incremental cache at `.diagram/cache` when available
 
 ### `diagram manifest [path]`
 
@@ -266,6 +278,8 @@ agent bootstrap checks).
 - `.mp4`/`.webm`/`.mov` video export (requires Playwright + ffmpeg)
 - Animated `.svg` export (requires Playwright)
 - `.diagram/manifest.json` machine-readable artifact index
+- `.diagram/ir/architecture-ir.json` typed architecture IR artifact (opt-in via `--emit-ir`)
+- `.diagram/confidence/confidence-report.json` confidence pipeline artifact (opt-in via confidence flags)
 
 Install Mermaid CLI for image export:
 
@@ -463,6 +477,9 @@ Options:
   --risk-threshold <level>        Risk threshold: none, low, medium, high
   --fail-on-risk                  Exit 1 if risk exceeds threshold
   --risk-override-reason <string> Override risk gate with documented reason
+  --confidence-report             Write confidence report artifact
+  --strict-confidence             Exit 1 when confidence checks degrade
+  --capability-check-only         Run capability checks only and exit
   -j, --json                       JSON output only (skip HTML)
   --verbose                       Show detailed output
 ```
@@ -570,4 +587,3 @@ node src/diagram.js --help
 ## License
 
 MIT - see [LICENSE](LICENSE).
-

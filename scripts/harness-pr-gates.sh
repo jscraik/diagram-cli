@@ -14,6 +14,8 @@ RUN_MEMORY_GATE="${RUN_MEMORY_GATE:-1}"
 SKIP_REVIEW_GATE="${SKIP_REVIEW_GATE:-0}"
 REVIEW_CHECK_NAME="${REVIEW_CHECK_NAME:-test}"
 MEMORY_METRICS_PATH="${MEMORY_METRICS_PATH:-${TMPDIR:-/tmp}/harness-memory-metrics.json}"
+REPO_OWNER="${REPO_OWNER:-${GITHUB_REPOSITORY%%/*}}"
+REPO_NAME="${REPO_NAME:-${GITHUB_REPOSITORY##*/}}"
 
 if [[ -z "${BASE_SHA}" || -z "${HEAD_SHA}" ]]; then
   fail "BASE_SHA and HEAD_SHA are required."
@@ -53,8 +55,36 @@ echo "${policy_output}" | jq .
 tier="$(echo "${policy_output}" | jq -r '.tier // "low"')"
 echo "Resolved risk tier: ${tier}"
 
+diff_budget_override_flag=()
+diff_budget_override_file=""
+diff_budget_override_label="$(jq -r '.diffBudget.overrideLabel // empty' "${CONTRACT_PATH}")"
+if [[ -n "${diff_budget_override_label}" && -n "${PR_NUMBER:-}" && -n "${GITHUB_TOKEN:-}" && -n "${REPO_OWNER:-}" && -n "${REPO_NAME:-}" ]]; then
+  labels_api="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${PR_NUMBER}/labels"
+  labels_json="$(curl -fsSL \
+    -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github+json" \
+    "${labels_api}" || true)"
+  if [[ -n "${labels_json}" ]] && echo "${labels_json}" | jq -e --arg label "${diff_budget_override_label}" 'any(.[]?; .name == $label)' >/dev/null; then
+    diff_budget_override_file="$(mktemp "${PWD}/.harness-diff-override.XXXXXX.json")"
+    jq -n \
+      --arg reason "Diff budget override via label ${diff_budget_override_label} on PR #${PR_NUMBER}" \
+      --arg approvedBy "${REPO_OWNER}/${REPO_NAME}" \
+      --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+      '{ reason: $reason, approvedBy: $approvedBy, timestamp: $timestamp }' > "${diff_budget_override_file}"
+    diff_budget_override_flag=(--override "${diff_budget_override_file}")
+    echo "Diff budget override active via label '${diff_budget_override_label}'."
+  fi
+fi
+
+cleanup() {
+  if [[ -n "${diff_budget_override_file}" && -f "${diff_budget_override_file}" ]]; then
+    rm -f "${diff_budget_override_file}"
+  fi
+}
+trap cleanup EXIT
+
 echo "Running diff-budget..."
-"${HARNESS_CLI[@]}" diff-budget --contract "${CONTRACT_PATH}" --base "${BASE_SHA}" --head "${HEAD_SHA}" --json
+"${HARNESS_CLI[@]}" diff-budget --contract "${CONTRACT_PATH}" --base "${BASE_SHA}" --head "${HEAD_SHA}" "${diff_budget_override_flag[@]}" --json
 
 if [[ "${RUN_MEMORY_GATE}" == "1" ]]; then
   echo "Running memory-gate..."
@@ -67,19 +97,16 @@ if [[ "${tier}" == "medium" || "${tier}" == "high" ]]; then
   else
     github_token="${GITHUB_TOKEN:-}"
     pr_number="${PR_NUMBER:-}"
-    repo_owner="${REPO_OWNER:-${GITHUB_REPOSITORY%%/*}}"
-    repo_name="${REPO_NAME:-${GITHUB_REPOSITORY##*/}}"
-
     [[ -n "${github_token}" ]] || fail "GITHUB_TOKEN is required for review-gate when tier is ${tier}."
     [[ -n "${pr_number}" ]] || fail "PR_NUMBER is required for review-gate when tier is ${tier}."
-    [[ -n "${repo_owner}" ]] || fail "REPO_OWNER/GITHUB_REPOSITORY is required for review-gate."
-    [[ -n "${repo_name}" ]] || fail "REPO_NAME/GITHUB_REPOSITORY is required for review-gate."
+    [[ -n "${REPO_OWNER}" ]] || fail "REPO_OWNER/GITHUB_REPOSITORY is required for review-gate."
+    [[ -n "${REPO_NAME}" ]] || fail "REPO_NAME/GITHUB_REPOSITORY is required for review-gate."
 
     echo "Running review-gate (check=${REVIEW_CHECK_NAME})..."
     "${HARNESS_CLI[@]}" review-gate \
       --token "${github_token}" \
-      --owner "${repo_owner}" \
-      --repo "${repo_name}" \
+      --owner "${REPO_OWNER}" \
+      --repo "${REPO_NAME}" \
       --pr "${pr_number}" \
       --sha "${HEAD_SHA}" \
       --check "${REVIEW_CHECK_NAME}" \
@@ -89,7 +116,16 @@ if [[ "${tier}" == "medium" || "${tier}" == "high" ]]; then
 fi
 
 if [[ "${tier}" == "high" ]]; then
-  evidence_csv="$(printf '%s\n' "${changed_files[@]}" | rg -N '\.(png|jpe?g)$' | paste -sd, - || true)"
+  evidence_files=()
+  for changed_file in "${changed_files[@]}"; do
+    if [[ "${changed_file}" =~ \.(png|jpe?g)$ ]]; then
+      evidence_files+=("${changed_file}")
+    fi
+  done
+  evidence_csv=""
+  if (( ${#evidence_files[@]} > 0 )); then
+    evidence_csv="$(IFS=,; echo "${evidence_files[*]}")"
+  fi
   echo "Running evidence-verify..."
   if [[ -n "${evidence_csv}" ]]; then
     "${HARNESS_CLI[@]}" evidence-verify --contract "${CONTRACT_PATH}" --changed "${changed_csv}" --files "${evidence_csv}" --json

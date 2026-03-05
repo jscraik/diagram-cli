@@ -270,6 +270,9 @@ diagram workflow pr . --base HEAD~1 --head HEAD --verbose
 | `--risk-threshold <level>` | Risk threshold for gating: none, low, medium, high. Default: none. |
 | `--fail-on-risk` | Exit with code 1 if risk meets or exceeds threshold. |
 | `--risk-override-reason <string>` | Override risk gate with documented reason. |
+| `--confidence-report` | Write confidence report to `.diagram/confidence/confidence-report.json`. |
+| `--strict-confidence` | Exit 1 when confidence checks degrade (required capability failure, validation failure, or fallback use). |
+| `--capability-check-only` | Run capability checks only and exit without PR impact analysis. |
 | `-j, --json` | Output as JSON only (skip HTML generation). |
 | `--verbose` | Show detailed output. |
 

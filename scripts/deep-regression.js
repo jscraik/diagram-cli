@@ -13,11 +13,102 @@ const {
 
 const CLI_PATH = path.join(__dirname, '..', 'src', 'diagram.js');
 
-function runCLI(args, cwd) {
+function runCLI(args, cwd, envOverrides = {}) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
     cwd,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      ...envOverrides,
+    },
   });
+}
+
+function extractJsonSegment(text, startIndex) {
+  const opening = text[startIndex];
+  if (opening !== '{' && opening !== '[') {
+    return null;
+  }
+
+  const stack = [opening];
+  let inString = false;
+  let escaping = false;
+
+  for (let index = startIndex + 1; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (inString) {
+      if (escaping) {
+        escaping = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaping = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === '{' || char === '[') {
+      stack.push(char);
+      continue;
+    }
+
+    if (char === '}' || char === ']') {
+      const expected = char === '}' ? '{' : '[';
+      if (stack.at(-1) !== expected) {
+        return null;
+      }
+      stack.pop();
+      if (stack.length === 0) {
+        return text.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+function parseJsonFromOutput(rawOutput, commandLabel) {
+  const text = String(rawOutput || '').trim();
+  if (!text) {
+    throw new Error(`${commandLabel} produced empty JSON output`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (_error) {
+    for (let index = 0; index < text.length; index += 1) {
+      const char = text[index];
+      if (char !== '{' && char !== '[') {
+        continue;
+      }
+      if (char === '[' && /[A-Za-z]/.test(text[index + 1] || '')) {
+        continue;
+      }
+
+      const candidate = extractJsonSegment(text, index);
+      if (!candidate) {
+        continue;
+      }
+      try {
+        return JSON.parse(candidate);
+      } catch (_candidateError) {
+        // continue searching for a valid JSON segment
+      }
+    }
+
+    const preview = text.slice(0, 200).replace(/\s+/g, ' ');
+    throw new Error(`${commandLabel} did not return valid JSON. Output preview: ${preview}`);
+  }
 }
 
 function run() {
@@ -47,8 +138,12 @@ function run() {
     cwd: repoRoot,
     encoding: 'utf8'
   });
-  assert.strictEqual(packDryRun.status, 0, `npm pack --dry-run failed: ${packDryRun.stderr}`);
-  const packInfo = JSON.parse(packDryRun.stdout);
+  assert.strictEqual(
+    packDryRun.status,
+    0,
+    `npm pack --dry-run failed: ${packDryRun.stderr || packDryRun.stdout}`
+  );
+  const packInfo = parseJsonFromOutput(packDryRun.stdout, 'npm pack --dry-run --json');
   const packedFiles = new Set((packInfo[0]?.files || []).map((entry) => entry.path));
   const requiredRuntimeFiles = [
     'src/diagram.js',
@@ -63,7 +158,12 @@ function run() {
     'src/core/analysis-generation.js',
     'src/workflow/pr-impact.js',
     'src/workflow/git-helpers.js',
-    'src/workflow/pr-command.js'
+    'src/workflow/pr-command.js',
+    'src/confidence/pipeline.js',
+    'src/incremental/cache.js',
+    'src/ir/architecture-ir.js',
+    'src/analyzers/default-analyzer.js',
+    'src/analyzers/index.js',
   ];
   for (const requiredFile of requiredRuntimeFiles) {
     assert.ok(
@@ -116,7 +216,7 @@ function run() {
 
   const analysis = runCLI(['analyze', '.', '--json'], workspace);
   assert.strictEqual(analysis.status, 0, `analyze failed: ${analysis.stderr}`);
-  const parsed = JSON.parse(analysis.stdout);
+  const parsed = parseJsonFromOutput(analysis.stdout, 'diagram analyze --json');
   assert.ok(Array.isArray(parsed.components), 'analyze --json should return components');
 
   const jsonOutput = path.join(workspace, 'reports', 'result file.json');
@@ -169,6 +269,96 @@ function run() {
   const summaryParsed = JSON.parse(fs.readFileSync(path.join(workspace, summaryOutput), 'utf8'));
   assert.ok(summaryParsed.totalDiagrams >= expectedTypes.length, 'manifest summary should include generated diagrams');
   assert.deepStrictEqual(summaryParsed.required.missing, [], 'manifest summary should have no missing required types');
+
+  // Confidence pipeline capability checks should produce report artifact
+  const confidenceOnly = runCLI([
+    'generate',
+    '.',
+    '--type',
+    'architecture',
+    '--capability-check-only',
+    '--confidence-report'
+  ], workspace);
+  assert.strictEqual(confidenceOnly.status, 0, `confidence capability check expected success, got ${confidenceOnly.status}`);
+  const confidenceReportPath = path.join(workspace, '.diagram', 'confidence', 'confidence-report.json');
+  assert.ok(fs.existsSync(confidenceReportPath), 'confidence report artifact should be written');
+  const confidenceReport = JSON.parse(fs.readFileSync(confidenceReportPath, 'utf8'));
+  assert.strictEqual(confidenceReport.schemaVersion, '1.0', 'confidence report should include schemaVersion');
+
+  // Typed IR artifact should be emitted on demand
+  const emitIrResult = runCLI([
+    'analyze',
+    '.',
+    '--emit-ir',
+    '--max-files',
+    '100'
+  ], workspace);
+  assert.strictEqual(emitIrResult.status, 0, `emit-ir analyze expected success, got ${emitIrResult.status}`);
+  const irPath = path.join(workspace, '.diagram', 'ir', 'architecture-ir.json');
+  assert.ok(fs.existsSync(irPath), 'typed IR artifact should be written');
+  const irPayload = JSON.parse(fs.readFileSync(irPath, 'utf8'));
+  assert.strictEqual(irPayload.schemaVersion, '1.0', 'typed IR should include schema version');
+
+  // Incremental mode should create cache artifact and support cache hit on repeat runs
+  const incrementalRun1 = runCLI(
+    ['analyze', '.', '--incremental', '--max-files', '100', '--json'],
+    workspace,
+    { CI: '' }
+  );
+  assert.strictEqual(incrementalRun1.status, 0, `incremental analyze run1 expected success, got ${incrementalRun1.status}`);
+  const cacheDir = path.join(workspace, '.diagram', 'cache');
+  assert.ok(fs.existsSync(cacheDir), 'incremental cache directory should be created');
+  const cacheFiles = fs.readdirSync(cacheDir).filter((entry) => entry.endsWith('.json'));
+  assert.ok(cacheFiles.length > 0, 'incremental mode should write at least one cache file');
+  const incrementalRun2 = runCLI(
+    ['analyze', '.', '--incremental', '--max-files', '100', '--json'],
+    workspace,
+    { CI: '' }
+  );
+  assert.strictEqual(incrementalRun2.status, 0, `incremental analyze run2 expected success, got ${incrementalRun2.status}`);
+
+  // Strict confidence should not fail on expected incremental bypass reasons
+  const strictIncrementalCacheMiss = runCLI(
+    ['generate', '.', '--type', 'architecture', '--incremental', '--strict-confidence'],
+    workspace,
+    { CI: '' }
+  );
+  assert.strictEqual(
+    strictIncrementalCacheMiss.status,
+    0,
+    `strict confidence + incremental cache miss expected success, got ${strictIncrementalCacheMiss.status}`
+  );
+  const strictCacheMissReport = JSON.parse(fs.readFileSync(confidenceReportPath, 'utf8'));
+  assert.strictEqual(
+    strictCacheMissReport.fallback?.used,
+    false,
+    'cache miss should not be treated as confidence fallback degradation'
+  );
+  assert.ok(
+    !(strictCacheMissReport.fallback?.reasons || []).includes('incremental_cache_miss'),
+    'cache miss should not emit incremental fallback reason'
+  );
+
+  const strictIncrementalCi = runCLI(
+    ['generate', '.', '--type', 'architecture', '--incremental', '--strict-confidence'],
+    workspace,
+    { CI: 'true' }
+  );
+  assert.strictEqual(
+    strictIncrementalCi.status,
+    0,
+    `strict confidence + incremental CI bypass expected success, got ${strictIncrementalCi.status}`
+  );
+  const strictCiReport = JSON.parse(fs.readFileSync(confidenceReportPath, 'utf8'));
+  assert.strictEqual(
+    strictCiReport.fallback?.used,
+    false,
+    'CI incremental bypass should not be treated as confidence fallback degradation'
+  );
+  assert.ok(
+    !(strictCiReport.fallback?.reasons || []).includes('incremental_incremental_disabled_in_ci'),
+    'CI bypass should not emit malformed incremental fallback reason'
+  );
 
   const databaseOutput = path.join(workspace, 'diagrams', 'database.mmd');
   const userOutput = path.join(workspace, 'diagrams', 'user.mmd');
