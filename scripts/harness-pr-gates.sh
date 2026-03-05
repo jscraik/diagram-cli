@@ -65,7 +65,7 @@ if [[ -n "${diff_budget_override_label}" && -n "${PR_NUMBER:-}" && -n "${GITHUB_
     -H "Accept: application/vnd.github+json" \
     "${labels_api}" || true)"
   if [[ -n "${labels_json}" ]] && echo "${labels_json}" | jq -e --arg label "${diff_budget_override_label}" 'any(.[]?; .name == $label)' >/dev/null; then
-    diff_budget_override_file="$(mktemp)"
+    diff_budget_override_file="$(mktemp "${PWD}/.harness-diff-override.XXXXXX.json")"
     jq -n \
       --arg reason "Diff budget override via label ${diff_budget_override_label} on PR #${PR_NUMBER}" \
       --arg approvedBy "${REPO_OWNER}/${REPO_NAME}" \
