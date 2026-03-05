@@ -14,6 +14,12 @@ const {
   getChangedFiles,
   analyzeAtRef,
 } = require('./git-helpers');
+const {
+  probeCapabilities,
+  buildConfidenceReport,
+  writeConfidenceReport,
+  shouldFailStrictConfidence,
+} = require('../confidence/pipeline');
 
 /**
  * Register workflow command group and PR impact command.
@@ -39,11 +45,43 @@ function registerWorkflowCommands(program, deps) {
     .option('--risk-threshold <level>', 'Risk threshold: none, low, medium, high', 'none')
     .option('--fail-on-risk', 'Exit with code 1 if risk exceeds threshold', false)
     .option('--risk-override-reason <string>', 'Override risk gate with documented reason (requires --fail-on-risk)')
+    .option('--confidence-report', 'Write confidence report artifact', false)
+    .option('--strict-confidence', 'Fail with exit code 1 when confidence checks degrade', false)
+    .option('--capability-check-only', 'Run only capability checks and confidence evaluation', false)
     .option('-j, --json', 'Output as JSON only (skip HTML generation)', false)
     .option('--verbose', 'Show detailed output', false)
     .action(async (targetPath, options) => {
       const root = resolveRootPathOrExit(targetPath);
       const startTime = Date.now();
+      const confidenceEnabled = Boolean(
+        options.confidenceReport || options.strictConfidence || options.capabilityCheckOnly
+      );
+      let capabilities = null;
+
+      if (confidenceEnabled) {
+        capabilities = probeCapabilities('workflow-pr', {});
+      }
+
+      if (options.capabilityCheckOnly) {
+        const quickReport = buildConfidenceReport({
+          command: 'workflow-pr',
+          rootPath: root,
+          capabilities,
+          validation: { enabled: false, valid: true, errors: [] },
+          fallback: { used: false, reasons: [] },
+          notes: ['capability_check_only'],
+        });
+        if (options.confidenceReport || options.strictConfidence) {
+          const confidencePath = writeConfidenceReport(root, quickReport);
+          console.log(chalk.gray('Confidence report:'), confidencePath);
+        }
+        if (options.strictConfidence && shouldFailStrictConfidence(quickReport)) {
+          console.error(chalk.red('❌ Strict confidence check failed'));
+          process.exit(1);
+        }
+        console.log(chalk.green('✅ Capability check complete'));
+        process.exit(0);
+      }
 
       // Validate and resolve refs
       let baseRef = options.base;
@@ -359,6 +397,31 @@ function registerWorkflowCommands(program, deps) {
               console.log(chalk.gray('\n   Use --risk-override-reason to bypass'));
             }
             exitCode = 1;
+          }
+        }
+      }
+
+      if (confidenceEnabled) {
+        const report = buildConfidenceReport({
+          command: 'workflow-pr',
+          rootPath: root,
+          capabilities,
+          validation: { enabled: false, valid: true, errors: [] },
+          fallback: { used: false, reasons: [] },
+          notes: [`risk:${result.risk.level}`, `changed_components:${result.changedComponents.length}`],
+        });
+
+        if (options.confidenceReport || options.strictConfidence) {
+          const confidencePath = writeConfidenceReport(root, report);
+          if (!options.json) {
+            console.log(chalk.gray('   Confidence:'), confidencePath);
+          }
+        }
+
+        if (options.strictConfidence && shouldFailStrictConfidence(report)) {
+          exitCode = 1;
+          if (!options.json) {
+            console.error(chalk.red('\n❌ Strict confidence check failed'));
           }
         }
       }

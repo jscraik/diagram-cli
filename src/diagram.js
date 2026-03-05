@@ -9,6 +9,19 @@ const os = require('os');
 const crypto = require('crypto');
 const zlib = require('zlib');
 const { getOpenCommand, getNpxCommandCandidates } = require('./utils/commands');
+const { runAnalyzer } = require('./analyzers');
+const { toArchitectureIR, writeArchitectureIR } = require('./ir/architecture-ir');
+const {
+  probeCapabilities,
+  buildConfidenceReport,
+  writeConfidenceReport,
+  shouldFailStrictConfidence,
+} = require('./confidence/pipeline');
+const {
+  buildCacheKey,
+  readCachedAnalysis,
+  writeCachedAnalysis,
+} = require('./incremental/cache');
 const {
   SUPPORTED_DIAGRAM_TYPES,
   analyze,
@@ -176,6 +189,54 @@ function runMermaidCli(args) {
   throw new Error('npx command not found');
 }
 
+async function runAnalysisPipeline(rootPath, options, commandName) {
+  const analyzerName = options.analyzer || 'default';
+  const incrementalRequested = Boolean(options.incremental);
+  const incrementalState = {
+    requested: incrementalRequested,
+    used: false,
+    reason: 'not_requested',
+  };
+
+  if (incrementalRequested && process.env.CI) {
+    incrementalState.reason = 'incremental_disabled_in_ci';
+  } else if (incrementalRequested) {
+    const cacheKey = buildCacheKey(commandName, { ...options, analyzer: analyzerName });
+    const cached = readCachedAnalysis(rootPath, cacheKey);
+    if (cached.hit) {
+      incrementalState.used = true;
+      incrementalState.reason = cached.reason;
+      return {
+        analysis: cached.data,
+        analyzer: cached.data?._meta?.analyzer || { name: analyzerName, version: 'unknown' },
+        incremental: incrementalState,
+      };
+    }
+    incrementalState.reason = cached.reason;
+  }
+
+  const { analyzer, analysis } = await runAnalyzer(analyzerName, rootPath, options);
+
+  if (incrementalRequested && !process.env.CI) {
+    const cacheKey = buildCacheKey(commandName, { ...options, analyzer: analyzerName });
+    writeCachedAnalysis(rootPath, cacheKey, {
+      ...analysis,
+      _meta: {
+        ...(analysis._meta || {}),
+        analyzer,
+      },
+    });
+  }
+
+  return { analysis, analyzer, incremental: incrementalState };
+}
+
+function maybeWriteArchitectureIR(rootPath, analysis, analyzer, shouldWrite) {
+  if (!shouldWrite) return null;
+  const ir = toArchitectureIR(analysis, { rootPath, analyzer });
+  return writeArchitectureIR(rootPath, ir);
+}
+
 const ALLOWED_THEMES = ['default', 'dark', 'forest', 'neutral', 'light'];
 
 function normalizeThemeOption(theme, fallback = 'default') {
@@ -190,7 +251,20 @@ function normalizeThemeOption(theme, fallback = 'default') {
  * @returns {{valid: boolean, errors: Array<{line?: number, message: string}>}}
  */
 function validateMermaidSyntax(mermaid, theme = 'default') {
-  const result = { valid: true, errors: [] };
+  const result = {
+    valid: true,
+    errors: [],
+    meta: {
+      mode: 'basic',
+      fallbackUsed: false,
+      fallbackReasons: [],
+      cliValidation: {
+        attempted: false,
+        success: false,
+        error: null,
+      },
+    },
+  };
 
   // Basic syntax checks (no external dependency required)
   const lines = mermaid.split('\n');
@@ -231,40 +305,32 @@ function validateMermaidSyntax(mermaid, theme = 'default') {
   }
 
   // Try to validate with mmdc if available
+  let tempFile;
+  let tempOutput;
   try {
+    result.meta.cliValidation.attempted = true;
     const randomId = crypto.randomBytes(8).toString('hex');
-    const tempFile = path.join(os.tmpdir(), `diagram-validate-${Date.now()}-${randomId}.mmd`);
+    tempFile = path.join(os.tmpdir(), `diagram-validate-${Date.now()}-${randomId}.mmd`);
+    tempOutput = path.join(os.tmpdir(), `diagram-validate-${Date.now()}-${randomId}.svg`);
     fs.writeFileSync(tempFile, `%%{init: {'theme': '${theme}'}}%%\n${mermaid}`);
 
-    // Use spawnSync for safer execution (no shell interpolation)
-    const { status, stderr } = cp.spawnSync(
-      'npx',
-      ['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '--dryRun'],
-      { encoding: 'utf8', timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] }
-    );
-
-    fs.unlinkSync(tempFile);
-
-    if (status !== 0 && result.errors.length === 0) {
-      // mmdc validation failed - parse error message
-      const output = stderr || '';
-      const lineMatch = output.match(/line (\d+)/i);
-      const errorLine = lineMatch ? parseInt(lineMatch[1], 10) : undefined;
-
-      let errorMsg = 'Mermaid syntax error';
-      if (output.includes('Error parsing')) {
-        errorMsg = 'Parse error in Mermaid syntax';
-      } else if (output.includes('lexing error')) {
-        errorMsg = 'Lexing error - invalid characters or syntax';
-      }
-
-      result.errors.push({ line: errorLine, message: errorMsg });
-      result.valid = false;
-    }
+    runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', tempOutput, '-b', 'transparent']);
+    result.meta.mode = 'mmdc';
+    result.meta.cliValidation.success = true;
   } catch (e) {
     // mmdc not available or failed - rely on basic checks only
+    result.meta.fallbackUsed = true;
+    result.meta.fallbackReasons.push('mmdc_unavailable_or_failed');
+    result.meta.cliValidation.error = e.message || String(e);
     if (process.env.DEBUG) {
       console.log(chalk.gray('Mermaid CLI not available for validation, using basic checks only'));
+    }
+  } finally {
+    if (tempFile && fs.existsSync(tempFile)) {
+      try { fs.unlinkSync(tempFile); } catch (e) {}
+    }
+    if (tempOutput && fs.existsSync(tempOutput)) {
+      try { fs.unlinkSync(tempOutput); } catch (e) {}
     }
   }
 
@@ -293,14 +359,25 @@ program
   .option('-p, --patterns <list>', 'File patterns (comma-separated)', '**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs')
   .option('-e, --exclude <list>', 'Exclude patterns', 'node_modules/**,.git/**,dist/**')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
+  .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
+  .option('--emit-ir', 'Write typed architecture IR artifact', false)
+  .option('--incremental', 'Use incremental cache when available', false)
   .option('-j, --json', 'Output as JSON')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     if (!options.json) {
       console.log(chalk.blue('Analyzing'), root);
     }
-    
-    const data = await analyze(root, options);
+
+    const pipeline = await runAnalysisPipeline(root, options, 'analyze');
+    const data = pipeline.analysis;
+
+    if (options.emitIr) {
+      const irPath = maybeWriteArchitectureIR(root, data, pipeline.analyzer, true);
+      if (!options.json && irPath) {
+        console.log(chalk.gray('  IR:'), path.relative(root, irPath));
+      }
+    }
     
     if (options.json) {
       console.log(JSON.stringify(data, null, 2));
@@ -317,6 +394,12 @@ program
       if (data.components.length > 15) {
         console.log(chalk.gray(`  ... and ${data.components.length - 15} more`));
       }
+      if (pipeline.incremental.requested) {
+        const message = pipeline.incremental.used
+          ? `cache hit (${pipeline.incremental.reason})`
+          : `fallback full scan (${pipeline.incremental.reason})`;
+        console.log(chalk.gray(`  Incremental: ${message}`));
+      }
     }
   });
 
@@ -327,9 +410,15 @@ program
   .option('-f, --focus <module>', 'Focus on specific module')
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
+  .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
+  .option('--emit-ir', 'Write typed architecture IR artifact', false)
+  .option('--incremental', 'Use incremental cache when available', false)
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'default')
   .option('--validate', 'Validate Mermaid syntax', false)
   .option('--fail-on-validation-error', 'Exit with error if validation fails', false)
+  .option('--confidence-report', 'Write confidence report artifact', false)
+  .option('--strict-confidence', 'Fail with exit code 1 when confidence checks degrade', false)
+  .option('--capability-check-only', 'Run only capability checks and confidence evaluation', false)
   .option('--open', 'Open in browser')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
@@ -342,15 +431,65 @@ program
         console.warn(formatSuggestion(suggestion));
       }
     }
+    const outputExt = options.output ? path.extname(options.output).toLowerCase() : '';
+    const needsMermaidCli = Boolean(
+      options.validate || (options.output && outputExt !== '.md' && outputExt !== '.mmd')
+    );
+    const confidenceEnabled = Boolean(
+      options.confidenceReport || options.strictConfidence || options.capabilityCheckOnly
+    );
+
+    let capabilities = null;
+    if (confidenceEnabled) {
+      capabilities = probeCapabilities('generate', { requiresMermaidCli: needsMermaidCli });
+    }
+
+    if (options.capabilityCheckOnly) {
+      const quickReport = buildConfidenceReport({
+        command: 'generate',
+        rootPath: root,
+        capabilities,
+        validation: { enabled: false, valid: true, errors: [] },
+        fallback: { used: false, reasons: [] },
+        notes: ['capability_check_only'],
+      });
+      if (options.confidenceReport || options.strictConfidence) {
+        const confidencePath = writeConfidenceReport(root, quickReport);
+        console.log(chalk.gray('Confidence report:'), confidencePath);
+      }
+      if (options.strictConfidence && shouldFailStrictConfidence(quickReport)) {
+        console.error(chalk.red('❌ Strict confidence check failed'));
+        process.exit(1);
+      }
+      console.log(chalk.green('✅ Capability check complete'));
+      process.exit(0);
+    }
+
     console.log(chalk.blue('Generating'), options.type, 'diagram for', root);
 
-    const data = await analyze(root, options);
+    const pipeline = await runAnalysisPipeline(root, options, 'generate');
+    const data = pipeline.analysis;
+
+    if (options.emitIr) {
+      const irPath = maybeWriteArchitectureIR(root, data, pipeline.analyzer, true);
+      if (irPath) {
+        console.log(chalk.gray('IR artifact:'), irPath);
+      }
+    }
+
     const mermaid = generate(data, options.type, options.focus);
+    let validationResult = {
+      enabled: Boolean(options.validate),
+      valid: true,
+      errors: [],
+      meta: { fallbackUsed: false, fallbackReasons: [], mode: 'not_requested' },
+    };
 
     // Validate Mermaid syntax if requested
     if (options.validate) {
       console.log(chalk.blue('\n🔍 Validating Mermaid syntax...'));
-      const validationResult = validateMermaidSyntax(mermaid, safeTheme);
+      validationResult = validateMermaidSyntax(mermaid, safeTheme);
+      validationResult.enabled = true;
 
       if (validationResult.valid) {
         console.log(chalk.green('✅ Mermaid syntax is valid'));
@@ -364,6 +503,48 @@ program
           console.error(chalk.red('❌ Validation failed (exit 1)'));
           process.exit(1);
         }
+      }
+    }
+
+    const fallbackReasons = [];
+    if (validationResult?.meta?.fallbackUsed) {
+      fallbackReasons.push(...(validationResult.meta.fallbackReasons || []));
+    }
+    if (pipeline.incremental.requested && !pipeline.incremental.used) {
+      fallbackReasons.push(`incremental_${pipeline.incremental.reason}`);
+    }
+    const fallback = {
+      used: fallbackReasons.length > 0,
+      reasons: fallbackReasons,
+    };
+
+    if (confidenceEnabled) {
+      const report = buildConfidenceReport({
+        command: 'generate',
+        rootPath: root,
+        capabilities,
+        validation: {
+          enabled: Boolean(validationResult.enabled),
+          valid: Boolean(validationResult.valid),
+          errors: validationResult.errors || [],
+          mode: validationResult?.meta?.mode || 'basic',
+        },
+        fallback,
+        notes: [
+          pipeline.incremental.requested
+            ? `incremental:${pipeline.incremental.used ? 'hit' : pipeline.incremental.reason}`
+            : 'incremental:not_requested',
+        ],
+      });
+
+      if (options.confidenceReport || options.strictConfidence) {
+        const confidencePath = writeConfidenceReport(root, report);
+        console.log(chalk.gray('Confidence report:'), confidencePath);
+      }
+
+      if (options.strictConfidence && shouldFailStrictConfidence(report)) {
+        console.error(chalk.red('❌ Strict confidence check failed'));
+        process.exit(1);
       }
     }
 
@@ -399,7 +580,7 @@ program
         fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
       }
       
-      const ext = path.extname(options.output).toLowerCase();
+      const ext = outputExt;
       if (ext === '.md' || ext === '.mmd') {
         fs.writeFileSync(safeOutput, mermaid);
         console.log(chalk.green('✅ Saved to'), options.output);
@@ -442,6 +623,9 @@ program
   .option('-p, --patterns <list>', 'File patterns', '**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs')
   .option('-e, --exclude <list>', 'Exclude patterns', 'node_modules/**,.git/**,dist/**')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
+  .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
+  .option('--emit-ir', 'Write typed architecture IR artifact', false)
+  .option('--incremental', 'Use incremental cache when available', false)
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     let outDir;
@@ -453,7 +637,15 @@ program
     }
     
     console.log(chalk.blue('Analyzing'), root);
-    const data = await analyze(root, options);
+    const pipeline = await runAnalysisPipeline(root, options, 'all');
+    const data = pipeline.analysis;
+
+    if (options.emitIr) {
+      const irPath = maybeWriteArchitectureIR(root, data, pipeline.analyzer, true);
+      if (irPath) {
+        console.log(chalk.gray('IR artifact:'), irPath);
+      }
+    }
     
     if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
     
