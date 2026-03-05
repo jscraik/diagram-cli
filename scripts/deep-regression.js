@@ -13,10 +13,14 @@ const {
 
 const CLI_PATH = path.join(__dirname, '..', 'src', 'diagram.js');
 
-function runCLI(args, cwd) {
+function runCLI(args, cwd, envOverrides = {}) {
   return spawnSync(process.execPath, [CLI_PATH, ...args], {
     cwd,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      ...envOverrides,
+    },
   });
 }
 
@@ -296,13 +300,21 @@ function run() {
   assert.strictEqual(irPayload.schemaVersion, '1.0', 'typed IR should include schema version');
 
   // Incremental mode should create cache artifact and support cache hit on repeat runs
-  const incrementalRun1 = runCLI(['analyze', '.', '--incremental', '--max-files', '100', '--json'], workspace);
+  const incrementalRun1 = runCLI(
+    ['analyze', '.', '--incremental', '--max-files', '100', '--json'],
+    workspace,
+    { CI: '' }
+  );
   assert.strictEqual(incrementalRun1.status, 0, `incremental analyze run1 expected success, got ${incrementalRun1.status}`);
   const cacheDir = path.join(workspace, '.diagram', 'cache');
   assert.ok(fs.existsSync(cacheDir), 'incremental cache directory should be created');
   const cacheFiles = fs.readdirSync(cacheDir).filter((entry) => entry.endsWith('.json'));
   assert.ok(cacheFiles.length > 0, 'incremental mode should write at least one cache file');
-  const incrementalRun2 = runCLI(['analyze', '.', '--incremental', '--max-files', '100', '--json'], workspace);
+  const incrementalRun2 = runCLI(
+    ['analyze', '.', '--incremental', '--max-files', '100', '--json'],
+    workspace,
+    { CI: '' }
+  );
   assert.strictEqual(incrementalRun2.status, 0, `incremental analyze run2 expected success, got ${incrementalRun2.status}`);
 
   const databaseOutput = path.join(workspace, 'diagrams', 'database.mmd');
