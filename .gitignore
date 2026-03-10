@@ -11,3 +11,8 @@ diagrams/
 # Local tooling caches
 .narrative/meta/
 .playwright-mcp/
+
+# Local analysis artifacts
+.harness/
+.memory-metrics.json
+insights-*.png
