@@ -1,22 +1,38 @@
 # Tooling and command policy
 
-## Package-manager command map
-- install: `npm install`
-- run: `npm run <script>`
-- exec: `npm exec <command>`
+## Table of Contents
+- [Shell and command rules](#shell-and-command-rules)
+- [Command preflight checklist](#command-preflight-checklist)
+- [Package-manager command map](#package-manager-command-map)
+- [Dependency constraints](#dependency-constraints)
+- [Path-sensitive operations](#path-sensitive-operations)
 
-## Core tooling
+## Shell and command rules
 - Run shell commands with `zsh -lc`.
-- Prefer `rg`, `fd`, and `jq`.
-- Read `/Users/jamiecraik/.codex/instructions/tooling.md` before selecting tools.
+- Prefer `rg`, `fd`, and `jq` for search, discovery, and JSON parsing.
+- Check command resolution with `which` before considering installs.
+- Read `/Users/jamiecraik/.codex/instructions/tooling.md` before choosing unfamiliar tools.
 
-## ESM-only package constraints
-This project uses CommonJS. Do NOT upgrade these packages beyond the pinned versions:
-- `chai` - pinned to v4.x (v5+ is ESM-only)
-- `chalk` - pinned to v4.x (v5+ is ESM-only)
-- `glob` - pinned to v10.x (v11+ is ESM-only)
+## Command preflight checklist
+- Confirm `pwd` is `/Users/jamiecraik/dev/diagram-cli` before repo edits.
+- Confirm required binaries for the task (`rg`, `fd`, `jq`, plus task-specific tools).
+- Confirm target paths exist before edits (`AGENTS.md`, `docs/agents/`, `scripts/`).
+- Fail fast and stop if any required preflight check is missing.
 
-These constraints are enforced via:
-- `package.json` devDependencies (version ranges)
-- `package.json` overrides (forced resolution)
-- `.github/dependabot.yml` ignore rules
+## Package-manager command map
+- Install deps: `npm install`
+- Run scripts: `npm run <script>`
+- Execute binaries: `npm exec <command>`
+
+## Dependency constraints
+This project uses CommonJS. Keep these packages pinned to CJS-compatible ranges:
+- `chai` at v4.x (v5+ is ESM-only)
+- `chalk` at v4.x (v5+ is ESM-only)
+- `glob` at v10.x (v11+ is ESM-only)
+
+These constraints are enforced through `package.json` dependencies/overrides and repository automation.
+
+## Path-sensitive operations
+- Use `scripts/codex-preflight.sh` for multi-step or destructive workflows.
+- Use `fd` to visually confirm paths before destructive file operations.
+- Verify documented paths exactly before commit (for example `.diagram/` and `FORJAMIE.md` when relevant).

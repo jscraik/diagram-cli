@@ -1,8 +1,18 @@
+---
 schema_version: 1
+---
 
 # Repository Guidelines
 
-This repository contains the diagram-cli Node.js tool for static codebase architecture diagrams.
+This repository contains the `diagram-cli` Node.js tool for static codebase architecture diagrams.
+
+## Table of Contents
+- [Mandatory workflow snippet](#mandatory-workflow-snippet)
+- [Required essentials](#required-essentials)
+- [Global discovery order](#global-discovery-order)
+- [Instruction docs](#instruction-docs)
+- [Repository preflight helper](#repository-preflight-helper)
+- [References (informational)](#references-informational)
 
 ## Mandatory workflow snippet
 1. Explore project first, then invoke skill.
@@ -10,41 +20,32 @@ This repository contains the diagram-cli Node.js tool for static codebase archit
 3. Add a Table of Contents for docs.
 
 ## Required essentials
-- Package manager: npm (inferred from package-lock.json).
-- Non-standard build/typecheck commands: npm test, npm run test:deep, and npm run ci:artifacts.
-- Default compatibility posture: canonical-only.
-- Node version: 20 LTS (standardized in CI).
-
-## Package-manager command map
-- install: `npm install`
-- run: `npm run <script>`
-- exec: `npm exec <command>`
-
-## Tooling essentials
-- Run shell commands with `zsh -lc`.
-- Prefer `rg`, `fd`, and `jq` for search, file discovery, and JSON.
-- Before choosing tools, read `/Users/jamiecraik/.codex/instructions/tooling.md`.
-- Ask before adding dependencies or system settings.
+- Package manager: npm.
+- Default shell: `zsh -lc`.
+- Preferred tools: `rg`, `fd`, `jq`.
 - Execution mode: single-threaded by default; do not parallelize or spawn subagents unless explicitly requested.
-
-## References (informational)
-- Global protocol: /Users/jamiecraik/.codex/AGENTS.md
-- Security and standards baseline: /Users/jamiecraik/.codex/instructions/standards.md
-- RVCP source of truth: /Users/jamiecraik/.codex/instructions/rvcp-common.md
+- Validation baseline: run `npm test` and `npm run test:deep` after implementation changes.
 
 ## Global discovery order
-1. /Users/jamiecraik/.codex/AGENTS.md
-2. Nearest repo AGENTS.md
+1. `/Users/jamiecraik/.codex/AGENTS.md`
+2. Nearest repo `AGENTS.md`
 3. Linked instruction files under `docs/agents/`
-4. If conflicts appear, pause and ask which instruction wins.
+4. If instructions conflict and precedence is unclear, pause and ask which one wins.
 
-## Documentation map
-### Table of Contents
+## Instruction docs
 - [Instruction map](docs/agents/01-instruction-map.md)
 - [Tooling and command policy](docs/agents/02-tooling-policy.md)
 - [Validation and checks](docs/agents/03-validation.md)
-- [Contradictions and cleanup](docs/agents/04-contradictions-and-cleanup.md)
+- [External integrations](docs/agents/04-external-integrations.md)
+- [Git workflow and communication](docs/agents/05-git-and-communication.md)
+- [Contradictions and cleanup](docs/agents/06-contradictions-and-cleanup.md)
 
 ## Repository preflight helper
 - Use `scripts/codex-preflight.sh` before multi-step, destructive, or path-sensitive workflows.
-- Source it with `source scripts/codex-preflight.sh` and run `preflight_repo` (or `preflight_js`, `preflight_py`, `preflight_rust`) as a guard before changing repo state.
+- Source and run: `source scripts/codex-preflight.sh && preflight_repo`.
+- If the helper is unavailable, run the manual checks documented in [tooling policy](docs/agents/02-tooling-policy.md).
+
+## References (informational)
+- Global protocol: `/Users/jamiecraik/.codex/AGENTS.md`
+- Security baseline: `/Users/jamiecraik/.codex/instructions/standards.md`
+- RVCP source of truth: `/Users/jamiecraik/.codex/instructions/rvcp-common.md`
