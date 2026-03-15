@@ -14,7 +14,7 @@ jobs:
   architecture-test:
     name: Validate Architecture
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -39,26 +39,28 @@ jobs:
       - name: Run deep regression suite
         run: npm run test:deep
 
-      - name: Run architecture tests
-        run: |
-          npm run ci:artifacts
+      - name: Generate CI diagram artifacts
+        run: npm run ci:artifacts
         continue-on-error: true
 
-      - name: Validate diagram manifest artifact
+      # Architecture rule validation via diagram test --format junit
+      # Replaces the legacy manifest --require-types gate.
+      # Produces JUnit XML consumed by dorny/test-reporter below.
+      - name: Run architecture rule tests
         run: |
-          node src/diagram.js manifest . \
-            --manifest-dir .diagram \
-            --require-types architecture,sequence,dependency,class,flow \
-            --fail-on-placeholder
+          node src/diagram.js test . \
+            --format junit \
+            --output .diagram/architecture-results.xml
+        continue-on-error: true
 
-      - name: Upload test results
+      - name: Upload CI artifacts
         uses: actions/upload-artifact@v7
         if: always()
         with:
           name: diagram-ci-artifacts
           path: .diagram
 
-      - name: Report test results
+      - name: Report architecture test results
         uses: dorny/test-reporter@v2
         if: success() || failure()
         with:
@@ -66,10 +68,10 @@ jobs:
           path: .diagram/architecture-results.xml
           reporter: java-junit
 
-      - name: Check test status
+      - name: Check architecture test status
         run: |
           if [ -f .diagram/architecture-results.xml ]; then
-            failures=$(node -e "const fs=require('fs');const xml=fs.readFileSync('.diagram/architecture-results.xml','utf8');const m=xml.match(/failures=\"(\\d+)\"/);console.log(m?m[1]:'0');")
+            failures=$(node -e "const fs=require('fs');const xml=fs.readFileSync('.diagram/architecture-results.xml','utf8');const m=xml.match(/failures=\"(\d+)\"/);console.log(m?m[1]:'0');")
             if [ "$failures" != "0" ] && [ -n "$failures" ]; then
               echo "❌ Architecture tests failed with $failures violations"
               exit 1

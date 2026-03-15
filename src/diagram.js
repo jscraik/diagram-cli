@@ -43,6 +43,7 @@ const {
   printArchitectureDiff,
 } = require('./workflow/git-helpers');
 const { registerWorkflowCommands } = require('./workflow/pr-command');
+const { loadDiagramRc } = require('./config/diagramrc');
 
 // Read version from package.json
 const packageJson = require('../package.json');
@@ -407,7 +408,7 @@ program
 program
   .command('generate [path]')
   .description('Generate a diagram')
-  .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, user, events, auth, security', 'architecture')
+  .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, user, events, auth, security, agent, c4context, rag', 'architecture')
   .option('-f, --focus <module>', 'Focus on specific module')
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
@@ -1187,6 +1188,11 @@ registerWorkflowCommands(program, {
 
 // Only run CLI when executed directly, not when required for testing
 if (require.main === module) {
+  // Load and validate .diagramrc from cwd before parsing commands.
+  // Validation errors print a clear message and exit 2 (config error).
+  const diagramRc = loadDiagramRc(process.cwd());
+  // Attach to program so commands can read it
+  program._diagramRc = diagramRc;
   program.parse();
 }
 

@@ -7,11 +7,50 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-15
+
 ### Added
 
-- Add confidence pipeline artifacts and strict confidence flags for `diagram generate` and `diagram workflow pr`.
-- Add typed IR emission (`--emit-ir`) and analyzer plugin boundary (`default` analyzer plugin).
-- Add incremental cache opt-in (`--incremental`) with explicit fallback semantics and CI-safe defaults.
+- Add `agent` diagram type: detects orchestrator/worker/tool/memory components and renders
+  Anthropic canonical agentic patterns (orchestrator-workers, tool use, memory retrieval).
+  Reference: anthropic.com/research/building-effective-agents (Dec 2024).
+- Add `c4context` diagram type: C4 Model Level 1 System Context using Mermaid native `C4Context`
+  syntax. Auto-detects external package categories (AI, database, payment, cloud, etc.).
+  Reference: c4model.com (Simon Brown).
+- Add `rag` diagram type: canonical RAG pipeline diagram (Query → Embed → Retrieve → LLM →
+  Response) with overlay of detected memory/LLM/tool components.
+- Add AI-native role detection patterns: `agent`, `tool`, `memory`, `llm` — covering
+  LangChain, AutoGen, CrewAI, OpenAI Swarm, and Anthropic SDK naming conventions.
+- Add `ROLE_COLOURS` palette constant (exported): C4/arc42-aligned fill/text colours keyed
+  by role tag, used consistently across all diagram generators.
+- Add `ROLE_ARCH_ICON` constant: maps role tags to Mermaid v11 architecture-beta icon names.
+
+### Changed
+
+- Upgrade `architecture` diagram generator from `graph TD` to Mermaid v11 `architecture-beta`
+  syntax. Services now have typed icons (database, server, disk, cloud, internet), directories
+  become named groups, and dependency edges use directional `B --> T` port routing.
+  Reference: mermaid.js.org/syntax/architecture.html (v11.1.0+).
+- Upgrade `sequence` diagram generator: now traces actual dependency edges via BFS from entry
+  points rather than picking arbitrary "service" filenames. Participants declared as
+  `actor`/`participant`/`database` by role. Arrows carry semantic verb labels
+  (reads from, authenticates via, calls LLM, invokes tool, emits to).
+  Reference: arc42 Section 6 (Runtime View).
+- Wire verb labels on agent, events, and security dependency edges for C4-compliant
+  "every arrow has a verb" notation.
+- Wire `diagram test --format junit` into the architecture CI workflow, replacing the
+  separate manifest validation step. JUnit output fed directly to `dorny/test-reporter`.
+
+### Fixed
+
+- Fix incremental cache returning stale analysis after source file changes. Cache entries now
+  store a per-file `contentSignature` (SHA-256 of mtime + size). On read, the signature is
+  recomputed; any mtime change evicts the entry and triggers a full re-scan.
+- Fix silent truncation when `--max-files` ceiling is hit. A visible warning now fires:
+  `⚠️  Max-files limit reached: analyzing N of M files. Use --max-files X to expand.`
+  `totalFilesFound` and `maxFilesApplied` are also exposed in the analysis return value.
+- Add Zod validation for `.diagramrc` config file (`src/config/diagramrc.js`). Invalid
+  keys or wrong types now print a clear error and exit 2 instead of silently ignoring config.
 
 ## [1.0.3] - 2026-02-28
 
