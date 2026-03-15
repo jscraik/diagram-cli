@@ -1325,7 +1325,6 @@ function generateRag(data) {
 
   const memories = componentsByRole(data.components, 'memory');
   const llms     = componentsByRole(data.components, 'llm');
-  const users    = componentsByRole(data.components, 'user');
   const tools    = componentsByRole(data.components, 'tool');
 
   const lines = ['flowchart LR'];
