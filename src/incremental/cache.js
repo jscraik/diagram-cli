@@ -28,14 +28,62 @@ function buildCacheKey(command, options = {}) {
 }
 
 function resolveCacheDir(rootPath) {
-  return process.env.DIAGRAM_CACHE_DIR
-    ? path.resolve(process.env.DIAGRAM_CACHE_DIR)
-    : path.join(rootPath, '.diagram', 'cache');
+  if (process.env.DIAGRAM_CACHE_DIR) {
+    const resolved = path.resolve(process.env.DIAGRAM_CACHE_DIR);
+    // Security: ensure the override stays inside the project root
+    const rel = path.relative(rootPath, resolved);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      throw new Error(
+        `DIAGRAM_CACHE_DIR must be inside the project root.\n` +
+        `  Root:     ${rootPath}\n` +
+        `  Resolved: ${resolved}`
+      );
+    }
+    return resolved;
+  }
+  return path.join(rootPath, '.diagram', 'cache');
+}
+
+/**
+ * Build a directory-mtime signature from the parent directories of all analyzed
+ * files. Adding or deleting any file inside a tracked directory changes that
+ * directory's mtime, causing a cache miss on the next read.
+ *
+ * This is cheaper than re-globbing and doesn't require passing options into the
+ * read path. It correctly detects file additions and deletions.
+ *
+ * @param {string[]} filePaths - Relative file paths from analysis.components
+ * @param {string} rootPath - Project root (used to resolve relative paths)
+ * @returns {string} SHA-256 hex digest of sorted dir:mtime:nlink entries
+ */
+function buildDirectoryMtimeSignature(filePaths, rootPath) {
+  // Collect unique parent directories, always including the root itself
+  const dirs = new Set([rootPath]);
+  for (const fp of filePaths) {
+    const abs = path.isAbsolute(fp) ? fp : path.join(rootPath, fp);
+    dirs.add(path.dirname(abs));
+  }
+
+  const entries = [];
+  for (const dir of dirs) {
+    try {
+      const st = fs.statSync(dir);
+      // nlink tracks the number of directory entries; mtimeMs tracks last change
+      entries.push(`${dir}:${st.mtimeMs}:${st.nlink}`);
+    } catch {
+      // Directory gone — treat as a change
+      entries.push(`${dir}:MISSING`);
+    }
+  }
+  entries.sort();
+  return crypto.createHash('sha256').update(entries.join('\n')).digest('hex');
 }
 
 /**
  * Build a content signature for the set of files that were analyzed.
  * Uses file mtime + size — fast enough for hundreds of files, no content read required.
+ * Detects modifications to existing files; pair with buildFileListSignature to
+ * also detect additions and deletions.
  *
  * @param {string[]} filePaths - Absolute or relative (to rootPath) file paths
  * @param {string} rootPath - Project root
@@ -89,20 +137,28 @@ function readCachedAnalysis(rootPath, key) {
       return { hit: false, reason: 'invalid_cache_payload', data: null, cachePath };
     }
 
-    // Content-hash freshness check: verify that the files haven't changed
-    // since this cache entry was written. This prevents stale diagrams after
-    // source edits.
     const storedFilePaths = (parsed.analysis.components || []).map((c) => c.filePath);
-    const storedSignature = parsed.contentSignature;
 
+    // Step 1: Directory-mtime check — detects file additions and deletions.
+    // At write time we snapshot each parent directory's mtime+nlink. Any new
+    // or deleted file changes its parent directory, so this hash will differ.
+    const storedDirSig = parsed.directoryMtimeSignature;
+    if (!storedDirSig) {
+      // Old cache entry — force a refresh to pick up the new signature.
+      return { hit: false, reason: 'no_directory_mtime_signature', data: null, cachePath };
+    }
+    const currentDirSig = buildDirectoryMtimeSignature(storedFilePaths, rootPath);
+    if (currentDirSig !== storedDirSig) {
+      return { hit: false, reason: 'directory_changed', data: null, cachePath };
+    }
+
+    // Step 2: Content check — detects modifications to existing files.
+    const storedSignature = parsed.contentSignature;
     if (storedSignature) {
-      // Signature present — validate it
       if (!isCacheContentFresh(storedFilePaths, storedSignature, rootPath)) {
         return { hit: false, reason: 'content_changed', data: null, cachePath };
       }
     } else {
-      // No signature means this is an old cache entry written before this
-      // improvement — treat as a miss so it gets re-written with a signature.
       return { hit: false, reason: 'no_content_signature', data: null, cachePath };
     }
 
@@ -123,9 +179,10 @@ function writeCachedAnalysis(rootPath, key, analysis) {
   const cachePath = path.join(cacheDir, `${key}.json`);
   fs.mkdirSync(cacheDir, { recursive: true });
 
-  // Build a content signature from the files that were analyzed so future
-  // reads can detect source changes and avoid returning stale data.
   const filePaths = (analysis.components || []).map((c) => c.filePath);
+  // directoryMtimeSignature: detects new/deleted files by watching parent dir mtimes.
+  const directoryMtimeSignature = buildDirectoryMtimeSignature(filePaths, rootPath);
+  // contentSignature: detects modifications to the existing file set.
   const contentSignature = buildContentSignature(filePaths, rootPath);
 
   fs.writeFileSync(
@@ -133,6 +190,7 @@ function writeCachedAnalysis(rootPath, key, analysis) {
     `${JSON.stringify({
       schemaVersion: CACHE_SCHEMA_VERSION,
       savedAt: new Date().toISOString(),
+      directoryMtimeSignature,
       contentSignature,
       analysis,
     }, null, 2)}\n`
@@ -143,6 +201,7 @@ function writeCachedAnalysis(rootPath, key, analysis) {
 module.exports = {
   CACHE_SCHEMA_VERSION,
   buildCacheKey,
+  buildDirectoryMtimeSignature,
   buildContentSignature,
   isCacheContentFresh,
   readCachedAnalysis,

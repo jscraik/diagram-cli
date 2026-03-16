@@ -74,6 +74,4 @@ function loadDiagramRc(rootPath, opts = {}) {
 
 module.exports = {
   loadDiagramRc,
-  DiagramRcSchema,
-  DIAGRAMRC_FILENAME,
 };

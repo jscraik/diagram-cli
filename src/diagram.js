@@ -28,7 +28,6 @@ const {
   generate,
   toManifestEntry,
   parseCommaSeparatedList,
-  buildManifestSummary,
 } = require('./core/analysis-generation');
 const {
   escapeHtml,
@@ -417,12 +416,15 @@ program
   .option('--incremental', 'Use incremental cache when available', false)
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'default')
   .option('--validate', 'Validate Mermaid syntax', false)
-  .option('--fail-on-validation-error', 'Exit with error if validation fails', false)
+  .option('--fail-on-validation-error', 'Exit with error if validation fails (requires --validate)', false)
   .option('--confidence-report', 'Write confidence report artifact', false)
   .option('--strict-confidence', 'Fail with exit code 1 when confidence checks degrade', false)
   .option('--capability-check-only', 'Run only capability checks and confidence evaluation', false)
   .option('--open', 'Open in browser')
   .action(async (targetPath, options) => {
+    if (options.failOnValidationError && !options.validate) {
+      console.warn(chalk.yellow('⚠️  --fail-on-validation-error has no effect unless --validate is also provided.'));
+    }
     const root = resolveRootPathOrExit(targetPath);
     const requestedTheme = String(options.theme || 'default').toLowerCase();
     const safeTheme = normalizeThemeOption(options.theme, 'default');
@@ -676,111 +678,6 @@ program
     console.log(chalk.green('✅ manifest'), '→', manifestPath);
     
     console.log(chalk.cyan('\n🔗 Preview all at: https://mermaid.live'));
-  });
-
-program
-  .command('manifest [path]')
-  .description('Summarize manifest.json from a diagram output directory')
-  .option('-d, --manifest-dir <dir>', 'Directory containing manifest.json', '.diagram')
-  .option('-o, --output <file>', 'Write summary JSON to a file')
-  .option('--require-types <list>', 'Require all listed diagram types, comma-separated')
-  .option(
-    '--fail-on-placeholder',
-    'Fail if any required diagram was a placeholder (or any placeholder if no required types are set)'
-  )
-  .action(async (targetPath, options) => {
-    const root = resolveRootPathOrExit(targetPath);
-    const manifestDir = path.join(root, options.manifestDir || '.diagram');
-    const manifestPath = path.join(manifestDir, 'manifest.json');
-
-    let safeManifestPath;
-    try {
-      safeManifestPath = validateExistingPathInRoot(manifestPath, root, 'manifest path');
-    } catch (err) {
-      console.error(chalk.red('❌ Manifest error:'), err.message);
-      process.exit(2);
-    }
-
-    let manifestRaw;
-    try {
-      manifestRaw = fs.readFileSync(safeManifestPath, 'utf8');
-    } catch (err) {
-      console.error(chalk.red('❌ Manifest read failed:'), err.message);
-      process.exit(2);
-    }
-
-    let parsedManifest;
-    try {
-      parsedManifest = JSON.parse(manifestRaw);
-    } catch (err) {
-      console.error(chalk.red('❌ Manifest parse failed:'), err.message);
-      process.exit(2);
-    }
-
-    const summary = buildManifestSummary(parsedManifest);
-    if (!summary) {
-      console.error(chalk.red('❌ Invalid manifest format'));
-      process.exit(2);
-    }
-
-    const required = parseCommaSeparatedList(options.requireTypes);
-    const missingRequired = required.filter((type) => !summary.diagrams.some((d) => d.type === type));
-    summary.required = {
-      requested: required,
-      missing: missingRequired,
-    };
-
-    if (required.length > 0 && missingRequired.length > 0) {
-      console.error(chalk.red(`❌ Manifest missing required diagram types: ${missingRequired.join(', ')}`));
-      process.exit(2);
-    }
-
-    const placeholderTypesToCheck = required.length > 0
-      ? summary.placeholderTypes.filter((type) => required.includes(type))
-      : summary.placeholderTypes;
-
-    if (options.failOnPlaceholder && placeholderTypesToCheck.length > 0) {
-      console.error(
-        chalk.yellow(
-          `⚠️  Manifest includes ${placeholderTypesToCheck.length} required placeholder diagram(s): ${placeholderTypesToCheck.join(', ')}`
-        )
-      );
-      process.exit(2);
-    }
-
-    if (options.output) {
-      let safeOutput;
-      try {
-        safeOutput = validateOutputPath(options.output, root);
-      } catch (err) {
-        console.error(chalk.red('❌ Output path error:'), err.message);
-        process.exit(2);
-      }
-
-      const outputDir = path.dirname(safeOutput);
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
-      }
-
-      fs.writeFileSync(safeOutput, `${JSON.stringify(summary, null, 2)}\n`);
-      console.log(chalk.green('✅ manifest summary'), '→', safeOutput);
-      return;
-    }
-
-    console.log(chalk.blue('\n📘 Manifest summary for'), safeManifestPath);
-    console.log(`  Total: ${summary.totalDiagrams}`);
-    console.log(`  Placeholder: ${summary.placeholders}`);
-    if (summary.missingTypes.length > 0) {
-      console.log(chalk.yellow(`  Missing expected (all supported): ${summary.missingTypes.join(', ')}`));
-    }
-    if (summary.placeholderTypes.length > 0) {
-      console.log(chalk.yellow(`  Placeholder types: ${summary.placeholderTypes.join(', ')}`));
-    }
-    console.log('');
-    for (const entry of summary.diagrams) {
-      const status = entry.isPlaceholder ? chalk.yellow('placeholder') : chalk.green('ok');
-      console.log(`  ${status} ${entry.type} -> ${entry.file}`);
-    }
   });
 
 program

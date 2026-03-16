@@ -1451,34 +1451,6 @@ function parseCommaSeparatedList(value) {
   return value.split(',').map((item) => item.trim()).filter(Boolean);
 }
 
-function buildManifestSummary(manifest) {
-  if (!manifest || !Array.isArray(manifest.diagrams)) {
-    return null;
-  }
-
-  const diagrams = manifest.diagrams
-    .map((diagram) => ({
-      ...diagram,
-      isPlaceholder: Boolean(diagram.isPlaceholder),
-    }))
-    .filter((entry) => entry && typeof entry.type === 'string' && entry.file);
-
-  const missing = SUPPORTED_DIAGRAM_TYPES.filter(
-    (type) => !diagrams.some((diagram) => diagram.type === type)
-  );
-  const placeholderTypes = diagrams.filter((diagram) => diagram.isPlaceholder).map((diagram) => diagram.type);
-
-  return {
-    generatedAt: manifest.generatedAt || new Date().toISOString(),
-    rootPath: manifest.rootPath,
-    diagramDir: manifest.diagramDir,
-    totalDiagrams: diagrams.length,
-    placeholders: placeholderTypes.length,
-    placeholderTypes,
-    missingTypes: missing,
-    diagrams,
-  };
-}
 
 
 module.exports = {
@@ -1501,5 +1473,4 @@ module.exports = {
   isPlaceholderDiagram,
   toManifestEntry,
   parseCommaSeparatedList,
-  buildManifestSummary,
 };
