@@ -641,7 +641,7 @@ async function analyze(rootPath, options) {
  */
 function generateArchitecture(data, focus) {
   if (!data || !Array.isArray(data.components)) {
-    return 'graph TD\n  Note["No data available"]';
+    return 'architecture-beta\n    service note(server)[No data available]';
   }
 
   const focusNorm = focus ? normalizePath(focus) : null;
