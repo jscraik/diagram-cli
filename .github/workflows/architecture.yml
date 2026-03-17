@@ -51,7 +51,7 @@ jobs:
           node src/diagram.js test . \
             --format junit \
             --output .diagram/architecture-results.xml
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Upload CI artifacts
         uses: actions/upload-artifact@v7
