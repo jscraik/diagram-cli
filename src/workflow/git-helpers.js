@@ -147,56 +147,33 @@ function getChangedFiles(baseSha, headSha, root) {
     if (!line.trim()) continue;
 
     // Parse git diff --name-status -M output
-    // Format: STATUS\told_path\tnew_path (for renames)
+    // Format: STATUS\told_path\tnew_path (for renames/copies)
     // Format: STATUS\tpath (for other changes)
     const parts = line.split('\t');
+    const status = parts[0];
 
-    switch (parts[0]) {
-      case 'A': // Added
-        added.push(parts[1]);
+    if (status === 'A') {
+      added.push(parts[1]);
+      changed.push(parts[1]);
+    } else if (status === 'D') {
+      deleted.push(parts[1]);
+    } else if (status === 'M') {
+      changed.push(parts[1]);
+    } else if (status.startsWith('R')) {
+      // Rename: R### old_path new_path (### = similarity 000–100)
+      // -M defaults to 50% threshold; handle all values not just ≥90%.
+      const similarity = parseInt(status.slice(1), 10);
+      renamed.push({ from: parts[1], to: parts[2], similarity });
+      changed.push(parts[2]); // track new path as changed
+    } else if (status.startsWith('C')) {
+      // Copy: C### old_path new_path
+      added.push(parts[2]);
+      changed.push(parts[2]);
+    } else {
+      // Unknown status (T=type-change, U=unmerged, X=unknown) — treat as changed
+      if (parts[1]) {
         changed.push(parts[1]);
-        break;
-      case 'D': // Deleted
-        deleted.push(parts[1]);
-        break;
-      case 'M': // Modified
-        changed.push(parts[1]);
-        break;
-      case 'R100': // Renamed (100% similarity)
-      case 'R099': // Renamed (99% similarity)
-      case 'R098':
-      case 'R097':
-      case 'R096':
-      case 'R095':
-      case 'R094':
-      case 'R093':
-      case 'R092':
-      case 'R091':
-      case 'R090':
-        // Rename detection: R###\told_path\tnew_path
-        renamed.push({ from: parts[1], to: parts[2], similarity: parseInt(parts[0].slice(1), 10) });
-        changed.push(parts[2]); // Track new path as changed
-        break;
-      case 'C100': // Copied (100% similarity)
-      case 'C099':
-      case 'C098':
-      case 'C097':
-      case 'C096':
-      case 'C095':
-      case 'C094':
-      case 'C093':
-      case 'C092':
-      case 'C091':
-      case 'C090':
-        // Copy detection: C###\told_path\tnew_path
-        added.push(parts[2]);
-        changed.push(parts[2]);
-        break;
-      default:
-        // Unknown status - treat as changed
-        if (parts[1]) {
-          changed.push(parts[1]);
-        }
+      }
     }
   }
 
@@ -367,7 +344,7 @@ async function analyzeAtRef(ref, root, options = {}) {
       const resolved = resolveInternalImport(comp.filePath, importPath, root);
       if (!resolved) continue;
       const dep = findComponentByResolvedPath(components, resolved);
-      if (dep) comp.dependencies.push(dep.name);
+      if (dep) comp.dependencies.push({ name: dep.name, filePath: dep.filePath });
     }
   }
 
@@ -401,9 +378,12 @@ function computeArchitectureDiff(base, head) {
       added.push({ filePath, name: comp.name, type: comp.type });
     } else {
       const baseComp = baseComponents.get(filePath);
-      // Check if dependencies changed
-      const baseDeps = new Set((baseComp.dependencies || []).map(d => d.filePath));
-      const headDeps = new Set((comp.dependencies || []).map(d => d.filePath));
+      // dependencies are stored as {name, filePath} objects by analyzeAtRef.
+      // Normalise to a Set of filePaths for comparison.
+      const toFilePaths = (deps) =>
+        new Set((deps || []).map(d => (typeof d === 'object' ? d.filePath : d)).filter(Boolean));
+      const baseDeps = toFilePaths(baseComp.dependencies);
+      const headDeps = toFilePaths(comp.dependencies);
 
       const depsAdded = [...headDeps].filter(d => !baseDeps.has(d));
       const depsRemoved = [...baseDeps].filter(d => !headDeps.has(d));

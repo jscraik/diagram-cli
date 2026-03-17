@@ -62,7 +62,7 @@ function probeMermaidCli() {
     if (result.ok) {
       return {
         id: 'mermaid_cli',
-        required: true,
+        required: false,
         status: 'pass',
         message: `Mermaid CLI available via ${candidate}`,
         details: { candidate, version: result.stdout || 'unknown' },
@@ -73,9 +73,9 @@ function probeMermaidCli() {
 
   return {
     id: 'mermaid_cli',
-    required: true,
-    status: 'fail',
-    message: 'Mermaid CLI unavailable or not runnable via npx',
+    required: false,
+    status: 'warn',
+    message: 'Mermaid CLI unavailable — SVG/PNG rendering disabled; .mmd/.md output still works',
     details: lastFailure,
   };
 }

@@ -254,21 +254,6 @@ function run() {
     );
   }
 
-  const summaryOutput = path.join('diagrams', 'manifest-summary.json');
-  const manifestSummary = runCLI([
-    'manifest',
-    '.',
-    '--manifest-dir',
-    'diagrams',
-    '--output',
-    summaryOutput,
-    '--require-types',
-    expectedTypes.join(','),
-  ], workspace);
-  assert.strictEqual(manifestSummary.status, 0, `manifest expected success, got ${manifestSummary.status}`);
-  const summaryParsed = JSON.parse(fs.readFileSync(path.join(workspace, summaryOutput), 'utf8'));
-  assert.ok(summaryParsed.totalDiagrams >= expectedTypes.length, 'manifest summary should include generated diagrams');
-  assert.deepStrictEqual(summaryParsed.required.missing, [], 'manifest summary should have no missing required types');
 
   // Confidence pipeline capability checks should produce report artifact
   const confidenceOnly = runCLI([

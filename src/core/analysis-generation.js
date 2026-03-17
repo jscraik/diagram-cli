@@ -232,7 +232,60 @@ const ROLE_PATTERNS = {
     'hash', 'verify', 'csrf', 'xss', 'audit', 'compliance', 'policy', 'vault',
     'kms', 'secret', 'key'
   ],
+  // AI-native role patterns (Anthropic/OpenAI canonical building blocks, Dec 2024)
+  agent: [
+    'agent', 'supervisor', 'orchestrator', 'planner', 'executor', 'swarm',
+    'crew', 'runner', 'coordinator', 'assistant', 'brain'
+  ],
+  tool: [
+    'tool', 'tools', 'plugin', 'plugins', 'action', 'actions',
+    'function_calling', 'functioncalling', 'capability', 'skill'
+  ],
+  memory: [
+    'memory', 'vector', 'vectorstore', 'embedding', 'embeddings',
+    'retrieval', 'rag', 'chroma', 'pinecone', 'weaviate', 'faiss',
+    'context', 'recall', 'longterm', 'shortterm'
+  ],
+  llm: [
+    'llm', 'openai', 'anthropic', 'gemini', 'claude', 'ollama', 'gpt',
+    'completion', 'inference', 'model', 'prompt', 'chat', 'generation'
+  ],
 };
+
+// C4 + arc42 aligned colour palette (role → fill/text colours)
+// Reference: https://c4model.com/diagrams/notation  arc42.org
+const ROLE_COLOURS = Object.freeze({
+  llm:          { fill: '#6d28d9', color: '#fff' }, // deep purple — AI model
+  agent:        { fill: '#7c3aed', color: '#fff' }, // violet — orchestrator/agent
+  tool:         { fill: '#1d4ed8', color: '#fff' }, // blue — callable tool
+  memory:       { fill: '#065f46', color: '#fff' }, // emerald — vector/memory store
+  database:     { fill: '#0e7490', color: '#fff' }, // cyan dark — persistent storage
+  auth:         { fill: '#9d174d', color: '#fff' }, // pink dark — identity/auth
+  security:     { fill: '#991b1b', color: '#fff' }, // red dark — security boundary
+  user:         { fill: '#15803d', color: '#fff' }, // green — user-facing
+  events:       { fill: '#b45309', color: '#fff' }, // amber — event/queue
+  integrations: { fill: '#0369a1', color: '#fff' }, // sky — external integrations
+  service:      { fill: '#374151', color: '#fff' }, // slate — general service
+  general:      { fill: '#374151', color: '#fff' }, // slate — unclassified
+});
+
+// Icon names for architecture-beta (Mermaid v11.1+)
+// Uses built-in icons: cloud, database, disk, internet, server
+// Reference: https://mermaid.js.org/syntax/architecture.html
+const ROLE_ARCH_ICON = Object.freeze({
+  llm:          'cloud',
+  agent:        'server',
+  tool:         'disk',
+  memory:       'database',
+  database:     'database',
+  auth:         'server',
+  security:     'server',
+  user:         'internet',
+  events:       'server',
+  integrations: 'cloud',
+  service:      'server',
+  general:      'server',
+});
 
 const SUPPORTED_DIAGRAM_TYPES = Object.freeze([
   'architecture',
@@ -245,6 +298,10 @@ const SUPPORTED_DIAGRAM_TYPES = Object.freeze([
   'events',
   'auth',
   'security',
+  // AI-native types (March 2025)
+  'agent',
+  'c4context',
+  'rag',
 ]);
 
 function textHasToken(text, token) {
@@ -485,7 +542,18 @@ async function analyze(rootPath, options) {
     }
   }
 
-  const uniqueFiles = [...new Set(files)].slice(0, maxFiles);
+  const allUniqueFiles = [...new Set(files)];
+  const totalFilesFound = allUniqueFiles.length;
+  const uniqueFiles = allUniqueFiles.slice(0, maxFiles);
+
+  if (totalFilesFound > maxFiles) {
+    console.warn(
+      chalk.yellow(
+        `⚠️  Max-files limit reached: analyzing ${maxFiles} of ${totalFilesFound} files. Use --max-files ${Math.ceil(totalFilesFound / 100) * 100} to expand.`
+      )
+    );
+  }
+
   const components = [];
   const languages = {};
   const directories = new Set();
@@ -561,34 +629,46 @@ async function analyze(rootPath, options) {
     }
   }
 
-  return { rootPath, components, entryPoints, languages, directories: [...directories].sort() };
+  return { rootPath, components, entryPoints, languages, directories: [...directories].sort(), totalFilesFound, maxFilesApplied: maxFiles };
 }
 
 // Diagram generators
+
+/**
+ * Generate architecture diagram using Mermaid v11 architecture-beta syntax.
+ * Official docs: https://mermaid.js.org/syntax/architecture.html
+ * Groups = directories, Services = typed icons, Edges = B->T dependency flow.
+ */
 function generateArchitecture(data, focus) {
   if (!data || !Array.isArray(data.components)) {
-    return 'graph TD\n  Note["No data available"]';
+    return 'architecture-beta\n    service note(server)[No data available]';
   }
-  
-  const lines = ['graph TD'];
+
   const focusNorm = focus ? normalizePath(focus) : null;
-  // Use exact path matching for focus
-  const comps = focusNorm 
-    ? data.components.filter(c => {
-        const normalizedFilePath = normalizePath(c.filePath || '');
-        const normalizedName = c.name || '';
-        // Check if focus is at path boundary
-        return normalizedFilePath === focusNorm || 
-               normalizedFilePath.startsWith(focusNorm + '/') ||
-               normalizedName === focusNorm;
-      }) 
+  const comps = focusNorm
+    ? data.components.filter((c) => {
+        const fp = normalizePath(c.filePath || '');
+        return fp === focusNorm || fp.startsWith(focusNorm + '/') || c.name === focusNorm;
+      })
     : data.components;
-  
+
   if (comps.length === 0) {
-    lines.push('  Note["No components found' + (focus ? ' for focus: ' + escapeMermaid(focus) : '') + '"]');
-    return lines.join('\n');
+    return `graph TD\n  Note["No components found${focus ? ' for focus: ' + escapeMermaid(focus) : ''}"]`;
   }
-  
+
+  const iconFor = (comp) => {
+    const tags = Array.isArray(comp.roleTags) ? comp.roleTags : [];
+    const priority = ['llm', 'agent', 'tool', 'memory', 'database', 'auth', 'user', 'events'];
+    for (const tag of priority) {
+      if (tags.includes(tag) && ROLE_ARCH_ICON[tag]) return ROLE_ARCH_ICON[tag];
+    }
+    return comp.type === 'service' ? 'server' : 'disk';
+  };
+
+  const entryNames = new Set(
+    (data.entryPoints || []).map((ep) => path.basename(ep, path.extname(ep)))
+  );
+
   const byDir = new Map();
   for (const c of comps) {
     const dir = c.directory || 'root';
@@ -596,87 +676,148 @@ function generateArchitecture(data, focus) {
     byDir.get(dir).push(c);
   }
 
+  const lines = ['architecture-beta'];
+  const safeNames = mapSafeNames(comps);
+  const seenGroupIds = new Set();
+
   for (const [dir, items] of byDir) {
     if (items.length === 0) continue;
-    lines.push(`  subgraph ${sanitize(dir)}["${escapeMermaid(dir)}"]`);
+    const groupId = sanitize(dir === 'root' ? 'root_group' : dir);
+    if (seenGroupIds.has(groupId)) continue;
+    seenGroupIds.add(groupId);
+    const displayDir = dir === 'root' ? 'Root' : escapeMermaid(dir);
+    lines.push(`  group ${groupId}(cloud)[${displayDir}]`);
     for (const c of items) {
-      const shape = c.type === 'service' ? '[[' : '[';
-      const end = c.type === 'service' ? ']]' : ']';
-      lines.push(`    ${sanitize(c.name)}${shape}"${escapeMermaid(c.originalName)}"${end}`);
+      const safe = safeNames.get(c);
+      if (!safe) continue;
+      const icon = iconFor(c);
+      const label = escapeMermaid(c.originalName) + (entryNames.has(c.originalName) ? ' ⭐' : '');
+      lines.push(`    service ${safe}(${icon})[${label}] in ${groupId}`);
     }
-    lines.push('  end');
   }
 
+  const edges = new Set();
+  const byName = byNameIndex(comps);
   for (const c of comps) {
-    for (const d of c.dependencies) {
-      if (comps.find(x => x.name === d)) {
-        lines.push(`  ${sanitize(c.name)} --> ${sanitize(d)}`);
-      }
-    }
-  }
-
-  // Track styled nodes to avoid duplicates
-  const styledNodes = new Set();
-  for (const ep of data.entryPoints) {
-    const epName = path.basename(ep, path.extname(ep));
-    const comp = comps.find(c => c.originalName === epName);
-    if (comp && !styledNodes.has(comp.name)) {
-      lines.push(`  style ${sanitize(comp.name)} fill:#4f46e5,color:#fff`);
-      styledNodes.add(comp.name);
+    const from = safeNames.get(c);
+    if (!from) continue;
+    for (const depName of c.dependencies || []) {
+      const dep = byName.get(depName);
+      if (!dep) continue;
+      const to = safeNames.get(dep);
+      if (!to || to === from) continue;
+      const key = `${from}->${to}`;
+      if (edges.has(key)) continue;
+      edges.add(key);
+      lines.push(`  ${from}:B --> T:${to}`);
     }
   }
 
   return lines.join('\n');
 }
 
+/**
+ * Generate sequence diagram tracing actual dependency edges from entry points.
+ * Implements arc42 Section 6 (Runtime View): shows actual call paths, not file lists.
+ * Falls back to role-ordered participants when no entry points are detected.
+ */
 function generateSequence(data) {
   if (!data || !Array.isArray(data.components)) {
     return 'sequenceDiagram\n  Note over User,App: No data available';
   }
-  
-  const lines = ['sequenceDiagram'];
-  // Use configurable limit with warning
-  const MAX_SERVICES = 6;
-  const services = data.components.filter(c => c.type === 'service' || c.name === 'index').slice(0, MAX_SERVICES);
-  if (data.components.length > MAX_SERVICES) {
-    console.warn(chalk.yellow(`⚠️  Sequence diagram limited to ${MAX_SERVICES} services`));
-  }
-  
-  if (services.length === 0) {
-    lines.push('  Note over User,App: No services detected');
-    return lines.join('\n');
+
+  const MAX_PARTICIPANTS = 8;
+  const byName = byNameIndex(data.components);
+
+  // Find entry point components (index, main, app, server, handler files)
+  const entryNames = new Set(
+    (data.entryPoints || []).map((ep) => path.basename(ep, path.extname(ep)))
+  );
+  let roots = data.components.filter((c) => entryNames.has(c.originalName));
+
+  // Fallback: use user-facing or service-typed components as roots
+  if (roots.length === 0) {
+    roots = [
+      ...componentsByRole(data.components, 'user'),
+      ...data.components.filter((c) => c.type === 'service'),
+    ].slice(0, 2);
   }
 
-  // Track used sanitized names to prevent collisions
-  const usedNames = new Map();
-  const getSafeName = (service) => {
-    const base = sanitize(service.name);
-    if (!usedNames.has(base)) {
-      usedNames.set(base, service.name);
-      return base;
+  // BFS to trace call path ordered by dependency depth
+  const visited = new Map(); // name → depth
+  const queue = [];
+  for (const r of roots) {
+    if (r && !visited.has(r.name)) {
+      visited.set(r.name, 0);
+      queue.push({ comp: r, depth: 0 });
     }
-    // Collision - append number
-    let i = 1;
-    let newName = `${base}_${i}`;
-    while (usedNames.has(newName)) {
-      i++;
-      newName = `${base}_${i}`;
+  }
+  while (queue.length > 0 && visited.size < MAX_PARTICIPANTS) {
+    const { comp, depth } = queue.shift();
+    for (const depName of comp.dependencies || []) {
+      if (visited.has(depName)) continue;
+      const dep = byName.get(depName);
+      if (!dep) continue;
+      visited.set(depName, depth + 1);
+      queue.push({ comp: dep, depth: depth + 1 });
     }
-    usedNames.set(newName, service.name);
-    return newName;
+  }
+
+  // Sort by depth so message arrows flow top-to-bottom
+  const participants = [...visited.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(([name]) => byName.get(name))
+    .filter(Boolean)
+    .slice(0, MAX_PARTICIPANTS);
+
+  if (participants.length === 0) {
+    return 'sequenceDiagram\n  Note over User,App: No services detected';
+  }
+
+  const safeMap = mapSafeNames(participants);
+  const lines = ['sequenceDiagram'];
+
+  // Role → participant type keyword (actor, participant, database)
+  const participantType = (comp) => {
+    const tags = comp.roleTags || [];
+    if (tags.includes('user')) return 'actor';
+    if (tags.includes('database') || tags.includes('memory')) return 'database';
+    return 'participant';
   };
 
-  const safeNames = services.map(getSafeName);
-  
-  for (let i = 0; i < services.length; i++) {
-    lines.push(`  participant ${safeNames[i]} as ${escapeMermaid(services[i].originalName)}`);
+  for (const p of participants) {
+    const safe = safeMap.get(p);
+    lines.push(`  ${participantType(p)} ${safe} as ${escapeMermaid(p.originalName)}`);
   }
-  
-  for (let i = 0; i < services.length - 1; i++) {
-    lines.push(`  ${safeNames[i]}->>${safeNames[i+1]}: calls`);
+
+  lines.push('');
+
+  // Emit edges based on actual dependency graph
+  const emittedEdges = new Set();
+  for (const caller of participants) {
+    const callerSafe = safeMap.get(caller);
+    for (const depName of caller.dependencies || []) {
+      const callee = participants.find((p) => p.name === depName);
+      if (!callee) continue;
+      const calleeSafe = safeMap.get(callee);
+      const key = `${callerSafe}->${calleeSafe}`;
+      if (emittedEdges.has(key)) continue;
+      emittedEdges.add(key);
+      // Infer verb from role tags
+      const verb = (callee.roleTags || []).includes('database') ? 'reads from'
+        : (callee.roleTags || []).includes('auth') ? 'authenticates via'
+        : (callee.roleTags || []).includes('events') ? 'emits to'
+        : (callee.roleTags || []).includes('llm') ? 'calls LLM'
+        : (callee.roleTags || []).includes('tool') ? 'invokes tool'
+        : 'calls';
+      lines.push(`  ${callerSafe}->>${calleeSafe}: ${verb}`);
+      lines.push(`  ${calleeSafe}-->>${callerSafe}: response`);
+    }
   }
+
   return lines.join('\n');
 }
+
 
 function generateDependency(data, focus) {
   if (!data || !Array.isArray(data.components)) {
@@ -1013,20 +1154,257 @@ function generateSecurity(data) {
   return lines.join('\n');
 }
 
+/**
+ * Agent orchestration diagram — Anthropic canonical patterns (Dec 2024).
+ * Reference: anthropic.com/research/building-effective-agents
+ * Patterns: augmented LLM, prompt chaining, routing, parallelization, orchestrator-workers.
+ */
+function generateAgent(data) {
+  if (!data || !Array.isArray(data.components)) {
+    return 'flowchart TD\n  Note["No data available"]';
+  }
+
+  const lines = ['flowchart TD'];
+
+  const agents   = componentsByRole(data.components, 'agent');
+  const tools    = componentsByRole(data.components, 'tool');
+  const memories = componentsByRole(data.components, 'memory');
+  const llms     = componentsByRole(data.components, 'llm');
+  const users    = componentsByRole(data.components, 'user').slice(0, 2);
+
+  const all = [...new Set([...agents, ...tools, ...memories, ...llms, ...users])];
+
+  if (all.length === 0) {
+    lines.push('  Note["No agent/LLM components found — add agent, tool, memory, or llm patterns"]');
+    return lines.join('\n');
+  }
+
+  const safeNames = mapSafeNames(all);
+  const byName = byNameIndex(all);
+
+  // Section: Orchestrators on top
+  if (agents.length > 0) {
+    lines.push('  subgraph Orchestration["🎯 Orchestration Layer"]');
+    for (const c of agents) {
+      const safe = safeNames.get(c);
+      if (safe) lines.push(`    ${safe}["🤖 ${escapeMermaid(c.originalName)}"]`);
+    }
+    lines.push('  end');
+  }
+
+  // Section: LLMs
+  if (llms.length > 0) {
+    lines.push('  subgraph LLMLayer["🧠 LLM / Model Layer"]');
+    for (const c of llms) {
+      const safe = safeNames.get(c);
+      if (safe) lines.push(`    ${safe}["💡 ${escapeMermaid(c.originalName)}"]`);
+    }
+    lines.push('  end');
+  }
+
+  // Section: Tools
+  if (tools.length > 0) {
+    lines.push('  subgraph ToolLayer["🔧 Tool Layer"]');
+    for (const c of tools) {
+      const safe = safeNames.get(c);
+      if (safe) lines.push(`    ${safe}["🔧 ${escapeMermaid(c.originalName)}"]`);
+    }
+    lines.push('  end');
+  }
+
+  // Section: Memory / RAG
+  if (memories.length > 0) {
+    lines.push('  subgraph MemoryLayer["📚 Memory / Vector Layer"]');
+    for (const c of memories) {
+      const safe = safeNames.get(c);
+      if (safe) lines.push(`    ${safe}[("📚 ${escapeMermaid(c.originalName)}")]`);
+    }
+    lines.push('  end');
+  }
+
+  // Emit dependency edges with role-inferred verb labels
+  const edges = new Set();
+  appendDependencyEdges(lines, all, byName, safeNames, edges, (caller, callee) => {
+    const ct = callee.roleTags || [];
+    if (ct.includes('tool'))   return 'invokes';
+    if (ct.includes('memory')) return 'retrieves from';
+    if (ct.includes('llm'))    return 'calls LLM';
+    if (ct.includes('agent'))  return 'delegates to';
+    return 'uses';
+  });
+
+  // Colour classDefs using ROLE_COLOURS palette
+  lines.push(`  classDef agentNode fill:${ROLE_COLOURS.agent.fill},color:${ROLE_COLOURS.agent.color}`);
+  lines.push(`  classDef llmNode   fill:${ROLE_COLOURS.llm.fill},color:${ROLE_COLOURS.llm.color}`);
+  lines.push(`  classDef toolNode  fill:${ROLE_COLOURS.tool.fill},color:${ROLE_COLOURS.tool.color}`);
+  lines.push(`  classDef memNode   fill:${ROLE_COLOURS.memory.fill},color:${ROLE_COLOURS.memory.color}`);
+
+  appendClassAssignment(lines, agents.map((c) => safeNames.get(c)).filter(Boolean), 'agentNode');
+  appendClassAssignment(lines, llms.map((c) => safeNames.get(c)).filter(Boolean), 'llmNode');
+  appendClassAssignment(lines, tools.map((c) => safeNames.get(c)).filter(Boolean), 'toolNode');
+  appendClassAssignment(lines, memories.map((c) => safeNames.get(c)).filter(Boolean), 'memNode');
+
+  return lines.join('\n');
+}
+
+/**
+ * C4 System Context diagram (Level 1).
+ * Reference: https://c4model.com  — Simon Brown's canonical model.
+ * Shows: the system being documented, its users, and external systems it depends on.
+ */
+function generateC4Context(data) {
+  if (!data || !Array.isArray(data.components)) {
+    return 'graph TD\n  Note["No data available"]';
+  }
+
+  const projectName = path.basename(data.rootPath || 'System').replace(/[-_]/g, ' ');
+  const lines = [`C4Context`, `  title "System Context — ${escapeMermaid(projectName)}"`];
+
+  // The project itself
+  lines.push(`  System(mainSystem, "${escapeMermaid(projectName)}", "The system being documented")`);
+
+  // A generic user persona
+  lines.push('  Person(developer, "Developer / User", "Uses the system")');
+  lines.push('  Rel(developer, mainSystem, "Uses")');
+
+  // Detect external packages used across all components and group them
+  const externalByRole = new Map();
+  for (const comp of data.components) {
+    for (const pkg of collectExternalImports(comp.imports || [])) {
+      // Infer category from package name
+      const pkgLower = pkg.toLowerCase();
+      let category = 'external';
+      if (/stripe|pay|billing|invoice/.test(pkgLower)) category = 'payment';
+      else if (/sendgrid|mail|email|smtp|postmark/.test(pkgLower)) category = 'email';
+      else if (/postgres|mysql|sqlite|mongo|redis|dynamo|prisma|typeorm|sequelize/.test(pkgLower)) category = 'database';
+      else if (/openai|anthropic|gemini|ollama|hugging/.test(pkgLower)) category = 'ai';
+      else if (/github|gitlab|bitbucket|octokit/.test(pkgLower)) category = 'vcs';
+      else if (/slack|discord|teams|twilio/.test(pkgLower)) category = 'messaging';
+      else if (/s3|gcs|azure|cloudflare|vercel|supabase/.test(pkgLower)) category = 'cloud';
+      if (!externalByRole.has(category)) externalByRole.set(category, new Set());
+      externalByRole.get(category).add(pkg);
+    }
+  }
+
+  const CATEGORY_LABELS = {
+    payment:   'Payment Provider',
+    email:     'Email Service',
+    database:  'Database',
+    ai:        'AI / LLM Provider',
+    vcs:       'Version Control',
+    messaging: 'Messaging Service',
+    cloud:     'Cloud Provider',
+    external:  'External Service',
+  };
+
+  let extIdx = 0;
+  for (const [category, pkgs] of externalByRole) {
+    const label = CATEGORY_LABELS[category] || 'External System';
+    const extId = `ext_${extIdx++}`;
+    const pkgList = [...pkgs].slice(0, 3).join(', ');
+    lines.push(`  System_Ext(${extId}, "${label}", "${escapeMermaid(pkgList)}")`);
+    lines.push(`  Rel(mainSystem, ${extId}, "uses")`);
+  }
+
+  if (externalByRole.size === 0) {
+    lines.push('  System_Ext(noExt, "External Systems", "None detected")');
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * RAG (Retrieval-Augmented Generation) pipeline diagram.
+ * Shows the canonical AI data pipeline: Query → Embed → Retrieve → Generate → Respond.
+ * Reference: Anthropic "Building effective agents", Dec 2024.
+ */
+function generateRag(data) {
+  if (!data || !Array.isArray(data.components)) {
+    return 'flowchart LR\n  Note["No data available"]';
+  }
+
+  const memories = componentsByRole(data.components, 'memory');
+  const llms     = componentsByRole(data.components, 'llm');
+  const tools    = componentsByRole(data.components, 'tool');
+
+  const lines = ['flowchart LR'];
+
+  // Always draw the canonical RAG pipeline skeleton
+  lines.push('  UserQ(["👤 User Query"])');
+  lines.push('  Embed["📐 Embedding Model"]');
+  lines.push('  VecDB[("📚 Vector Store")]');
+  lines.push('  Retriever["🔍 Retriever"]');
+  lines.push('  LLMNode["🧠 LLM / Generator"]');
+  lines.push('  Output(["✅ Response"])');
+
+  lines.push('  UserQ -->|query| Embed');
+  lines.push('  Embed -->|vector| VecDB');
+  lines.push('  VecDB -->|top-k chunks| Retriever');
+  lines.push('  Retriever -->|context + query| LLMNode');
+  lines.push('  LLMNode -->|generated answer| Output');
+
+  // Overlay detected components onto the skeleton nodes as annotations
+  if (memories.length > 0) {
+    lines.push('  subgraph DetectedMemory["Detected memory stores"]');
+    const safeM = mapSafeNames(memories);
+    for (const m of memories) {
+      const safe = safeM.get(m);
+      if (safe) lines.push(`    ${safe}[("${escapeMermaid(m.originalName)}")]`);
+    }
+    lines.push('  end');
+    lines.push(`  VecDB -. "implemented by" .-> DetectedMemory`);
+  }
+
+  if (llms.length > 0) {
+    lines.push('  subgraph DetectedLLM["Detected LLM clients"]');
+    const safeL = mapSafeNames(llms);
+    for (const l of llms) {
+      const safe = safeL.get(l);
+      if (safe) lines.push(`    ${safe}["${escapeMermaid(l.originalName)}"]`);
+    }
+    lines.push('  end');
+    lines.push(`  LLMNode -. "implemented by" .-> DetectedLLM`);
+  }
+
+  if (tools.length > 0) {
+    lines.push('  subgraph DetectedTools["Agentic tool calls"]');
+    const safeT = mapSafeNames(tools);
+    for (const t of tools) {
+      const safe = safeT.get(t);
+      if (safe) lines.push(`    ${safe}["🔧 ${escapeMermaid(t.originalName)}"]`);
+    }
+    lines.push('  end');
+    lines.push('  LLMNode -->|tool use| DetectedTools');
+    lines.push('  DetectedTools -->|result| LLMNode');
+  }
+
+  lines.push(`  classDef memNode  fill:${ROLE_COLOURS.memory.fill},color:${ROLE_COLOURS.memory.color}`);
+  lines.push(`  classDef llmNode  fill:${ROLE_COLOURS.llm.fill},color:${ROLE_COLOURS.llm.color}`);
+  lines.push(`  classDef toolNode fill:${ROLE_COLOURS.tool.fill},color:${ROLE_COLOURS.tool.color}`);
+  lines.push('  class VecDB,Retriever memNode');
+  lines.push('  class LLMNode,Embed llmNode');
+
+  return lines.join('\n');
+}
+
 function generate(data, type, focus) {
   switch (type) {
     case 'architecture': return generateArchitecture(data, focus);
-    case 'sequence': return generateSequence(data);
-    case 'dependency': return generateDependency(data, focus);
-    case 'class': return generateClass(data);
-    case 'flow': return generateFlow(data);
-    case 'database': return generateDatabase(data);
-    case 'user': return generateUserInteractions(data);
-    case 'events': return generateEvents(data);
-    case 'auth': return generateAuth(data);
-    case 'security': return generateSecurity(data);
+    case 'sequence':     return generateSequence(data);
+    case 'dependency':   return generateDependency(data, focus);
+    case 'class':        return generateClass(data);
+    case 'flow':         return generateFlow(data);
+    case 'database':     return generateDatabase(data);
+    case 'user':         return generateUserInteractions(data);
+    case 'events':       return generateEvents(data);
+    case 'auth':         return generateAuth(data);
+    case 'security':     return generateSecurity(data);
+    // AI-native types (March 2025 — C4 model, Anthropic, Mermaid v11)
+    case 'agent':        return generateAgent(data);
+    case 'c4context':    return generateC4Context(data);
+    case 'rag':          return generateRag(data);
     default: {
-      const validTypes = ['architecture', 'sequence', 'dependency', 'class', 'flow', 'database', 'user', 'events', 'auth', 'security'];
+      const validTypes = [...SUPPORTED_DIAGRAM_TYPES];
       const suggestion = findClosestMatch(type, validTypes);
       console.warn(chalk.yellow(`⚠️  Unknown diagram type "${type}", using architecture`));
       if (suggestion) {
@@ -1050,7 +1428,10 @@ function isPlaceholderDiagram(mermaidCode) {
     || compact.includes('note["no event/channels components found"]')
     || compact.includes('note["no authentication components found"]')
     || compact.includes('note["no security-focused components found"]')
-    || compact.includes('no architecture data');
+    || compact.includes('no architecture data')
+    || compact.includes('no agent/llm components found')
+    || compact.includes('no data available') // c4context / rag fallback;
+  ;
 }
 
 function toManifestEntry(type, filePath, mermaidCode, rootPath) {
@@ -1070,34 +1451,6 @@ function parseCommaSeparatedList(value) {
   return value.split(',').map((item) => item.trim()).filter(Boolean);
 }
 
-function buildManifestSummary(manifest) {
-  if (!manifest || !Array.isArray(manifest.diagrams)) {
-    return null;
-  }
-
-  const diagrams = manifest.diagrams
-    .map((diagram) => ({
-      ...diagram,
-      isPlaceholder: Boolean(diagram.isPlaceholder),
-    }))
-    .filter((entry) => entry && typeof entry.type === 'string' && entry.file);
-
-  const missing = SUPPORTED_DIAGRAM_TYPES.filter(
-    (type) => !diagrams.some((diagram) => diagram.type === type)
-  );
-  const placeholderTypes = diagrams.filter((diagram) => diagram.isPlaceholder).map((diagram) => diagram.type);
-
-  return {
-    generatedAt: manifest.generatedAt || new Date().toISOString(),
-    rootPath: manifest.rootPath,
-    diagramDir: manifest.diagramDir,
-    totalDiagrams: diagrams.length,
-    placeholders: placeholderTypes.length,
-    placeholderTypes,
-    missingTypes: missing,
-    diagrams,
-  };
-}
 
 
 module.exports = {
@@ -1114,10 +1467,10 @@ module.exports = {
   getExternalPackageName,
   inferRoleTags,
   SUPPORTED_DIAGRAM_TYPES,
+  ROLE_COLOURS,
   analyze,
   generate,
   isPlaceholderDiagram,
   toManifestEntry,
   parseCommaSeparatedList,
-  buildManifestSummary,
 };
