@@ -1,44 +1,125 @@
-# diagram-cli workflow Makefile
-# Run `make help` to list commands.
+# Harness Development Makefile
+# Run `make help` to see available commands
 
-.PHONY: help install setup hooks test test-watch test-deep ci-artifacts harness preflight-gates diagrams env-check clean
+.PHONY: help install setup preflight worktree-ready verify-work hooks hooks-pre-commit hooks-pre-push secrets-staged docs-style-changed related-tests semgrep-changed diagrams-check dev build lint docs-lint fmt typecheck test check audit secrets security clean reset ci diagrams env-check
 
-help: ## Show available targets
-	@echo "Usage: make <target>"
-	@echo ""
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+# Default target
+help: ## Show this help message
+	@echo 'Usage: make [target]'
+	@echo ''
+	@echo 'Targets:'
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+# === Setup ===
 
 install: ## Install dependencies
-	npm install
+	pnpm install
 
-setup: install hooks ## Install deps and git hooks
+setup: install hooks ## Full setup: install deps and configure git hooks
 
-hooks: ## Configure simple-git-hooks
+preflight: ## Run repository preflight checks (required local-memory gate by default)
+	@bash ./scripts/codex-preflight.sh
+
+worktree-ready: ## Bootstrap a fresh git worktree before first push
+	@bash ./scripts/prepare-worktree.sh
+
+verify-work: ## Run canonical repo-local verification wrapper
+	@bash ./scripts/verify-work.sh
+
+hooks: ## Setup git hooks
 	node scripts/setup-git-hooks.js
 
-test: ## Run test suite
-	npm test
+hooks-pre-commit: ## Run local pre-commit gates before creating a commit
+	pnpm lint
+	pnpm docs:lint
+	pnpm typecheck
+	$(MAKE) secrets-staged
+	$(MAKE) docs-style-changed
+	$(MAKE) related-tests
 
-test-watch: ## Run tests in watch mode
-	npm run test:watch
+hooks-pre-push: ## Run local pre-push governance gates before pushing
+	pnpm exec tsx src/cli.ts docs-gate --mode required --json
+	@bash ./scripts/check-diagram-freshness.sh
+	pnpm exec tsx src/cli.ts tooling-audit --path . --json
+	@bash ./scripts/check-environment.sh
+	$(MAKE) semgrep-changed
+	pnpm test
+	pnpm build
+	pnpm audit
 
-test-deep: ## Run deeper regression checks
-	npm run test:deep
+secrets-staged: ## Scan staged content for secrets before committing
+	pnpm run secrets:staged
 
-ci-artifacts: ## Generate architecture artifacts
-	npm run ci:artifacts
+docs-style-changed: ## Run Vale on staged authoritative docs only
+	pnpm run docs:style:changed
 
-harness: ## Show harness help
-	npm run harness -- --help
+related-tests: ## Run Vitest related mode for staged src implementation files
+	pnpm run test:related
 
-preflight-gates: ## Run harness preflight gate
-	npm run harness -- preflight-gate --contract harness.contract.json
+semgrep-changed: ## Run narrow Semgrep rules against changed src implementation files
+	pnpm run semgrep:changed
 
-diagrams: ## Refresh AI context and diagram artifacts
-	bash scripts/refresh-diagram-context.sh --force
+diagrams-check: ## Refresh architecture diagrams when sensitive paths change and fail on drift
+	@bash ./scripts/check-diagram-freshness.sh
 
-env-check: ## Validate local harness environment
-	bash scripts/check-environment.sh
+# === Development ===
 
-clean: ## Remove generated artifacts
-	rm -rf .diagram AI/diagrams .memory-metrics.json .harness
+dev: ## Start development server
+	pnpm dev
+
+build: ## Build for production
+	pnpm build
+
+# === Quality ===
+
+lint: ## Run linter
+	pnpm lint
+
+docs-lint: ## Lint markdown/docs
+	pnpm docs:lint
+
+fmt: ## Format code
+	pnpm fmt
+
+typecheck: ## Run TypeScript type checking
+	pnpm typecheck
+
+test: ## Run tests
+	pnpm test
+
+check: ## Run all required quality gates
+	pnpm check
+
+# === Security ===
+
+audit: ## Run security audit
+	pnpm audit
+
+secrets: ## Scan for secrets with gitleaks
+	@gitleaks detect --source . --verbose || (echo "Install gitleaks: brew install gitleaks" && exit 1)
+
+security: audit secrets ## Run all security checks
+
+# === Maintenance ===
+
+clean: ## Clean build artifacts and caches
+	rm -rf dist coverage artifacts .test-traces* .traces
+	rm -rf node_modules/.cache
+
+reset: clean ## Full reset: clean and reinstall
+	pnpm install
+
+# === CI ===
+
+ci: ## Run CI-equivalent local checks
+	pnpm check
+
+# === Diagrams ===
+
+diagrams: ## Generate architecture diagrams
+	@bash ./scripts/refresh-diagram-context.sh --force
+
+# === Environment ===
+
+env-check: ## Check environment policy envelope
+	@bash ./scripts/check-environment.sh
