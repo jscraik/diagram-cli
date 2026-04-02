@@ -1,82 +1,102 @@
 #!/usr/bin/env node
 /**
- * Commit message validation hook (CommonJS for Node 18+ compatibility).
+ * Commit message validation hook
+ *
+ * Validates commit messages follow governance requirements:
+ * - Conventional commit format (feat|fix|chore|docs|refactor|test|style)
+ * - Subject line <= 72 chars
+ * - Blank line between subject and body/trailers
+ * - Co-authored-by trailer on agent branches
  */
 
-const { execFileSync } = require("node:child_process");
-const { readFileSync } = require("node:fs");
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
-const commitMsgFile = process.argv[2];
-const conventionalCommitRegex =
+const COMMIT_MSG_FILE = process.argv[2];
+const CONVENTIONAL_COMMIT_REGEX =
 	/^(feat|fix|chore|docs|refactor|test|style|perf|ci|build|revert)(\(.+\))?!?:\s.+/;
-const coAuthorRegex = /Co-authored-by:\s*.+/i;
-const codexTrailerRegex = /Co-authored-by:\s*Codex <noreply@openai\.com>/i;
+const CO_AUTHOR_LINE_REGEX = /^Co-authored-by:\s*.+$/gim;
+const CODEX_CO_AUTHOR_REGEX =
+	/^Co-authored-by:\s*Codex <noreply@openai\.com>\s*$/im;
 
 function main() {
-	if (!commitMsgFile) {
+	if (!COMMIT_MSG_FILE) {
 		console.error("Usage: validate-commit-msg.js <commit-msg-file>");
 		process.exit(1);
 	}
 
 	let commitMsg;
 	try {
-		commitMsg = readFileSync(commitMsgFile, "utf-8");
-	} catch (error) {
-		console.error(`Failed to read commit message file: ${error.message}`);
+		commitMsg = readFileSync(COMMIT_MSG_FILE, "utf-8");
+	} catch (e) {
+		console.error(`Failed to read commit message file: ${e.message}`);
 		process.exit(1);
 	}
 
 	const errors = [];
-	const warnings = [];
-	const lines = commitMsg.split("\n").filter((line) => !line.startsWith("#"));
-	const subjectIndex = lines.findIndex((line) => line.trim() !== "");
-	const subject = subjectIndex >= 0 ? lines[subjectIndex].trim() : "";
+	const lines = commitMsg
+		.split(/\r?\n/)
+		.filter((line) => !line.startsWith("#"));
+	const firstLineIndex = lines.findIndex((line) => line.trim().length > 0);
+	const firstLine = firstLineIndex >= 0 ? lines[firstLineIndex].trim() : "";
 
-	if (!conventionalCommitRegex.test(subject)) {
-		errors.push("First line must follow conventional commit format: type(scope)!: description");
+	// Check 1: Subject exists and follows conventional commit format
+	if (!firstLine) {
+		errors.push("Commit message subject is required");
+	} else if (!CONVENTIONAL_COMMIT_REGEX.test(firstLine)) {
+		errors.push(
+			"Subject must follow conventional commit format: type(scope)!: description",
+		);
 	}
 
-	if (subject.length > 72) {
-		errors.push(`First line exceeds 72 characters (${subject.length} chars)`);
+	// Check 2: Subject length
+	if (firstLine && firstLine.length > 72) {
+		errors.push(`Subject exceeds 72 characters (${firstLine.length} chars)`);
 	}
 
-	const bodyStartIndex = subjectIndex >= 0 ? subjectIndex + 1 : -1;
-	if (bodyStartIndex >= 0 && lines.length > bodyStartIndex && lines[bodyStartIndex].trim() !== "") {
-		warnings.push("Body should be separated from subject by a blank line for readability");
+	// Check 3: Body/trailers must be separated by a blank line
+	const hasAdditionalContent = lines
+		.slice(Math.max(firstLineIndex + 1, 0))
+		.some((line) => line.trim().length > 0);
+	if (hasAdditionalContent && lines[firstLineIndex + 1]?.trim() !== "") {
+		errors.push(
+			"Add a blank line between the subject and the rest of the commit message",
+		);
 	}
 
-	const hasCoAuthor = coAuthorRegex.test(commitMsg);
+	// Check 4: Co-authorship for agent branches (enforced)
+	const coAuthorLines = commitMsg.match(CO_AUTHOR_LINE_REGEX) ?? [];
 	const branchName = getBranchName();
 	const isAgentBranch = /codex|claude|agent/i.test(branchName);
-	if (isAgentBranch && !hasCoAuthor) {
-		warnings.push("AI-assisted commit detected. Add a Co-authored-by trailer for transparency.");
+
+	if (isAgentBranch && coAuthorLines.length !== 1) {
+		errors.push(
+			"Agent branches require exactly one Co-authored-by trailer for auditability",
+		);
 	}
-	if (isAgentBranch && hasCoAuthor && !codexTrailerRegex.test(commitMsg)) {
-		warnings.push("Expected trailer: Co-authored-by: Codex <noreply@openai.com>");
+	if (isAgentBranch && !CODEX_CO_AUTHOR_REGEX.test(commitMsg)) {
+		errors.push(
+			"Agent branches must include: Co-authored-by: Codex <noreply@openai.com>",
+		);
 	}
 
+	// Output results
 	if (errors.length > 0) {
 		console.error("\n❌ Commit message validation failed:\n");
 		for (const error of errors) {
 			console.error(`  ✗ ${error}`);
 		}
 		console.error(
-			"\nCommit message format example:\n  feat(scope): add feature\n\n  Why this change.\n\n  Co-authored-by: Codex <noreply@openai.com>",
+			"\nCommit message format example:\n  feat(scope): add new feature\n\n  Why this change is needed and what it impacts.\n\n  Co-authored-by: Codex <noreply@openai.com>",
 		);
 		process.exit(1);
 	}
-
-	if (warnings.length > 0) {
-		console.info("\n⚠️ Commit message warnings:\n");
-		for (const warning of warnings) {
-			console.info(`  • ${warning}`);
-		}
-		console.info("");
-	}
+	process.exit(0);
 }
 
 function getBranchName() {
 	try {
+		// Using execFileSync for safety - no shell interpolation
 		const output = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
 			encoding: "utf-8",
 			stdio: ["pipe", "pipe", "pipe"],
@@ -88,3 +108,4 @@ function getBranchName() {
 }
 
 main();
+		

@@ -5,30 +5,32 @@
       "role": "primary governance contract"
     },
     {
-      "path": "src/schema/rules-schema.js",
-      "role": "architecture rule schema"
+      "path": "package.json",
+      "role": "project scripts and package metadata"
     },
     {
-      "path": "src/diagram.js",
-      "role": "main CLI entrypoint"
+      "path": "README.md",
+      "role": "operator-facing setup and workflow docs"
     },
     {
-      "path": "src/rules.js",
-      "role": "rule execution and validation logic"
+      "path": "CONTRIBUTING.md",
+      "role": "contributor governance requirements"
     },
     {
-      "path": "scripts/harness-pr-gates.sh",
-      "role": "CI harness gate orchestration"
+      "path": ".github/workflows/pr-pipeline.yml",
+      "role": "required checks workflow"
     }
   ],
   "apiSpecs": [
-    "src/diagram.js",
-    "src/graph.js",
-    "src/rules.js",
-    "src/video.js"
+    "contracts/**/*.schema.json",
+    "openapi/**/*.json",
+    "openapi/**/*.yaml",
+    "src/**/*.ts"
   ],
   "schemaFiles": [
-    "src/schema/**/*.js",
-    "examples/*.architecture.yml"
+    "contracts/**/*.schema.json",
+    "schemas/**/*.json",
+    "openapi/**/*.json",
+    "openapi/**/*.yaml"
   ]
 }
