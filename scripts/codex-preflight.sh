@@ -1,7 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+resolve_script_path() {
+	if [[ -n "${ZSH_VERSION:-}" ]]; then
+		local source_path=''
+		# In sourced zsh sessions, %x resolves to this script while %N may resolve
+		# to a function name or "(eval)".
+		source_path="$(eval 'printf "%s\n" "${(%):-%x}"')"
+		if [[ -n "${source_path}" && "${source_path}" != '(eval)' ]]; then
+			printf '%s\n' "${source_path}"
+			return
+		fi
+		source_path="$(eval 'printf "%s\n" "${(%):-%N}"')"
+		if [[ -n "${source_path}" && "${source_path}" != '(eval)' ]]; then
+			printf '%s\n' "${source_path}"
+			return
+		fi
+	fi
+	printf '%s\n' "${BASH_SOURCE[0]:-$0}"
+}
+
+is_script_sourced() {
+	if [[ -n "${ZSH_VERSION:-}" ]]; then
+		local source_path
+		source_path="$(resolve_script_path)"
+		[[ "${source_path}" != "$0" ]]
+		return
+	fi
+	[[ "${BASH_SOURCE[0]:-$0}" != "$0" ]]
+}
+
+SCRIPT_PATH="$(resolve_script_path)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${SCRIPT_PATH}")" && pwd -P)"
 WORKSPACE_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
 
 usage() {
@@ -112,20 +142,22 @@ stack_paths_csv() {
 
 check_bins() {
 	local bins_csv="$1"
-	local -a bins=()
-	local -a missing_bins=()
 	local b
+	local missing_bins=''
 
-	IFS=',' read -r -a bins <<<"${bins_csv}"
-	for b in "${bins[@]}"; do
+	while IFS= read -r b; do
 		[[ -z "${b}" ]] && continue
 		if ! command -v "${b}" >/dev/null 2>&1; then
-			missing_bins+=("${b}")
+			if [[ -n "${missing_bins}" ]]; then
+				missing_bins="${missing_bins} ${b}"
+			else
+				missing_bins="${b}"
+			fi
 		fi
-	done
+	done < <(printf '%s' "${bins_csv}" | tr ',' '\n')
 
-	if (( ${#missing_bins[@]} > 0 )); then
-		log_err "missing binaries: ${missing_bins[*]}"
+	if [[ -n "${missing_bins}" ]]; then
+		log_err "missing binaries: ${missing_bins}"
 		return 2
 	fi
 	log_ok "binaries ok: ${bins_csv}"
@@ -134,28 +166,18 @@ check_bins() {
 check_paths() {
 	local root="$1"
 	local paths_csv="$2"
-	local -a paths=()
 	local p
 
-	IFS=',' read -r -a paths <<<"${paths_csv}"
-	for p in "${paths[@]}"; do
+	while IFS= read -r p; do
 		[[ -z "${p}" ]] && continue
 
-		local -a matches=()
 		local match
-		shopt -s nullglob
-		for match in ${p}; do
-			matches+=("${match}")
-		done
-		shopt -u nullglob
-
-		if (( ${#matches[@]} == 0 )); then
-			matches+=("${p}")
-		fi
-
 		local found=0
+		local match_count=0
 		local abs
-		for match in "${matches[@]}"; do
+		while IFS= read -r match; do
+			[[ -z "${match}" ]] && continue
+			match_count=$((match_count + 1))
 			if [[ -e "${match}" ]]; then
 				found=1
 				if ! abs="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "${match}")"; then
@@ -167,13 +189,33 @@ check_paths() {
 					return 2
 				fi
 			fi
-		done
+		done < <(python3 - "${p}" <<'PY'
+import glob
+import sys
+
+pattern = sys.argv[1]
+for candidate in glob.glob(pattern):
+    print(candidate)
+PY
+)
+
+		if (( match_count == 0 )) && [[ -e "${p}" ]]; then
+			found=1
+			if ! abs="$(python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "${p}")"; then
+				log_err "failed to resolve path: ${p}"
+				return 2
+			fi
+			if [[ "${abs}" != "${root}" && "${abs}" != "${root}"/* ]]; then
+				log_err "path escapes repo root: ${p} -> ${abs}"
+				return 2
+			fi
+		fi
 
 		if (( found == 0 )); then
 			log_err "missing path: ${p}"
 			return 2
 		fi
-	done
+	done < <(printf '%s' "${paths_csv}" | tr ',' '\n')
 	log_ok "paths ok: ${paths_csv}"
 }
 
@@ -338,7 +380,11 @@ preflight_local_memory_gold() {
 	malformed_output="$(make_tmp_file)"
 	dup_output_1="$(make_tmp_file)"
 	dup_output_2="$(make_tmp_file)"
-	trap 'rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"' RETURN
+	local cleanup_signal='RETURN'
+	if [[ -n "${ZSH_VERSION:-}" ]]; then
+		cleanup_signal='EXIT'
+	fi
+	trap '/bin/rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"' "${cleanup_signal}"
 
 	local malformed_code
 	malformed_code="$(curl -sS -o "${malformed_output}" -w '%{http_code}' \
@@ -346,8 +392,8 @@ preflight_local_memory_gold() {
 		-d '{"level":"observation"}' \
 		"http://${rest_host}:${rest_port}/api/v1/observe")"
 	if [[ "${malformed_code}" -lt 400 ]]; then
-		trap - RETURN
-		rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
+		trap - "${cleanup_signal}"
+		/bin/rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
 		log_err "malformed payload did not return an error (HTTP ${malformed_code})"
 		return 1
 	fi
@@ -380,8 +426,8 @@ preflight_local_memory_gold() {
 		log_warn "daemon log not found at ${daemon_log}"
 	fi
 
-	trap - RETURN
-	rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
+	trap - "${cleanup_signal}"
+	/bin/rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
 	log_ok 'local-memory preflight passed'
 }
 
@@ -614,6 +660,6 @@ preflight_rust() {
 	fi
 }
 
-if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+if ! is_script_sourced; then
 	main "$@"
 fi
