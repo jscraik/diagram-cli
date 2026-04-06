@@ -43,7 +43,7 @@ jobs:
             --verbose
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: pr-impact
           path: .diagram/pr-impact/
