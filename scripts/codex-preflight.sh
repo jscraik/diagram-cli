@@ -616,6 +616,8 @@ preflight_local_memory_gold() {
 	local malformed_code
 	malformed_code="$(post_json_to_file "${malformed_output}" "${observe_url}" '{"level":"observation"}')"
 	if [[ "${malformed_code}" -lt 400 ]]; then
+		trap - RETURN
+		rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
 		log_err "malformed payload did not return an error (HTTP ${malformed_code})"
 		return 1
 	fi
@@ -753,19 +755,19 @@ main() {
 				;;
 			-h|--help)
 				usage
-				exit 0
+				return 0
 				;;
 			*)
 				log_err "unknown argument: $1"
 				usage >&2
-				exit 2
+				return 2
 				;;
 		esac
 	done
 
 	case "${local_memory_mode}" in
 		off|optional|required) ;;
-		*) log_err "invalid --mode: ${local_memory_mode}"; exit 2 ;;
+		*) log_err "invalid --mode: ${local_memory_mode}"; return 2 ;;
 	esac
 
 	log_section 'Codex Preflight'
@@ -773,17 +775,17 @@ main() {
 
 	if ! command -v git >/dev/null 2>&1; then
 		log_err 'missing binary: git'
-		exit 2
+		return 2
 	fi
 
 	local git_root
 	if ! git_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
 		log_err 'not inside a git repo (git rev-parse failed)'
-		exit 2
+		return 2
 	fi
 	if [[ -z "${git_root}" ]]; then
 		log_err 'git rev-parse returned empty root'
-		exit 2
+		return 2
 	fi
 	git_root="$(cd -- "${git_root}" && pwd -P)"
 	echo "git root: ${git_root}"
@@ -827,7 +829,7 @@ main() {
 		if ! preflight_local_memory_gold; then
 			if [[ "${local_memory_mode}" == 'required' ]]; then
 				log_err 'local-memory preflight failed (required mode)'
-				exit 2
+				return 2
 			fi
 			log_warn 'local-memory preflight failed (optional mode)'
 		fi
