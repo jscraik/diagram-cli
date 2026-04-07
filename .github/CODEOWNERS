@@ -1,0 +1,11 @@
+# CODEOWNERS
+# This file sets the default owners for the repository to ensure automatic PR review assignment.
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repository
+*       @jscraik
+
+# (Optional additions for the future if teams grow)
+# docs/   @jscraik
+# src/    @jscraik
+# test/   @jscraik
