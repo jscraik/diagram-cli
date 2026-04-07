@@ -58,6 +58,7 @@ The CLI has fallback logic to forgive minor syntax mistakes with a helpful warni
 - [Contradictions and cleanup](docs/agents/06-contradictions-and-cleanup.md)
 
 ## Preflight Enforcement (REQUIRED)
+
 - Use `scripts/codex-preflight.sh` before multi-step, destructive, or path-sensitive workflows.
 - Source and run: `source scripts/codex-preflight.sh && preflight_repo`.
 - If the helper is unavailable, run the manual checks documented in [tooling policy](docs/agents/02-tooling-policy.md).

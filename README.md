@@ -48,7 +48,7 @@ diagram generate . --focus src/api --theme dark --open
 ### PR Architecture Impact Analysis
 Analyze the blast-radius of architectural changes automatically (perfect for GitHub Actions):
 ```bash
-diagram workflow pr . --base origin/main --head HEAD --fail-on-risk
+diagram workflow pr . --base origin/main --head HEAD --fail-on-risk --risk-threshold high
 ```
 This produces `pr-impact.html` and JSON artifacts for structured PR review narratives, flagging risk levels based on files touched.
 

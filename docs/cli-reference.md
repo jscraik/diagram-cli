@@ -25,7 +25,7 @@ Analyze file structure and dependencies without rendering a diagram.
 
 ```bash
 diagram analyze ./my-project
-diagram analyze . --json
+diagram analyze . --format json
 diagram analyze . --patterns "**/*.py,**/*.go"
 diagram analyze . --max-files 200
 ```
@@ -38,7 +38,7 @@ diagram analyze . --max-files 200
 - `--analyzer <name>` — analyzer plugin (default: `default`)
 - `--emit-ir` — write typed IR artifact to `.diagram/ir/architecture-ir.json`
 - `--incremental` — use incremental cache at `.diagram/cache` when available
-- `-j, --json` — JSON output
+- `--format <fmt>` — output format: `json` for machine-readable output (default: human-readable text)
 
 ---
 
@@ -141,7 +141,7 @@ diagram diff origin/main HEAD
 
 **Options:**
 
-- `-j, --json` — JSON output
+- `--format <fmt>` — output format: `json` for machine-readable output (default: human-readable text)
 - `-m, --max-files <n>` — max files to analyze per ref (default: `100`)
 - `-p, --patterns <list>` — file patterns to include
 - `-e, --exclude <list>` — paths to exclude
