@@ -1,0 +1,21 @@
+# CODEOWNERS
+#
+# Governance: All PRs are auto-assigned to @jscraik for review via GitHub's
+# CODEOWNERS mechanism.
+#
+# Note: harness.contract.json currently sets "requireCodeOwnerReview": false,
+# so there is no hard harness merge gate at this time. Code-owner review is
+# expected by convention but is not currently a blocking contract requirement.
+#
+# For escalation steps and reviewer expectations, see:
+#     docs/agents/05-git-and-communication.md → "Automated PR routing policy"
+#
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repository
+*       @jscraik
+
+# (Optional additions for the future if teams grow)
+# docs/   @jscraik
+# src/    @jscraik
+# test/   @jscraik

@@ -48,9 +48,17 @@ function registerWorkflowCommands(program, deps) {
     .option('--confidence-report', 'Write confidence report artifact', false)
     .option('--strict-confidence', 'Fail with exit code 1 when confidence checks degrade', false)
     .option('--capability-check-only', 'Run only capability checks and confidence evaluation', false)
-    .option('-j, --json', 'Output as JSON only (skip HTML generation)', false)
+    .option('-f, --format <type>', 'Output format (text, json)', 'text')
     .option('--verbose', 'Show detailed output', false)
     .action(async (targetPath, options) => {
+      const formatStr = (options.format || 'text').toLowerCase();
+      const isJson = formatStr === 'json';
+      const validFormats = ['text', 'json'];
+      if (!validFormats.includes(formatStr)) {
+        console.error(chalk.red('❌ Invalid format:'), options.format);
+        console.log(chalk.gray('Valid values:', validFormats.join(', ')));
+        process.exit(2);
+      }
       const root = resolveRootPathOrExit(targetPath);
       const startTime = Date.now();
       const confidenceEnabled = Boolean(
@@ -177,7 +185,7 @@ function registerWorkflowCommands(program, deps) {
       }
 
       // Phase 2: Git diff ingestion + snapshot preparation
-      if (!options.json && options.verbose) {
+      if (!isJson && options.verbose) {
         console.log(chalk.blue('\n📋 Step 1: Extracting changed files...'));
       }
 
@@ -189,7 +197,7 @@ function registerWorkflowCommands(program, deps) {
         process.exit(2);
       }
 
-      if (!options.json && options.verbose) {
+      if (!isJson && options.verbose) {
         console.log(chalk.gray('   Changed:'), changedFiles.changed.length);
         console.log(chalk.gray('   Renamed:'), changedFiles.renamed.length);
         console.log(chalk.gray('   Added:'), changedFiles.added.length);
@@ -241,7 +249,7 @@ function registerWorkflowCommands(program, deps) {
           }
         };
 
-        if (options.json) {
+        if (isJson) {
           console.log(JSON.stringify(emptyResult, null, 2));
         } else {
           console.log(chalk.green('\n✅ No architecture changes detected'));
@@ -250,7 +258,7 @@ function registerWorkflowCommands(program, deps) {
       }
 
       // Phase 2: Analyze snapshots at base and head refs
-      if (!options.json && options.verbose) {
+      if (!isJson && options.verbose) {
         console.log(chalk.blue('\n📊 Step 2: Analyzing codebase snapshots...'));
       }
 
@@ -263,12 +271,12 @@ function registerWorkflowCommands(program, deps) {
         };
 
         baseAnalysis = await analyzeAtRef(baseSha, root, analysisOptions);
-        if (!options.json && options.verbose) {
+        if (!isJson && options.verbose) {
           console.log(chalk.gray('   Base components:'), baseAnalysis.components.length);
         }
 
         headAnalysis = await analyzeAtRef(headSha, root, analysisOptions);
-        if (!options.json && options.verbose) {
+        if (!isJson && options.verbose) {
           console.log(chalk.gray('   Head components:'), headAnalysis.components.length);
         }
       } catch (error) {
@@ -277,38 +285,38 @@ function registerWorkflowCommands(program, deps) {
       }
 
       // Compute delta between snapshots
-      if (!options.json && options.verbose) {
+      if (!isJson && options.verbose) {
         console.log(chalk.blue('\n🔄 Step 3: Computing delta...'));
       }
 
       const delta = computeDelta(baseAnalysis, headAnalysis, changedFiles);
 
-      if (!options.json && options.verbose) {
+      if (!isJson && options.verbose) {
         console.log(chalk.gray('   Changed components:'), delta.changedComponents.length);
         console.log(chalk.gray('   Unmodeled changes:'), delta.unmodeledChanges.length);
         console.log(chalk.gray('   Edge delta:'), delta.dependencyEdgeDelta.count);
       }
 
       // Compute blast radius (Phase 3 - basic implementation)
-      if (!options.json && options.verbose) {
+      if (!isJson && options.verbose) {
         console.log(chalk.blue('\n💥 Step 4: Computing blast radius...'));
       }
 
       const blastRadius = computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes);
 
-      if (!options.json && options.verbose) {
+      if (!isJson && options.verbose) {
         console.log(chalk.gray('   Impacted components:'), blastRadius.impactedComponents.length);
         console.log(chalk.gray('   Truncated:'), blastRadius.truncated);
       }
 
       // Compute risk score (Phase 4 - basic implementation)
-      if (!options.json && options.verbose) {
+      if (!isJson && options.verbose) {
         console.log(chalk.blue('\n⚠️  Step 5: Computing risk score...'));
       }
 
       const risk = computeRiskFromDelta(delta, blastRadius);
 
-      if (!options.json && options.verbose) {
+      if (!isJson && options.verbose) {
         console.log(chalk.gray('   Risk score:'), risk.score);
         console.log(chalk.gray('   Risk level:'), risk.level);
         console.log(chalk.gray('   Risk flags:'), risk.flags.join(', ') || 'none');
@@ -352,7 +360,7 @@ function registerWorkflowCommands(program, deps) {
       };
 
       // Output result
-      if (options.json) {
+      if (isJson) {
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log(chalk.green('\n✅ PR Impact Analysis Complete'));
@@ -393,7 +401,7 @@ function registerWorkflowCommands(program, deps) {
             console.error(chalk.gray('   Threshold:'), threshold);
             console.error(chalk.gray('   Actual:'), result.risk.level);
             console.error(chalk.gray('   Score:'), result.risk.score);
-            if (!options.json) {
+            if (!isJson) {
               console.log(chalk.gray('\n   Use --risk-override-reason to bypass'));
             }
             exitCode = 1;
@@ -413,14 +421,14 @@ function registerWorkflowCommands(program, deps) {
 
         if (options.confidenceReport || options.strictConfidence) {
           const confidencePath = writeConfidenceReport(root, report);
-          if (!options.json) {
+          if (!isJson) {
             console.log(chalk.gray('   Confidence:'), confidencePath);
           }
         }
 
         if (options.strictConfidence && shouldFailStrictConfidence(report)) {
           exitCode = 1;
-          if (!options.json) {
+          if (!isJson) {
             console.error(chalk.red('\n❌ Strict confidence check failed'));
           }
         }
@@ -429,8 +437,8 @@ function registerWorkflowCommands(program, deps) {
       // Write artifacts to disk (after risk check so override.applied is correct)
       let artifactPaths;
       try {
-        artifactPaths = writePrImpactArtifacts(outputDir, result, options.json);
-        if (!options.json && exitCode === 0) {
+        artifactPaths = writePrImpactArtifacts(outputDir, result, /* skipHtml */ isJson);
+        if (!isJson && exitCode === 0) {
           console.log(chalk.gray('   Output:'), artifactPaths.jsonPath);
           if (artifactPaths.htmlPath) {
             console.log(chalk.gray('   HTML:'), artifactPaths.htmlPath);

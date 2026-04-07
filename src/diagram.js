@@ -27,7 +27,6 @@ const {
   analyze,
   generate,
   toManifestEntry,
-  parseCommaSeparatedList,
 } = require('./core/analysis-generation');
 const {
   escapeHtml,
@@ -306,13 +305,12 @@ function validateMermaidSyntax(mermaid, theme = 'default') {
   }
 
   // Try to validate with mmdc if available
-  let tempFile;
-  let tempOutput;
+  let tempDir;
   try {
     result.meta.cliValidation.attempted = true;
-    const randomId = crypto.randomBytes(8).toString('hex');
-    tempFile = path.join(os.tmpdir(), `diagram-validate-${Date.now()}-${randomId}.mmd`);
-    tempOutput = path.join(os.tmpdir(), `diagram-validate-${Date.now()}-${randomId}.svg`);
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "diagram-validate-"));
+    const tempFile = path.join(tempDir, 'validate.mmd');
+    const tempOutput = path.join(tempDir, 'validate.svg');
     fs.writeFileSync(tempFile, `%%{init: {'theme': '${theme}'}}%%\n${mermaid}`);
 
     runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', tempOutput, '-b', 'transparent']);
@@ -327,11 +325,8 @@ function validateMermaidSyntax(mermaid, theme = 'default') {
       console.log(chalk.gray('Mermaid CLI not available for validation, using basic checks only'));
     }
   } finally {
-    if (tempFile && fs.existsSync(tempFile)) {
-      try { fs.unlinkSync(tempFile); } catch (e) {}
-    }
-    if (tempOutput && fs.existsSync(tempOutput)) {
-      try { fs.unlinkSync(tempOutput); } catch (e) {}
+    if (tempDir && fs.existsSync(tempDir)) {
+      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e) {}
     }
   }
 
@@ -363,11 +358,14 @@ program
   .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
   .option('--emit-ir', 'Write typed architecture IR artifact', false)
   .option('--incremental', 'Use incremental cache when available', false)
-  .option('-j, --json', 'Output as JSON')
+  .option('-f, --format <type>', 'Output format (text, json)', 'text')
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
-    if (!options.json) {
-      console.log(chalk.blue('Analyzing'), root);
+    const formatStr = (options.format || 'text').toLowerCase();
+    const isJson = formatStr === 'json';
+    if (!options.quiet) {
+      console.error(chalk.blue('Analyzing'), root);
     }
 
     const pipeline = await runAnalysisPipeline(root, options, 'analyze');
@@ -375,12 +373,12 @@ program
 
     if (options.emitIr) {
       const irPath = maybeWriteArchitectureIR(root, data, pipeline.analyzer, true);
-      if (!options.json && irPath) {
-        console.log(chalk.gray('  IR:'), path.relative(root, irPath));
+      if (!isJson && irPath && !options.quiet) {
+        console.error(chalk.gray('  IR:'), path.relative(root, irPath));
       }
     }
     
-    if (options.json) {
+    if (isJson) {
       console.log(JSON.stringify(data, null, 2));
     } else {
       console.log(chalk.green('\n📊 Summary'));
@@ -410,6 +408,9 @@ program
   .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, user, events, auth, security, agent, c4context, rag', 'architecture')
   .option('-f, --focus <module>', 'Focus on specific module')
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
+  .option('--format <type>', 'Output format (text, json)', 'text')
+  .option('--force', 'Overwrite output file if it exists', false)
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
   .option('--emit-ir', 'Write typed architecture IR artifact', false)
@@ -469,15 +470,19 @@ program
       process.exit(0);
     }
 
-    console.log(chalk.blue('Generating'), options.type, 'diagram for', root);
+    const formatStr = (options.format || 'text').toLowerCase();
+    const isJson = formatStr === 'json';
+    if (!options.quiet) {
+      console.error(chalk.blue('Generating'), options.type, 'diagram for', root);
+    }
 
     const pipeline = await runAnalysisPipeline(root, options, 'generate');
     const data = pipeline.analysis;
 
     if (options.emitIr) {
       const irPath = maybeWriteArchitectureIR(root, data, pipeline.analyzer, true);
-      if (irPath) {
-        console.log(chalk.gray('IR artifact:'), irPath);
+      if (irPath && !options.quiet) {
+        console.error(chalk.gray('IR artifact:'), irPath);
       }
     }
 
@@ -491,16 +496,16 @@ program
 
     // Validate Mermaid syntax if requested
     if (options.validate) {
-      console.log(chalk.blue('\n🔍 Validating Mermaid syntax...'));
+      if (!options.quiet) console.error(chalk.blue('\n🔍 Validating Mermaid syntax...'));
       validationResult = validateMermaidSyntax(mermaid, safeTheme);
       validationResult.enabled = true;
 
       if (validationResult.valid) {
-        console.log(chalk.green('✅ Mermaid syntax is valid'));
+        if (!options.quiet) console.error(chalk.green('✅ Mermaid syntax is valid'));
       } else {
-        console.log(chalk.yellow('⚠️  Mermaid syntax issues detected:'));
+        console.error(chalk.yellow('⚠️  Mermaid syntax issues detected:'));
         for (const error of validationResult.errors) {
-          console.log(chalk.yellow(`   Line ${error.line || '?'}: ${error.message}`));
+          console.error(chalk.yellow(`   Line ${error.line || '?'}: ${error.message}`));
         }
 
         if (options.failOnValidationError) {
@@ -556,19 +561,31 @@ program
       }
     }
 
-    console.log(chalk.green('\n📐 Mermaid Diagram:\n'));
-    console.log('```mermaid');
-    console.log(mermaid);
-    console.log('```\n');
-
     // Preview URL
     const { url, large } = createMermaidUrl(mermaid);
     
-    if (large || !url) {
-      console.log(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
-      console.log(chalk.cyan('💾 Save to file:'), 'diagram generate . --output diagram.svg');
-    } else {
-      console.log(chalk.cyan('🔗 Preview:'), url);
+    if (!options.output) {
+      if (isJson) {
+        console.log(JSON.stringify({
+          schema: "1.0",
+          meta: { root_path: root, type: options.type },
+          status: validationResult.valid ? "success" : "failure",
+          data: mermaid,
+          errors: validationResult.errors
+        }, null, 2));
+      } else {
+        console.log(chalk.green('\n📐 Mermaid Diagram:\n'));
+        console.log('```mermaid');
+        console.log(mermaid);
+        console.log('```\n');
+        
+        if (large || !url) {
+          console.error(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
+          console.error(chalk.cyan('💾 Save to file:'), 'diagram generate . --output diagram.svg');
+        } else {
+          console.error(chalk.cyan('🔗 Preview:'), url);
+        }
+      }
     }
     
     // Save to file if requested
@@ -582,34 +599,41 @@ program
         process.exit(2);
       }
       
-      // Ensure output directory exists
+      // Ensure output directory exists (mkdirSync with recursive is race-condition safe)
       const outputDir = path.dirname(safeOutput);
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
-      }
+      fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
       
       const ext = outputExt;
       if (ext === '.md' || ext === '.mmd') {
-        fs.writeFileSync(safeOutput, mermaid);
-        console.log(chalk.green('✅ Saved to'), options.output);
+        try {
+          fs.writeFileSync(safeOutput, mermaid, { flag: options.force ? 'w' : 'wx' });
+          if (!options.quiet) console.error(chalk.green('✅ Saved to'), options.output);
+        } catch (err) {
+          if (err.code === 'EEXIST') {
+            console.error(chalk.red(`❌ Target file exists: ${safeOutput}`));
+            console.error(chalk.yellow('Use --force to overwrite.'));
+            process.exit(1);
+          }
+          throw err;
+        }
       } else {
         // Try to render
-        let tempFile = null;
+        let tempDir = null;
         try {
-          // Use crypto for secure random filename
-          const randomId = crypto.randomBytes(16).toString('hex');
-          tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}-${randomId}.mmd`);
+          // Use mkdtempSync for secure temporary directory
+          tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "diagram-"));
+          const tempFile = path.join(tempDir, 'diagram.mmd');
           fs.writeFileSync(tempFile, `%%{init: {'theme': '${safeTheme}'}}%%\n${mermaid}`);
           runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent']);
-          fs.unlinkSync(tempFile);
-          console.log(chalk.green('✅ Rendered to'), options.output);
+          if (!options.quiet) console.error(chalk.green('✅ Rendered to'), options.output);
         } catch (e) {
-          if (tempFile && fs.existsSync(tempFile)) {
-            try { fs.unlinkSync(tempFile); } catch (e2) {}
-          }
           console.error(chalk.red('❌ Could not render output file. Install mermaid-cli: npm i -g @mermaid-js/mermaid-cli'));
           if (process.env.DEBUG) console.error(chalk.gray(e.message));
           process.exit(2);
+        } finally {
+          if (tempDir && fs.existsSync(tempDir)) {
+            try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e2) {}
+          }
         }
       }
     }
@@ -625,15 +649,17 @@ program
   });
 
 program
-  .command('all [path]')
+  .command('generate-all [path]')
   .description('Generate all diagram types')
-  .option('-o, --output-dir <dir>', 'Output directory', './diagrams')
+  .option('-O, --output-dir <dir>', 'Output directory', './diagrams')
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-p, --patterns <list>', 'File patterns', '**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs')
   .option('-e, --exclude <list>', 'Exclude patterns', 'node_modules/**,.git/**,dist/**')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
   .option('--emit-ir', 'Write typed architecture IR artifact', false)
   .option('--incremental', 'Use incremental cache when available', false)
+  .option('-f, --format <type>', 'Output format (text, json)', 'text')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     let outDir;
@@ -644,8 +670,10 @@ program
       process.exit(2);
     }
     
-    console.log(chalk.blue('Analyzing'), root);
-    const pipeline = await runAnalysisPipeline(root, options, 'all');
+    if (!options.quiet) {
+      console.error(chalk.blue('Analyzing'), root);
+    }
+    const pipeline = await runAnalysisPipeline(root, options, 'generate-all');
     const data = pipeline.analysis;
 
     if (options.emitIr) {
@@ -670,20 +698,22 @@ program
       const file = path.join(outDir, `${type}.mmd`);
       fs.writeFileSync(file, mermaid);
       manifest.diagrams.push(toManifestEntry(type, file, mermaid, root));
-      console.log(chalk.green('✅'), type, '→', file);
+      if (!options.quiet) console.error(chalk.green('✅'), type, '→', file);
     }
 
     const manifestPath = path.join(outDir, 'manifest.json');
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    console.log(chalk.green('✅ manifest'), '→', manifestPath);
-    
-    console.log(chalk.cyan('\n🔗 Preview all at: https://mermaid.live'));
+    if (!options.quiet) {
+      console.error(chalk.green('✅ manifest'), '→', manifestPath);
+      console.error(chalk.cyan('\n🔗 Preview all at: https://mermaid.live'));
+    }
   });
 
 program
   .command('diff <base> <head>')
   .description('Compare architecture diagrams between two git refs')
-  .option('-j, --json', 'Output as JSON')
+  .option('-f, --format <type>', 'Output format (text, json)', 'text')
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-m, --max-files <n>', 'Max files to analyze per ref', '100')
   .option('-p, --patterns <list>', 'File patterns to include (comma-separated)')
   .option('-e, --exclude <list>', 'Paths to exclude (comma-separated)')
@@ -713,11 +743,13 @@ program
       process.exit(2);
     }
 
-    if (!options.json) {
-      console.log(chalk.blue('\n🔍 Architecture Diff'));
-      console.log(chalk.gray(`   Base: ${baseRef}`));
-      console.log(chalk.gray(`   Head: ${headRef}`));
-      console.log('');
+    const formatStr = (options.format || 'text').toLowerCase();
+    const isJson = formatStr === 'json';
+    if (!isJson && !options.quiet) {
+      console.error(chalk.blue('\n🔍 Architecture Diff'));
+      console.error(chalk.gray(`   Base: ${baseRef}`));
+      console.error(chalk.gray(`   Head: ${headRef}`));
+      console.error('');
     }
 
     const analysisOptions = {
@@ -730,13 +762,13 @@ program
     let baseAnalysis, headAnalysis;
     try {
       baseAnalysis = await analyzeAtRef(baseRef, root, analysisOptions);
-      if (verbose && !options.json) {
-        console.log(chalk.gray(`   Base components: ${baseAnalysis.components.length}`));
+      if (verbose && !isJson) {
+        console.error(chalk.gray(`   Base components: ${baseAnalysis.components.length}`));
       }
 
       headAnalysis = await analyzeAtRef(headRef, root, analysisOptions);
-      if (verbose && !options.json) {
-        console.log(chalk.gray(`   Head components: ${headAnalysis.components.length}`));
+      if (verbose && !isJson) {
+        console.error(chalk.gray(`   Head components: ${headAnalysis.components.length}`));
       }
     } catch (e) {
       console.error(chalk.red('❌ Analysis error:'), e.message);
@@ -746,7 +778,7 @@ program
     // Build comparison
     const diff = computeArchitectureDiff(baseAnalysis, headAnalysis);
 
-    if (options.json) {
+    if (isJson) {
       console.log(JSON.stringify(diff, null, 2));
       return;
     }
@@ -756,16 +788,19 @@ program
   });
 
 program
-  .command('video [path]')
+  .command('generate-video [path]')
   .description('Generate an animated video of the diagram')
   .option('-t, --type <type>', 'Diagram type', 'architecture')
   .option('-o, --output <file>', 'Output file (.mp4, .webm, .mov)', 'diagram.mp4')
+  .option('--force', 'Overwrite output file if it exists', false)
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-d, --duration <sec>', 'Video duration in seconds', '5')
   .option('-f, --fps <n>', 'Frames per second', '30')
   .option('--width <n>', 'Video width', '1280')
   .option('--height <n>', 'Video height', '720')
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'dark')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
+  .option('--format <type>', 'Output format (ignored for video)', 'text')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     const safeTheme = normalizeThemeOption(options.theme, 'dark');
@@ -779,12 +814,18 @@ program
       process.exit(2);
     }
 
+    if (fs.existsSync(safeOutput) && !options.force) {
+      console.error(chalk.red(`❌ Target file exists: ${safeOutput}`));
+      console.error(chalk.yellow('Use --force to overwrite.'));
+      process.exit(1);
+    }
+    
     const outputDir = path.dirname(safeOutput);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
     }
     
-    console.log(chalk.blue('🎬 Generating video for'), root);
+    if (!options.quiet) console.error(chalk.blue('🎬 Generating video for'), root);
     
     const data = await analyze(root, options);
     const mermaid = generate(data, options.type);
@@ -801,12 +842,15 @@ program
   });
 
 program
-  .command('animate [path]')
+  .command('generate-animated [path]')
   .description('Generate animated SVG with CSS animations')
   .option('-t, --type <type>', 'Diagram type', 'architecture')
   .option('-o, --output <file>', 'Output file', 'diagram-animated.svg')
+  .option('--force', 'Overwrite output file if it exists', false)
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'dark')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
+  .option('--format <type>', 'Output format (ignored for animated)', 'text')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     const safeTheme = normalizeThemeOption(options.theme, 'dark');
@@ -820,12 +864,18 @@ program
       process.exit(2);
     }
 
+    if (fs.existsSync(safeOutput) && !options.force) {
+      console.error(chalk.red(`❌ Target file exists: ${safeOutput}`));
+      console.error(chalk.yellow('Use --force to overwrite.'));
+      process.exit(1);
+    }
+
     const outputDir = path.dirname(safeOutput);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
     }
     
-    console.log(chalk.blue('✨ Generating animated SVG for'), root);
+    if (!options.quiet) console.error(chalk.blue('✨ Generating animated SVG for'), root);
     
     const data = await analyze(root, options);
     const mermaid = generate(data, options.type);
@@ -838,8 +888,9 @@ program
   });
 
 program
-  .command('test [path]')
+  .command('validate [path]')
   .description('Validate architecture against .architecture.yml rules')
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-c, --config <file>', 'Config file path', '.architecture.yml')
   .option('-f, --format <format>', 'Output format: console, json, junit', 'console')
   .option('-o, --output <file>', 'Output file (for json/junit formats)')
@@ -864,7 +915,7 @@ program
     const startTime = Date.now();
     const outputsMachineFormat =
       !options.output && (options.format === 'json' || options.format === 'junit');
-    const quietMachineOutput = outputsMachineFormat && !options.verbose;
+    const quietMachineOutput = options.quiet || (outputsMachineFormat && !options.verbose);
     
     // Init mode - generate starter config
     if (options.init) {
@@ -885,7 +936,7 @@ program
       fs.writeFileSync(configPath, yaml);
       console.log(chalk.green('✅ Created configuration:'), configPath);
       console.log(chalk.gray('\nEdit the file to define your architecture rules, then run:'));
-      console.log(chalk.cyan('  diagram test'));
+      console.log(chalk.cyan('  diagram validate'));
       process.exit(0);
     }
     
@@ -906,7 +957,7 @@ program
       // Try to find config in root
       const found = engine.findConfig(root);
       if (!found) {
-        console.error(chalk.red('❌ No .architecture.yml found. Run: diagram test --init'));
+        console.error(chalk.red('❌ No .architecture.yml found. Run: diagram validate --init'));
         process.exit(2);
       }
       configPath = found;
@@ -1067,7 +1118,7 @@ function applyBaseline(results, config, saveBaseline, configPath, root, quiet = 
       fs.writeFileSync(configPath, yaml);
       if (!quiet) {
         console.log(chalk.green('✅ Baseline saved:'), configPath);
-        console.log(chalk.gray('   Run `diagram test` to verify'));
+        console.log(chalk.gray('   Run `diagram validate` to verify'));
       }
     } else if (!quiet) {
       console.log(chalk.gray('ℹ️  Baseline already up to date'));
@@ -1083,6 +1134,23 @@ registerWorkflowCommands(program, {
   validateOutputPath,
 });
 
+// Unknown command hint for AI agents
+program.on('command:*', function (operands) {
+  console.error(chalk.red(`\n🤖 AI Agent Error: Unknown command '${operands[0]}'\n`));
+  console.error(chalk.white(`It looks like you're trying to use a command that doesn't exist or has radically changed.`));
+  console.error(chalk.white(`Here is a quick guide to the correct commands in this CLI system:\n`));
+  console.error(chalk.cyan(`  diagram validate [path]`) + chalk.gray(`         - Validate architecture against .architecture.yml`));
+  console.error(chalk.cyan(`  diagram analyze [path]`) + chalk.gray(`          - Analyze codebase structure and show summary`));
+  console.error(chalk.cyan(`  diagram generate [path]`) + chalk.gray(`         - Generate a specific diagram type (e.g. --type sequence)`));
+  console.error(chalk.cyan(`  diagram generate-all [path]`) + chalk.gray(`     - Generate all supported diagram types`));
+  console.error(chalk.cyan(`  diagram generate-video [path]`) + chalk.gray(`   - Generate an animated video`));
+  console.error(chalk.cyan(`  diagram generate-animated [path]`) + chalk.gray(` - Generate animated SVG`));
+  console.error(chalk.cyan(`  diagram diff <base> <head>`) + chalk.gray(`      - Compare architecture between git refs\n`));
+  console.error(chalk.white(`Use ${chalk.cyan('diagram --help')} to see all available commands and options.`));
+  console.error(chalk.white(`Remember to use ${chalk.cyan('--format json')} instead of ${chalk.cyan('--json')} if you need machine-readable output.`));
+  process.exit(1);
+});
+
 // Only run CLI when executed directly, not when required for testing
 if (require.main === module) {
   // Load and validate .diagramrc from cwd before parsing commands.
@@ -1090,7 +1158,86 @@ if (require.main === module) {
   const diagramRc = loadDiagramRc(process.cwd());
   // Attach to program so commands can read it
   program._diagramRc = diagramRc;
-  program.parse();
+
+  // AI Agent syntax forgiveness logic
+  const args = process.argv;
+  const resolvedArgs = [];
+  let commandFound = false;
+  let activeCommand = null;
+  const flagsWithValue = ['-f', '--format', '-o', '--output', '-t', '--type', '-m', '--max-files', '-p', '--patterns', '-e', '--exclude', '-c', '--config', '--theme', '--duration', '--fps', '--width', '--height', '--focus', '--analyzer', '-O', '--output-dir'];
+
+  for (let i = 2; i < args.length; i++) {
+    if (!args[i].startsWith('-')) {
+      const prev = args[i - 1];
+      if (!flagsWithValue.includes(prev)) {
+        activeCommand = args[i];
+        if (activeCommand === 'test') activeCommand = 'validate';
+        if (activeCommand === 'all') activeCommand = 'generate-all';
+        if (activeCommand === 'video') activeCommand = 'generate-video';
+        if (activeCommand === 'animate') activeCommand = 'generate-animated';
+        break;
+      }
+    }
+  }
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--json') {
+      console.error(chalk.yellow(`🤖 Note for AI Agent: The '--json' flag is deprecated. In the future, please use '--format json'. Continuing execution...`));
+      resolvedArgs.push('--format');
+      resolvedArgs.push('json');
+      continue;
+    }
+
+    if (arg === '-j') {
+      console.error(chalk.yellow(`🤖 Note for AI Agent: The '-j' flag is deprecated. In the future, please use '--format json'. Continuing execution...`));
+      resolvedArgs.push('--format');
+      resolvedArgs.push('json');
+      continue;
+    }
+
+    if (arg === '-o' && activeCommand === 'generate-all') {
+      console.error(chalk.yellow(`🤖 Note for AI Agent: The '-o' flag for generate-all has been renamed to '-O'. Continuing execution...`));
+      resolvedArgs.push('-O');
+      continue;
+    }
+
+    if (i >= 2 && !arg.startsWith('-') && !commandFound) {
+      const prev = args[i - 1];
+      if (!flagsWithValue.includes(prev)) {
+        if (arg === 'test') {
+          console.error(chalk.yellow(`🤖 Note for AI Agent: The 'test' command has been renamed. In the future, please use 'validate'. Continuing execution...`));
+          resolvedArgs.push('validate');
+          commandFound = true;
+          continue;
+        }
+        if (arg === 'all') {
+          console.error(chalk.yellow(`🤖 Note for AI Agent: The 'all' command has been renamed. In the future, please use 'generate-all'. Continuing execution...`));
+          resolvedArgs.push('generate-all');
+          commandFound = true;
+          continue;
+        }
+        if (arg === 'video') {
+          console.error(chalk.yellow(`🤖 Note for AI Agent: The 'video' command has been renamed. In the future, please use 'generate-video'. Continuing execution...`));
+          resolvedArgs.push('generate-video');
+          commandFound = true;
+          continue;
+        }
+        if (arg === 'animate') {
+          console.error(chalk.yellow(`🤖 Note for AI Agent: The 'animate' command has been renamed. In the future, please use 'generate-animated'. Continuing execution...`));
+          resolvedArgs.push('generate-animated');
+          commandFound = true;
+          continue;
+        }
+        commandFound = true;
+      }
+    }
+
+    resolvedArgs.push(arg);
+  }
+
+  program.parse(resolvedArgs);
 }
 
 // Export for testing (only when run as module)

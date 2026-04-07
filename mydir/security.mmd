@@ -1,0 +1,33 @@
+flowchart TD
+  Untrusted["Untrusted input"]
+  pr_impact_test_66267a43["pr-impact.test"]
+  Untrusted --> pr_impact_test_66267a43
+  git_helpers_a3a6b8d4["git-helpers"]
+  Untrusted --> git_helpers_a3a6b8d4
+  pr_impact_test_66267a43 --> diagram_2c20a6b0
+  git_helpers_a3a6b8d4 --> analysis_generation_b5695ac7
+  diagram_2c20a6b0 --> commands_10f5f77e
+  diagram_2c20a6b0 --> index_1bc04b52
+  diagram_2c20a6b0 --> architecture_ir_78febc36
+  diagram_2c20a6b0 --> pipeline_23bf0d24
+  diagram_2c20a6b0 --> cache_5e1ecee0
+  diagram_2c20a6b0 --> analysis_generation_b5695ac7
+  diagram_2c20a6b0 --> pr_impact_d40dc5b4
+  diagram_2c20a6b0 --> git_helpers_a3a6b8d4
+  diagram_2c20a6b0 --> pr_command_8b1c5f2a
+  diagram_2c20a6b0 --> diagramrc_0e4f28e4
+  diagram_2c20a6b0 --> video_0cab1c96
+  diagram_2c20a6b0 --> rules_6c621d1a
+  diagram_2c20a6b0 --> graph_eef93e1d
+  diagram_2c20a6b0 --> factory_06c8aaa9
+  diagram_2c20a6b0 --> index_1_faebc14e
+  diagram_2c20a6b0 --> rules_schema_1b0ae367
+  pr_command_8b1c5f2a --> pr_impact_d40dc5b4
+  pr_command_8b1c5f2a --> git_helpers_a3a6b8d4
+  pr_command_8b1c5f2a --> pipeline_23bf0d24
+  index_1bc04b52 --> default_analyzer_abd381a4
+  pipeline_23bf0d24 --> commands_10f5f77e
+  video_0cab1c96 --> commands_10f5f77e
+  default_analyzer_abd381a4 --> analysis_generation_b5695ac7
+  classDef securityNode fill:#dc2626,color:#fff
+  class pr_impact_test_66267a43,git_helpers_a3a6b8d4 securityNode

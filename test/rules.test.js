@@ -4,8 +4,6 @@
 
 const { expect } = require('chai');
 const { ImportRule } = require('../src/rules/types/import-rule');
-const { RuleFactory } = require('../src/rules/factory');
-const { RulesEngine } = require('../src/rules');
 const MockGraph = global.MockGraph;
 
 describe('ImportRule', () => {

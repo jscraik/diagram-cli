@@ -1,0 +1,111 @@
+{
+  "generatedAt": "2026-04-07T11:06:14.648Z",
+  "rootPath": "/Users/jamiecraik/dev/diagram-cli",
+  "diagramDir": "mydir",
+  "diagrams": [
+    {
+      "type": "architecture",
+      "file": "architecture.mmd",
+      "outputPath": "mydir/architecture.mmd",
+      "lines": 86,
+      "bytes": 4925,
+      "isPlaceholder": false
+    },
+    {
+      "type": "sequence",
+      "file": "sequence.mmd",
+      "outputPath": "mydir/sequence.mmd",
+      "lines": 19,
+      "bytes": 854,
+      "isPlaceholder": false
+    },
+    {
+      "type": "dependency",
+      "file": "dependency.mmd",
+      "outputPath": "mydir/dependency.mmd",
+      "lines": 140,
+      "bytes": 6843,
+      "isPlaceholder": false
+    },
+    {
+      "type": "class",
+      "file": "class.mmd",
+      "outputPath": "mydir/class.mmd",
+      "lines": 7,
+      "bytes": 163,
+      "isPlaceholder": false
+    },
+    {
+      "type": "flow",
+      "file": "flow.mmd",
+      "outputPath": "mydir/flow.mmd",
+      "lines": 20,
+      "bytes": 722,
+      "isPlaceholder": false
+    },
+    {
+      "type": "database",
+      "file": "database.mmd",
+      "outputPath": "mydir/database.mmd",
+      "lines": 57,
+      "bytes": 2812,
+      "isPlaceholder": false
+    },
+    {
+      "type": "user",
+      "file": "user.mmd",
+      "outputPath": "mydir/user.mmd",
+      "lines": 36,
+      "bytes": 1659,
+      "isPlaceholder": false
+    },
+    {
+      "type": "events",
+      "file": "events.mmd",
+      "outputPath": "mydir/events.mmd",
+      "lines": 49,
+      "bytes": 2163,
+      "isPlaceholder": false
+    },
+    {
+      "type": "auth",
+      "file": "auth.mmd",
+      "outputPath": "mydir/auth.mmd",
+      "lines": 32,
+      "bytes": 1285,
+      "isPlaceholder": false
+    },
+    {
+      "type": "security",
+      "file": "security.mmd",
+      "outputPath": "mydir/security.mmd",
+      "lines": 33,
+      "bytes": 1412,
+      "isPlaceholder": false
+    },
+    {
+      "type": "agent",
+      "file": "agent.mmd",
+      "outputPath": "mydir/agent.mmd",
+      "lines": 27,
+      "bytes": 1223,
+      "isPlaceholder": false
+    },
+    {
+      "type": "c4context",
+      "file": "c4context.mmd",
+      "outputPath": "mydir/c4context.mmd",
+      "lines": 7,
+      "bytes": 308,
+      "isPlaceholder": false
+    },
+    {
+      "type": "rag",
+      "file": "rag.mmd",
+      "outputPath": "mydir/rag.mmd",
+      "lines": 34,
+      "bytes": 1243,
+      "isPlaceholder": false
+    }
+  ]
+}

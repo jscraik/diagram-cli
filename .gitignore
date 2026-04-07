@@ -16,3 +16,4 @@ diagrams/
 .harness/
 .memory-metrics.json
 insights-*.png
+.codex/memory/

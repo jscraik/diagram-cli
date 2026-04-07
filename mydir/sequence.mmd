@@ -1,0 +1,19 @@
+sequenceDiagram
+  participant index_1bc04b52 as index
+  participant index_1_faebc14e as index
+  participant default_analyzer_abd381a4 as default-analyzer
+  participant console_93d8874c as console
+  participant json_02bd175f as json
+  participant junit_018bb207 as junit
+  database analysis_generation_b5695ac7 as analysis-generation
+
+  index_1bc04b52->>default_analyzer_abd381a4: calls
+  default_analyzer_abd381a4-->>index_1bc04b52: response
+  index_1_faebc14e->>console_93d8874c: calls
+  console_93d8874c-->>index_1_faebc14e: response
+  index_1_faebc14e->>json_02bd175f: calls
+  json_02bd175f-->>index_1_faebc14e: response
+  index_1_faebc14e->>junit_018bb207: calls
+  junit_018bb207-->>index_1_faebc14e: response
+  default_analyzer_abd381a4->>analysis_generation_b5695ac7: reads from
+  analysis_generation_b5695ac7-->>default_analyzer_abd381a4: response

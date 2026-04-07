@@ -17,28 +17,27 @@
   },
   "rules": [
     {
-      "id": "diagram-command-contract",
-      "glob": "src/diagram.js",
-      "description": "CLI command flags and output contracts must remain backward compatible unless explicitly documented.",
-      "severity": "high"
-    },
-    {
-      "id": "no-main-direct-push",
+      "id": "independent-ai-validation",
       "glob": "**/*",
-      "description": "No direct push to main; all changes flow through PR with review artifacts.",
+      "description": "Coding agent must not approve its own PR; separate review signal required.",
       "severity": "high"
     },
     {
-      "id": "harness-policy-alignment",
-      "glob": "harness.contract.json",
-      "description": "Changes to harness policy require matching updates to docs/workflows and evidence notes.",
+      "id": "governance-parity",
+      "glob": "**/*",
+      "description": "Changes to governance, workflow, or policy surfaces must keep docs, required checks, and implementation aligned.",
       "severity": "high"
+    },
+    {
+      "id": "evidence-required-for-review-policy",
+      "glob": "**/*",
+      "description": "Policy, workflow, or review-gate changes require validation evidence before merge.",
+      "severity": "medium"
     }
   ],
   "ignorePatterns": [
     "dist/**",
     "coverage/**",
-    "node_modules/**",
-    ".pnpm-store/**"
+    "node_modules/**"
   ]
 }
