@@ -114,7 +114,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Fetch base branch for contract lookup
-        run: git fetch origin main
+        run: |
+          # Fetch the actual base ref, not a hardcoded 'main', so PRs targeting
+          # non-main branches (release branches, etc.) resolve correctly.
+          BASE_REF="${{ github.base_ref }}"
+          if [[ -n "$BASE_REF" ]]; then
+            git fetch origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          fi
       - name: Run fast preflight policy gate
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -140,11 +146,14 @@ jobs:
           if [[ -z "$CHANGED_FILES" ]]; then
             CHANGED_FILES="$(git ls-files | paste -sd, -)"
           fi
-          npx harness policy-gate \
-            --contract "$CONTRACT_PATH" \
-            --max-tier medium \
-            --files "${CHANGED_FILES}" \
-            --json
+          # Invoke the tracked wrapper instead of npx directly so the full
+          # preflight → policy → diff-budget → review-gate sequence runs.
+          export HARNESS_CONTRACT_PATH="$CONTRACT_PATH"
+          export BASE_SHA HEAD_SHA
+          export PR_NUMBER="${{ github.event.pull_request.number }}"
+          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          export SKIP_REVIEW_GATE=1
+          bash scripts/harness-pr-gates.sh
 
   dependency-review:
     name: dependency-review
