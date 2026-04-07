@@ -2,6 +2,16 @@
 
 <!-- BRIEF: auto-updated by agents. Edit the static sections below manually. -->
 
+## Table of Contents
+
+- [Status](#status)
+- [What this project does](#what-this-project-does)
+- [Production timeline](#production-timeline)
+- [What's done / what's not](#whats-done--whats-not)
+- [Recent changes](#recent-changes)
+- [Learnings & gotchas](#learnings--gotchas)
+- [How to run locally](#how-to-run-locally)
+
 ## Status
 
 <!-- STATUS_START — agents update this block -->
@@ -56,7 +66,7 @@ gantt
 - **CI full pipeline hardening (PR #56):** Comprehensive CI fixes:
   - Added `registry-url` + `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` to all workflow `setup-node` steps across 4 workflow files
   - Bumped `@brainwav/coding-harness` from `^0.6.0` to `^0.12.0`, regenerated `package-lock.json`
-  - Bumped `node-version` from `20` to `24` across all workflow files (harness 0.12.0 requires node >=24)
+  - Bumped `node-version` from `20` to `24` across all workflow files (CI now runs on Node 24; `engines.node` in package.json remains `>=18` for consumers)
   - Moved `CONTRACT_PATH` from `$RUNNER_TEMP` into `.harness/` inside workspace (harness flags out-of-cwd paths as path traversal)
   - Fixed `pnpm exec tsx src/cli.ts drift-gate` → `npx harness drift-gate` for both advisory and health drift-gate jobs
   - Added missing npm scripts `lint`, `typecheck`, `audit`, `check` required by harness-generated pipeline jobs
@@ -87,9 +97,9 @@ project: diagram-cli
 repo: ~/dev/diagram-cli
 status: LIVE
 health: green
-last_updated: 2026-03-09
-open_prs: 0
+last_updated: 2026-04-07
+open_prs: 1
 blockers: none
-next_milestone: AI context refresh script
-next_milestone_date: 2026-03-15
+next_milestone: Merge PR #56 CI hardening
+next_milestone_date: 2026-04-07
 MACHINE_READABLE_END -->
