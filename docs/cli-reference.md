@@ -124,7 +124,7 @@ diagram workflow pr . --base origin/main --head HEAD --format json
 - `--base <ref>` — base git ref to compare from
 - `--head <ref>` — head git ref to compare to
 - `--fail-on-risk` — exit 1 when high architectural risk is detected
-- `--format <fmt>` — output format: `human` (default) or `json`
+- `--format <fmt>` — output format: `text` (default) or `json`
 
 ---
 
