@@ -123,7 +123,9 @@ jobs:
             BASE_REF="${{ github.base_ref }}"
             # Load contract from the trusted base branch, not the PR checkout.
             # Prevents a malicious PR from weakening policy by modifying harness.contract.json.
-            CONTRACT_PATH="$RUNNER_TEMP/harness.contract.base.json"
+            # Must be inside workspace - harness blocks paths outside cwd (path traversal guard).
+            mkdir -p .harness
+            CONTRACT_PATH=".harness/harness.contract.base.json"
             if ! git show "origin/$BASE_REF:harness.contract.json" > "$CONTRACT_PATH"; then
               echo "::error::Unable to load trusted harness.contract.json from origin/$BASE_REF"
               exit 1
