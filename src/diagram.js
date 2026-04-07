@@ -27,7 +27,6 @@ const {
   analyze,
   generate,
   toManifestEntry,
-  parseCommaSeparatedList,
 } = require('./core/analysis-generation');
 const {
   escapeHtml,
@@ -306,13 +305,12 @@ function validateMermaidSyntax(mermaid, theme = 'default') {
   }
 
   // Try to validate with mmdc if available
-  let tempFile;
-  let tempOutput;
+  let tempDir;
   try {
     result.meta.cliValidation.attempted = true;
-    const randomId = crypto.randomBytes(8).toString('hex');
-    tempFile = path.join(os.tmpdir(), `diagram-validate-${Date.now()}-${randomId}.mmd`);
-    tempOutput = path.join(os.tmpdir(), `diagram-validate-${Date.now()}-${randomId}.svg`);
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "diagram-validate-"));
+    const tempFile = path.join(tempDir, 'validate.mmd');
+    const tempOutput = path.join(tempDir, 'validate.svg');
     fs.writeFileSync(tempFile, `%%{init: {'theme': '${theme}'}}%%\n${mermaid}`);
 
     runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', tempOutput, '-b', 'transparent']);
@@ -327,11 +325,8 @@ function validateMermaidSyntax(mermaid, theme = 'default') {
       console.log(chalk.gray('Mermaid CLI not available for validation, using basic checks only'));
     }
   } finally {
-    if (tempFile && fs.existsSync(tempFile)) {
-      try { fs.unlinkSync(tempFile); } catch (e) {}
-    }
-    if (tempOutput && fs.existsSync(tempOutput)) {
-      try { fs.unlinkSync(tempOutput); } catch (e) {}
+    if (tempDir && fs.existsSync(tempDir)) {
+      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e) {}
     }
   }
 
@@ -410,9 +405,9 @@ program
   .command('generate [path]')
   .description('Generate a diagram')
   .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, user, events, auth, security, agent, c4context, rag', 'architecture')
-  .option('--focus <module>', 'Focus on specific module')
+  .option('-f, --focus <module>', 'Focus on specific module')
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
-  .option('-f, --format <type>', 'Output format (text, json)', 'text')
+  .option('--format <type>', 'Output format (text, json)', 'text')
   .option('--force', 'Overwrite output file if it exists', false)
   .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
@@ -475,9 +470,7 @@ program
     }
 
     const isJson = options.format === 'json';
-    if (!options.quiet && !isJson) {
-      console.error(chalk.blue('Generating'), options.type, 'diagram for', root);
-    } else if (isJson) {
+    if (!options.quiet) {
       console.error(chalk.blue('Generating'), options.type, 'diagram for', root);
     }
 
@@ -622,22 +615,22 @@ program
         if (!options.quiet) console.error(chalk.green('✅ Saved to'), options.output);
       } else {
         // Try to render
-        let tempFile = null;
+        let tempDir = null;
         try {
-          // Use crypto for secure random filename
-          const randomId = crypto.randomBytes(16).toString('hex');
-          tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}-${randomId}.mmd`);
+          // Use mkdtempSync for secure temporary directory
+          tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "diagram-"));
+          const tempFile = path.join(tempDir, 'diagram.mmd');
           fs.writeFileSync(tempFile, `%%{init: {'theme': '${safeTheme}'}}%%\n${mermaid}`);
           runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent']);
-          fs.unlinkSync(tempFile);
           if (!options.quiet) console.error(chalk.green('✅ Rendered to'), options.output);
         } catch (e) {
-          if (tempFile && fs.existsSync(tempFile)) {
-            try { fs.unlinkSync(tempFile); } catch (e2) {}
-          }
           console.error(chalk.red('❌ Could not render output file. Install mermaid-cli: npm i -g @mermaid-js/mermaid-cli'));
           if (process.env.DEBUG) console.error(chalk.gray(e.message));
           process.exit(2);
+        } finally {
+          if (tempDir && fs.existsSync(tempDir)) {
+            try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e2) {}
+          }
         }
       }
     }
@@ -1144,6 +1137,7 @@ program.on('command:*', function (operands) {
   console.error(chalk.cyan(`  diagram generate [path]`) + chalk.gray(`         - Generate a specific diagram type (e.g. --type sequence)`));
   console.error(chalk.cyan(`  diagram generate-all [path]`) + chalk.gray(`     - Generate all supported diagram types`));
   console.error(chalk.cyan(`  diagram generate-video [path]`) + chalk.gray(`   - Generate an animated video`));
+  console.error(chalk.cyan(`  diagram generate-animated [path]`) + chalk.gray(` - Generate animated SVG`));
   console.error(chalk.cyan(`  diagram diff <base> <head>`) + chalk.gray(`      - Compare architecture between git refs\n`));
   console.error(chalk.white(`Use ${chalk.cyan('diagram --help')} to see all available commands and options.`));
   console.error(chalk.white(`Remember to use ${chalk.cyan('--format json')} instead of ${chalk.cyan('--json')} if you need machine-readable output.`));
@@ -1171,6 +1165,19 @@ if (require.main === module) {
       console.error(chalk.yellow(`🤖 Note for AI Agent: The '--json' flag is deprecated. In the future, please use '--format json'. Continuing execution...`));
       resolvedArgs.push('--format');
       resolvedArgs.push('json');
+      continue;
+    }
+
+    if (arg === '-j') {
+      console.error(chalk.yellow(`🤖 Note for AI Agent: The '-j' flag is deprecated. In the future, please use '--format json'. Continuing execution...`));
+      resolvedArgs.push('--format');
+      resolvedArgs.push('json');
+      continue;
+    }
+
+    if (arg === '-o' && resolvedArgs.includes('generate-all')) {
+      console.error(chalk.yellow(`🤖 Note for AI Agent: The '-o' flag for generate-all has been renamed to '-O'. Continuing execution...`));
+      resolvedArgs.push('-O');
       continue;
     }
 

@@ -289,7 +289,8 @@ function run() {
   // Incremental mode should create cache artifact and support cache hit on repeat runs
   const incrementalRun1 = runCLI(
     ['analyze', '.', '--incremental', '--max-files', '100', '--format', 'json'],
-    workspace
+    workspace,
+    { CI: '' }
   );
   assert.strictEqual(incrementalRun1.status, 0, `incremental analyze run1 expected success, got ${incrementalRun1.status}`);
   const cacheDir = path.join(workspace, '.diagram', 'cache');
@@ -298,7 +299,8 @@ function run() {
   assert.ok(cacheFiles.length > 0, 'incremental mode should write at least one cache file');
   const incrementalRun2 = runCLI(
     ['analyze', '.', '--incremental', '--max-files', '100', '--format', 'json'],
-    workspace
+    workspace,
+    { CI: '' }
   );
   assert.strictEqual(incrementalRun2.status, 0, `incremental analyze run2 expected success, got ${incrementalRun2.status}`);
 

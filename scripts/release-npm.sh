@@ -51,8 +51,8 @@ EOF
     ./node_modules/.bin/diagram --help >/dev/null
     ./node_modules/.bin/diagram analyze workspace --format json >/dev/null
     ./node_modules/.bin/diagram generate workspace --type architecture --output workspace/architecture.mmd >/dev/null
-    ./node_modules/.bin/diagram test workspace --init >/dev/null
-    ./node_modules/.bin/diagram test workspace >/dev/null
+    ./node_modules/.bin/diagram validate workspace --init >/dev/null
+    ./node_modules/.bin/diagram validate workspace >/dev/null
   )
 }
 

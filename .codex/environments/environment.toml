@@ -6,9 +6,8 @@ name = "config local environment"
 script = '''
 set -euo pipefail
 
-echo "[codex] setup: /Users/jamiecraik/dev/config"
-
-echo "[codex] no known setup step for this repository"
+echo "[codex] setup: running npm install"
+npm install
 '''
 
 [[actions]]

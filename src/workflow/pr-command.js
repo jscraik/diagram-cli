@@ -51,7 +51,14 @@ function registerWorkflowCommands(program, deps) {
     .option('-f, --format <type>', 'Output format (text, json)', 'text')
     .option('--verbose', 'Show detailed output', false)
     .action(async (targetPath, options) => {
-      const isJson = options.format === 'json';
+      const formatStr = (options.format || 'text').toLowerCase();
+      const isJson = formatStr === 'json';
+      const validFormats = ['text', 'json'];
+      if (!validFormats.includes(formatStr)) {
+        console.error(chalk.red('❌ Invalid format:'), options.format);
+        console.log(chalk.gray('Valid values:', validFormats.join(', ')));
+        process.exit(2);
+      }
       const root = resolveRootPathOrExit(targetPath);
       const startTime = Date.now();
       const confidenceEnabled = Boolean(

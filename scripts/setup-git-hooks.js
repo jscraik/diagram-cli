@@ -32,17 +32,16 @@ const POSTINSTALL_BOOTSTRAP =
 	"command -v simple-git-hooks >/dev/null 2>&1 && simple-git-hooks || true";
 
 function main() {
-	if (!existsSync(PACKAGE_JSON_PATH)) {
-		console.error("Error: package.json not found in current directory");
-		console.error("  Run this script from your project root.");
-		process.exit(1);
-	}
-
 	let packageJson;
 	try {
 		packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8"));
-	} catch {
-		console.error("Error: Failed to parse package.json");
+	} catch (e) {
+		if (e.code === 'ENOENT') {
+			console.error("Error: package.json not found in current directory");
+			console.error("  Run this script from your project root.");
+		} else {
+			console.error("Error: Failed to parse package.json");
+		}
 		process.exit(1);
 	}
 

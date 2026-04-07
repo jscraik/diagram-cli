@@ -129,12 +129,6 @@ describe('inward_only Feature', () => {
         inward_only: true
       });
 
-      const uiRule = new ImportRule({
-        name: 'UI boundary',
-        layer: 'src/ui/**',
-        inward_only: true
-      });
-
       // Pre-compute matchers (as RulesEngine would)
       const context = {
         inwardOnlyMatchers: new Map([

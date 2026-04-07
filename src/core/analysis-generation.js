@@ -112,6 +112,7 @@ function sanitize(name) {
 function escapeMermaid(str) {
   if (!str) return '';
   return str
+    .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
     .replace(/\[/g, '\\[')
     .replace(/\]/g, '\\]')
@@ -1446,10 +1447,6 @@ function toManifestEntry(type, filePath, mermaidCode, rootPath) {
   };
 }
 
-function parseCommaSeparatedList(value) {
-  if (!value || typeof value !== 'string') return [];
-  return value.split(',').map((item) => item.trim()).filter(Boolean);
-}
 
 
 
@@ -1472,5 +1469,4 @@ module.exports = {
   generate,
   isPlaceholderDiagram,
   toManifestEntry,
-  parseCommaSeparatedList,
 };
