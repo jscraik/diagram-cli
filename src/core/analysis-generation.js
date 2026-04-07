@@ -551,10 +551,19 @@ async function analyze(rootPath, options) {
 
   for (const filePath of uniqueFiles) {
     try {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      if (content.length > 10 * 1024 * 1024) { // 10MB limit (by char count)
-        console.warn(chalk.yellow(`⚠️  Skipping large file: ${path.basename(filePath)}`));
-        continue;
+      // Open fd first, fstat for byte size atomically, then read — no TOCTOU race
+      // and large files are never loaded into memory before the guard fires.
+      const fd = fs.openSync(filePath, 'r');
+      let content;
+      try {
+        const { size } = fs.fstatSync(fd);
+        if (size > 10 * 1024 * 1024) { // 10MB limit
+          console.warn(chalk.yellow(`⚠️  Skipping large file: ${path.basename(filePath)} (${(size / 1024 / 1024).toFixed(2)} MB)`));
+          continue;
+        }
+        content = fs.readFileSync(fd, 'utf-8');
+      } finally {
+        fs.closeSync(fd);
       }
       const lang = detectLanguage(filePath);
       let rel = normalizePath(path.relative(rootPath, filePath));
