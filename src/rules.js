@@ -2,8 +2,6 @@ const YAML = require('yaml');
 const fs = require('fs');
 const path = require('path');
 const picomatch = require('picomatch');
-const { RuleFactory } = require('./rules/factory');
-const { ComponentGraph } = require('./graph');
 
 const MAX_CONFIG_SIZE = 1024 * 1024; // 1MB limit
 const MAX_PATTERN_CACHE_SIZE = 5000;

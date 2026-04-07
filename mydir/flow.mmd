@@ -1,0 +1,20 @@
+flowchart TD
+  Start(["Start"])
+  setup_8fb6d5f3["setup"]
+  Start --> setup_8fb6d5f3
+  rules_test_055a2615["rules.test"]
+  setup_8fb6d5f3 --> rules_test_055a2615
+  rules_inward_only_test_8e19a333["rules.inward_only.test"]
+  rules_test_055a2615 --> rules_inward_only_test_8e19a333
+  pr_impact_test_66267a43["pr-impact.test"]
+  rules_inward_only_test_8e19a333 --> pr_impact_test_66267a43
+  confidence_test_eed6c8ab["confidence.test"]
+  pr_impact_test_66267a43 --> confidence_test_eed6c8ab
+  video_0cab1c96["video"]
+  confidence_test_eed6c8ab --> video_0cab1c96
+  rules_6c621d1a["rules"]
+  video_0cab1c96 --> rules_6c621d1a
+  graph_eef93e1d["graph"]
+  rules_6c621d1a --> graph_eef93e1d
+  End(["End"])
+  graph_eef93e1d --> End

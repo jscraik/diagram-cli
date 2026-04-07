@@ -86,3 +86,19 @@ For an exhaustive list of arguments, video generation prerequisites, CI setups, 
   <img src="brand/brand-mark.webp" alt="brAInwav brand-mark" width="150" />
   <p><i>from demo to duty</i></p>
 </div>
+## Documentation signature
+
+brAInwav - from demo to duty
+
+## Development
+
+```bash
+npm install
+npm test
+npm run test:deep
+node src/diagram.js --help
+```
+
+## License
+
+Apache 2.0 - see [LICENSE](LICENSE).
