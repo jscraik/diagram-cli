@@ -110,6 +110,10 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Run fast preflight policy gate
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -212,6 +216,8 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Prepare baseline seed fallback
         run: |
           mkdir -p artifacts/consistency-gate
@@ -282,6 +288,8 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Detect baseline seed
         id: baseline-seed
         run: |
@@ -346,6 +354,8 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Run lint
         run: npm run lint
 
@@ -362,6 +372,8 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Run typecheck
         run: npm run typecheck
 
@@ -378,6 +390,8 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Run tests
         run: npm run test
 
@@ -394,6 +408,8 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Run audit
         run: npm run audit
 
@@ -410,6 +426,8 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Run full check
         run: npm run check
 
