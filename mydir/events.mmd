@@ -1,0 +1,49 @@
+flowchart TD
+  subgraph Channels["Event channels / queues"]
+    git_helpers_a3a6b8d4{{"git-helpers"}}
+    analysis_generation_b5695ac7["analysis-generation"]
+    diagram_2c20a6b0["diagram"]
+    pr_command_8b1c5f2a["pr-command"]
+    default_analyzer_abd381a4["default-analyzer"]
+    commands_10f5f77e["commands"]
+    index_1bc04b52["index"]
+    architecture_ir_78febc36["architecture-ir"]
+    pipeline_23bf0d24["pipeline"]
+    cache_5e1ecee0["cache"]
+    pr_impact_d40dc5b4["pr-impact"]
+    diagramrc_0e4f28e4["diagramrc"]
+    video_0cab1c96["video"]
+    rules_6c621d1a["rules"]
+    graph_eef93e1d["graph"]
+    factory_06c8aaa9["factory"]
+    index_1_faebc14e["index"]
+    rules_schema_1b0ae367["rules-schema"]
+    pr_impact_test_66267a43["pr-impact.test"]
+  end
+  git_helpers_a3a6b8d4 -->|emit| analysis_generation_b5695ac7
+  diagram_2c20a6b0 -->|consume| commands_10f5f77e
+  diagram_2c20a6b0 -->|consume| index_1bc04b52
+  diagram_2c20a6b0 -->|consume| architecture_ir_78febc36
+  diagram_2c20a6b0 -->|consume| pipeline_23bf0d24
+  diagram_2c20a6b0 -->|consume| cache_5e1ecee0
+  diagram_2c20a6b0 -->|consume| analysis_generation_b5695ac7
+  diagram_2c20a6b0 -->|consume| pr_impact_d40dc5b4
+  diagram_2c20a6b0 -->|consume| git_helpers_a3a6b8d4
+  diagram_2c20a6b0 -->|consume| pr_command_8b1c5f2a
+  diagram_2c20a6b0 -->|consume| diagramrc_0e4f28e4
+  diagram_2c20a6b0 -->|consume| video_0cab1c96
+  diagram_2c20a6b0 -->|consume| rules_6c621d1a
+  diagram_2c20a6b0 -->|consume| graph_eef93e1d
+  diagram_2c20a6b0 -->|consume| factory_06c8aaa9
+  diagram_2c20a6b0 -->|consume| index_1_faebc14e
+  diagram_2c20a6b0 -->|consume| rules_schema_1b0ae367
+  pr_command_8b1c5f2a -->|consume| pr_impact_d40dc5b4
+  pr_command_8b1c5f2a -->|consume| git_helpers_a3a6b8d4
+  pr_command_8b1c5f2a -->|consume| pipeline_23bf0d24
+  default_analyzer_abd381a4 -->|consume| analysis_generation_b5695ac7
+  index_1bc04b52 -->|consume| default_analyzer_abd381a4
+  pipeline_23bf0d24 -->|consume| commands_10f5f77e
+  video_0cab1c96 -->|consume| commands_10f5f77e
+  pr_impact_test_66267a43 -->|consume| diagram_2c20a6b0
+  classDef eventNode fill:#db2777,color:#fff
+  class git_helpers_a3a6b8d4 eventNode

@@ -1,0 +1,86 @@
+architecture-beta
+  group test_9f86d081(cloud)[test]
+    service setup_8fb6d5f3(disk)[setup] in test_9f86d081
+    service rules_test_055a2615(internet)[rules.test] in test_9f86d081
+    service rules_inward_only_test_8e19a333(database)[rules.inward_only.test] in test_9f86d081
+    service pr_impact_test_66267a43(database)[pr-impact.test] in test_9f86d081
+    service confidence_test_eed6c8ab(internet)[confidence.test] in test_9f86d081
+  group src_25a66342(cloud)[src]
+    service video_0cab1c96(disk)[video] in src_25a66342
+    service rules_6c621d1a(disk)[rules] in src_25a66342
+    service graph_eef93e1d(disk)[graph] in src_25a66342
+    service diagram_2c20a6b0(disk)[diagram] in src_25a66342
+  group scripts_8c5967fd(cloud)[scripts]
+    service validate_commit_msg_43b008fe(disk)[validate-commit-msg] in scripts_8c5967fd
+    service setup_git_hooks_70750d40(disk)[setup-git-hooks] in scripts_8c5967fd
+    service deep_regression_4f028409(cloud)[deep-regression] in scripts_8c5967fd
+  group src_workflow_95dada8c(cloud)[src/workflow]
+    service pr_impact_d40dc5b4(disk)[pr-impact] in src_workflow_95dada8c
+    service pr_command_8b1c5f2a(disk)[pr-command] in src_workflow_95dada8c
+    service git_helpers_a3a6b8d4(server)[git-helpers] in src_workflow_95dada8c
+  group src_utils_0f13bc3a(cloud)[src/utils]
+    service commands_10f5f77e(disk)[commands] in src_utils_0f13bc3a
+  group src_schema_1bffb211(cloud)[src/schema]
+    service rules_schema_1b0ae367(database)[rules-schema] in src_schema_1bffb211
+  group src_rules_03243834(cloud)[src/rules]
+    service factory_06c8aaa9(disk)[factory] in src_rules_03243834
+  group src_ir_ab4e5971(cloud)[src/ir]
+    service architecture_ir_78febc36(database)[architecture-ir] in src_ir_ab4e5971
+  group src_incremental_a49057f2(cloud)[src/incremental]
+    service cache_5e1ecee0(database)[cache] in src_incremental_a49057f2
+  group src_core_2ac6ecef(cloud)[src/core]
+    service analysis_generation_b5695ac7(cloud)[analysis-generation] in src_core_2ac6ecef
+  group src_confidence_ffab7e6d(cloud)[src/confidence]
+    service pipeline_23bf0d24(database)[pipeline] in src_confidence_ffab7e6d
+  group src_config_324fb02b(cloud)[src/config]
+    service diagramrc_0e4f28e4(disk)[diagramrc] in src_config_324fb02b
+  group src_analyzers_966101b6(cloud)[src/analyzers]
+    service index_1bc04b52(disk)[index ⭐] in src_analyzers_966101b6
+    service default_analyzer_abd381a4(disk)[default-analyzer] in src_analyzers_966101b6
+  group src_formatters_8f43a42a(cloud)[src/formatters]
+    service junit_018bb207(disk)[junit] in src_formatters_8f43a42a
+    service json_02bd175f(disk)[json] in src_formatters_8f43a42a
+    service index_1_faebc14e(disk)[index ⭐] in src_formatters_8f43a42a
+    service console_93d8874c(disk)[console] in src_formatters_8f43a42a
+  group src_rules_types_aab1b408(cloud)[src/rules/types]
+    service import_rule_641ce46a(internet)[import-rule] in src_rules_types_aab1b408
+    service base_cae66217(disk)[base] in src_rules_types_aab1b408
+  rules_test_055a2615:B --> T:import_rule_641ce46a
+  rules_inward_only_test_8e19a333:B --> T:import_rule_641ce46a
+  rules_inward_only_test_8e19a333:B --> T:factory_06c8aaa9
+  rules_inward_only_test_8e19a333:B --> T:rules_6c621d1a
+  rules_inward_only_test_8e19a333:B --> T:rules_schema_1b0ae367
+  pr_impact_test_66267a43:B --> T:diagram_2c20a6b0
+  confidence_test_eed6c8ab:B --> T:pipeline_23bf0d24
+  confidence_test_eed6c8ab:B --> T:architecture_ir_78febc36
+  confidence_test_eed6c8ab:B --> T:cache_5e1ecee0
+  video_0cab1c96:B --> T:commands_10f5f77e
+  diagram_2c20a6b0:B --> T:commands_10f5f77e
+  diagram_2c20a6b0:B --> T:index_1bc04b52
+  diagram_2c20a6b0:B --> T:architecture_ir_78febc36
+  diagram_2c20a6b0:B --> T:pipeline_23bf0d24
+  diagram_2c20a6b0:B --> T:cache_5e1ecee0
+  diagram_2c20a6b0:B --> T:analysis_generation_b5695ac7
+  diagram_2c20a6b0:B --> T:pr_impact_d40dc5b4
+  diagram_2c20a6b0:B --> T:git_helpers_a3a6b8d4
+  diagram_2c20a6b0:B --> T:pr_command_8b1c5f2a
+  diagram_2c20a6b0:B --> T:diagramrc_0e4f28e4
+  diagram_2c20a6b0:B --> T:video_0cab1c96
+  diagram_2c20a6b0:B --> T:rules_6c621d1a
+  diagram_2c20a6b0:B --> T:graph_eef93e1d
+  diagram_2c20a6b0:B --> T:factory_06c8aaa9
+  diagram_2c20a6b0:B --> T:index_1_faebc14e
+  diagram_2c20a6b0:B --> T:rules_schema_1b0ae367
+  deep_regression_4f028409:B --> T:commands_10f5f77e
+  pr_command_8b1c5f2a:B --> T:pr_impact_d40dc5b4
+  pr_command_8b1c5f2a:B --> T:git_helpers_a3a6b8d4
+  pr_command_8b1c5f2a:B --> T:pipeline_23bf0d24
+  git_helpers_a3a6b8d4:B --> T:analysis_generation_b5695ac7
+  factory_06c8aaa9:B --> T:import_rule_641ce46a
+  pipeline_23bf0d24:B --> T:commands_10f5f77e
+  index_1bc04b52:B --> T:default_analyzer_abd381a4
+  default_analyzer_abd381a4:B --> T:analysis_generation_b5695ac7
+  index_1_faebc14e:B --> T:console_93d8874c
+  index_1_faebc14e:B --> T:json_02bd175f
+  index_1_faebc14e:B --> T:junit_018bb207
+  import_rule_641ce46a:B --> T:base_cae66217

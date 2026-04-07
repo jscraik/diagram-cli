@@ -12,7 +12,7 @@
  *   4. Runs package-manager install to activate hooks
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync } from "node:fs";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -103,7 +103,9 @@ function main() {
 
 	// Write changes if modified
 	if (modified) {
-		writeFileSync(PACKAGE_JSON_PATH, JSON.stringify(packageJson, null, 2) + "\n");
+		const tmpPath = `${PACKAGE_JSON_PATH}.tmp-${Date.now()}`;
+		writeFileSync(tmpPath, JSON.stringify(packageJson, null, 2) + "\n");
+		renameSync(tmpPath, PACKAGE_JSON_PATH);
 		console.info("\n✓ package.json updated");
 	}
 

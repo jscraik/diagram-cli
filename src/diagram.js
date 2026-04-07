@@ -362,7 +362,8 @@ program
   .option('-q, --quiet', 'Suppress non-essential logging', false)
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
-    const isJson = options.format === 'json';
+    const formatStr = (options.format || 'text').toLowerCase();
+    const isJson = formatStr === 'json';
     if (!options.quiet) {
       console.error(chalk.blue('Analyzing'), root);
     }
@@ -469,7 +470,8 @@ program
       process.exit(0);
     }
 
-    const isJson = options.format === 'json';
+    const formatStr = (options.format || 'text').toLowerCase();
+    const isJson = formatStr === 'json';
     if (!options.quiet) {
       console.error(chalk.blue('Generating'), options.type, 'diagram for', root);
     }
@@ -597,22 +599,23 @@ program
         process.exit(2);
       }
       
-      if (fs.existsSync(safeOutput) && !options.force) {
-        console.error(chalk.red(`❌ Target file exists: ${safeOutput}`));
-        console.error(chalk.yellow('Use --force to overwrite.'));
-        process.exit(1);
-      }
-      
-      // Ensure output directory exists
+      // Ensure output directory exists (mkdirSync with recursive is race-condition safe)
       const outputDir = path.dirname(safeOutput);
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
-      }
+      fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
       
       const ext = outputExt;
       if (ext === '.md' || ext === '.mmd') {
-        fs.writeFileSync(safeOutput, mermaid);
-        if (!options.quiet) console.error(chalk.green('✅ Saved to'), options.output);
+        try {
+          fs.writeFileSync(safeOutput, mermaid, { flag: options.force ? 'w' : 'wx' });
+          if (!options.quiet) console.error(chalk.green('✅ Saved to'), options.output);
+        } catch (err) {
+          if (err.code === 'EEXIST') {
+            console.error(chalk.red(`❌ Target file exists: ${safeOutput}`));
+            console.error(chalk.yellow('Use --force to overwrite.'));
+            process.exit(1);
+          }
+          throw err;
+        }
       } else {
         // Try to render
         let tempDir = null;
@@ -656,6 +659,7 @@ program
   .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
   .option('--emit-ir', 'Write typed architecture IR artifact', false)
   .option('--incremental', 'Use incremental cache when available', false)
+  .option('-f, --format <type>', 'Output format (text, json)', 'text')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     let outDir;
@@ -739,7 +743,8 @@ program
       process.exit(2);
     }
 
-    const isJson = options.format === 'json';
+    const formatStr = (options.format || 'text').toLowerCase();
+    const isJson = formatStr === 'json';
     if (!isJson && !options.quiet) {
       console.error(chalk.blue('\n🔍 Architecture Diff'));
       console.error(chalk.gray(`   Base: ${baseRef}`));
@@ -795,6 +800,7 @@ program
   .option('--height <n>', 'Video height', '720')
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'dark')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
+  .option('--format <type>', 'Output format (ignored for video)', 'text')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     const safeTheme = normalizeThemeOption(options.theme, 'dark');
@@ -844,6 +850,7 @@ program
   .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'dark')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
+  .option('--format <type>', 'Output format (ignored for animated)', 'text')
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     const safeTheme = normalizeThemeOption(options.theme, 'dark');
@@ -1156,7 +1163,22 @@ if (require.main === module) {
   const args = process.argv;
   const resolvedArgs = [];
   let commandFound = false;
+  let activeCommand = null;
   const flagsWithValue = ['-f', '--format', '-o', '--output', '-t', '--type', '-m', '--max-files', '-p', '--patterns', '-e', '--exclude', '-c', '--config', '--theme', '--duration', '--fps', '--width', '--height', '--focus', '--analyzer', '-O', '--output-dir'];
+
+  for (let i = 2; i < args.length; i++) {
+    if (!args[i].startsWith('-')) {
+      const prev = args[i - 1];
+      if (!flagsWithValue.includes(prev)) {
+        activeCommand = args[i];
+        if (activeCommand === 'test') activeCommand = 'validate';
+        if (activeCommand === 'all') activeCommand = 'generate-all';
+        if (activeCommand === 'video') activeCommand = 'generate-video';
+        if (activeCommand === 'animate') activeCommand = 'generate-animated';
+        break;
+      }
+    }
+  }
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -1175,7 +1197,7 @@ if (require.main === module) {
       continue;
     }
 
-    if (arg === '-o' && resolvedArgs.includes('generate-all')) {
+    if (arg === '-o' && activeCommand === 'generate-all') {
       console.error(chalk.yellow(`🤖 Note for AI Agent: The '-o' flag for generate-all has been renamed to '-O'. Continuing execution...`));
       resolvedArgs.push('-O');
       continue;

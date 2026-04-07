@@ -309,8 +309,8 @@ ${escapedCode}
     browser = await chromium.launch({ timeout: 60000 });
     const page = await browser.newPage();
     
-    const randomId = crypto.randomBytes(16).toString('hex');
-    tempFile = path.join(os.tmpdir(), `diagram-${Date.now()}-${randomId}.html`);
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-svg-'), { mode: 0o700 });
+    tempFile = path.join(tempDir, 'diagram.html');
     fs.writeFileSync(tempFile, htmlContent);
     
     const fileUrl = pathToFileURL(tempFile).href;
@@ -362,7 +362,7 @@ ${escapedCode}
     browser = null;
     
     if (tempFile && fs.existsSync(tempFile)) {
-      fs.unlinkSync(tempFile);
+      try { fs.rmSync(path.dirname(tempFile), { recursive: true, force: true }); } catch (e) {}
     }
     
     if (svgContent) {
@@ -379,7 +379,7 @@ ${escapedCode}
       try { await browser.close(); } catch (e) {}
     }
     if (tempFile && fs.existsSync(tempFile)) {
-      try { fs.unlinkSync(tempFile); } catch (e) {}
+      try { fs.rmSync(path.dirname(tempFile), { recursive: true, force: true }); } catch (e) {}
     }
     throw error;
   }

@@ -437,7 +437,7 @@ function registerWorkflowCommands(program, deps) {
       // Write artifacts to disk (after risk check so override.applied is correct)
       let artifactPaths;
       try {
-        artifactPaths = writePrImpactArtifacts(outputDir, result, isJson);
+        artifactPaths = writePrImpactArtifacts(outputDir, result, /* skipHtml */ isJson);
         if (!isJson && exitCode === 0) {
           console.log(chalk.gray('   Output:'), artifactPaths.jsonPath);
           if (artifactPaths.htmlPath) {

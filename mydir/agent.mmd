@@ -1,0 +1,27 @@
+flowchart TD
+  subgraph Orchestration["🎯 Orchestration Layer"]
+    analysis_generation_b5695ac7["🤖 analysis-generation"]
+  end
+  subgraph LLMLayer["🧠 LLM / Model Layer"]
+    deep_regression_4f028409["💡 deep-regression"]
+    analysis_generation_b5695ac7["💡 analysis-generation"]
+  end
+  subgraph ToolLayer["🔧 Tool Layer"]
+    diagram_2c20a6b0["🔧 diagram"]
+    deep_regression_4f028409["🔧 deep-regression"]
+    pr_command_8b1c5f2a["🔧 pr-command"]
+    analysis_generation_b5695ac7["🔧 analysis-generation"]
+  end
+  subgraph MemoryLayer["📚 Memory / Vector Layer"]
+    analysis_generation_b5695ac7[("📚 analysis-generation")]
+  end
+  diagram_2c20a6b0 -->|invokes| analysis_generation_b5695ac7
+  diagram_2c20a6b0 -->|invokes| pr_command_8b1c5f2a
+  classDef agentNode fill:#7c3aed,color:#fff
+  classDef llmNode   fill:#6d28d9,color:#fff
+  classDef toolNode  fill:#1d4ed8,color:#fff
+  classDef memNode   fill:#065f46,color:#fff
+  class analysis_generation_b5695ac7 agentNode
+  class deep_regression_4f028409,analysis_generation_b5695ac7 llmNode
+  class diagram_2c20a6b0,deep_regression_4f028409,pr_command_8b1c5f2a,analysis_generation_b5695ac7 toolNode
+  class analysis_generation_b5695ac7 memNode
