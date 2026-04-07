@@ -20,9 +20,12 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Run PR impact analysis
         id: analyze
