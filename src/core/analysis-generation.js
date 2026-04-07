@@ -551,13 +551,11 @@ async function analyze(rootPath, options) {
 
   for (const filePath of uniqueFiles) {
     try {
-      // Security: Check file size before reading
-      const stats = fs.statSync(filePath);
-      if (stats.size > 10 * 1024 * 1024) { // 10MB limit
-        console.warn(chalk.yellow(`⚠️  Skipping large file: ${path.basename(filePath)} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`));
+      const content = fs.readFileSync(filePath, 'utf-8');
+      if (content.length > 10 * 1024 * 1024) { // 10MB limit (by char count)
+        console.warn(chalk.yellow(`⚠️  Skipping large file: ${path.basename(filePath)}`));
         continue;
       }
-      const content = fs.readFileSync(filePath, 'utf-8');
       const lang = detectLanguage(filePath);
       let rel = normalizePath(path.relative(rootPath, filePath));
       const dir = path.dirname(rel);
