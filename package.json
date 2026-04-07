@@ -19,7 +19,11 @@
     "harness": "node node_modules/@brainwav/coding-harness/dist/cli.js",
     "harness:pr-gates": "bash scripts/harness-pr-gates.sh",
     "prepare": "simple-git-hooks",
-    "harness:check": "bash scripts/harness-check.sh"
+    "harness:check": "bash scripts/harness-check.sh",
+    "lint": "echo 'No linter configured (plain JS project)' && exit 0",
+    "typecheck": "echo 'No TypeScript configured (plain JS project)' && exit 0",
+    "audit": "npm audit --audit-level=high",
+    "check": "npm test"
   },
   "keywords": [
     "diagrams",
