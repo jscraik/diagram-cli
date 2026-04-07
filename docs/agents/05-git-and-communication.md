@@ -19,3 +19,11 @@ For rebasing 5+ commits, resolving merge conflicts, or force-pushing, pause and 
 ## Communication rules
 - Keep communication single-threaded by default: one clear next step per update.
 - When a user names a tool or skill, verify it exists before assuming fallback behavior.
+
+## Automated PR routing policy
+- All PRs are automatically assigned to `@jscraik` for review via `.github/CODEOWNERS`.
+- The harness contract (`harness.contract.json → "requireCodeOwnerReview": true`) enforces this as a merge gate — PRs cannot be merged without code-owner approval.
+- Automated or bot-generated PRs (e.g. Dependabot, agent-opened branches) are subject to the same rule; `@jscraik` must explicitly approve before merge.
+- If `@jscraik` is unavailable and a PR is time-sensitive, escalate by adding a comment tagging `@jscraik` and noting the business reason.
+- Do not bypass CODEOWNERS by force-merging; use `--force-with-lease` and request approval first.
+

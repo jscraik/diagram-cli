@@ -2,8 +2,16 @@
 
 > Generate codebase architecture diagrams from source files. No AI required.
 
+## Table of Contents
+
+- [Overview & TL;DR](#1-overview--tldr)
+- [Quickstart & Installation](#2-quickstart--installation)
+- [Core Workflows](#3-core-workflows)
+- [Configuration & Testing](#4-configuration--testing)
+- [Command Reference & Docs](#5-command-reference--docs)
+
 > [!WARNING]
-> `@brainwav/diagram@1.0.0` had a packaging regression. Please use `@brainwav/diagram@1.0.1` or later.
+> `@brainwav/diagram@1.0.0` had a packaging regression. Please install the latest version (`@brainwav/diagram@1.1.0` or later).
 
 ## 1. Overview & TL;DR
 

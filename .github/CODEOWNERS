@@ -1,6 +1,17 @@
 # CODEOWNERS
-# This file sets the default owners for the repository to ensure automatic PR review assignment.
-# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Governance: All PRs require review from @jscraik (repository owner).
+# This rule is enforced by GitHub's CODEOWNERS mechanism and is also checked
+# by the harness contract (harness.contract.json → "requireCodeOwnerReview": true).
+#
+# Interaction with harness.contract.json:
+#   - harness.contract.json enforces code-owner review as a merge gate.
+#   - If a PR bypasses normal review (e.g. automated/bot PRs), the harness gate
+#     still applies and the PR must be manually approved by @jscraik.
+#   - For escalation steps and reviewer expectations, see:
+#       docs/agents/05-git-and-communication.md → "Automated PR routing policy"
+#
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default owner for everything in the repository
 *       @jscraik

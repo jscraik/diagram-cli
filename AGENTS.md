@@ -12,7 +12,7 @@ This repository contains the `diagram-cli` Node.js tool for static codebase arch
 - [Required essentials](#required-essentials)
 - [Global discovery order](#global-discovery-order)
 - [Instruction docs](#instruction-docs)
-- [Repository preflight helper](#repository-preflight-helper)
+- [Preflight Enforcement (REQUIRED)](#preflight-enforcement-required)
 - [References (informational)](#references-informational)
 - [CLI Usage (Robot Mode)](#cli-usage-robot-mode)
 
