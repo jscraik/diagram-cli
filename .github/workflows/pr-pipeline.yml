@@ -138,7 +138,7 @@ jobs:
           if [[ -z "$CHANGED_FILES" ]]; then
             CHANGED_FILES="$(git ls-files | paste -sd, -)"
           fi
-          pnpm exec tsx src/cli.ts preflight-gate \
+          npx harness policy-gate \
             --contract "$CONTRACT_PATH" \
             --max-tier medium \
             --files "${CHANGED_FILES}" \
