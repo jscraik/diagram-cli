@@ -1134,6 +1134,22 @@ registerWorkflowCommands(program, {
   validateOutputPath,
 });
 
+// Unknown command hint for AI agents
+program.on('command:*', function (operands) {
+  console.error(chalk.red(`\n🤖 AI Agent Error: Unknown command '${operands[0]}'\n`));
+  console.error(chalk.white(`It looks like you're trying to use a command that doesn't exist or has radically changed.`));
+  console.error(chalk.white(`Here is a quick guide to the correct commands in this CLI system:\n`));
+  console.error(chalk.cyan(`  diagram validate [path]`) + chalk.gray(`         - Validate architecture against .architecture.yml`));
+  console.error(chalk.cyan(`  diagram analyze [path]`) + chalk.gray(`          - Analyze codebase structure and show summary`));
+  console.error(chalk.cyan(`  diagram generate [path]`) + chalk.gray(`         - Generate a specific diagram type (e.g. --type sequence)`));
+  console.error(chalk.cyan(`  diagram generate-all [path]`) + chalk.gray(`     - Generate all supported diagram types`));
+  console.error(chalk.cyan(`  diagram generate-video [path]`) + chalk.gray(`   - Generate an animated video`));
+  console.error(chalk.cyan(`  diagram diff <base> <head>`) + chalk.gray(`      - Compare architecture between git refs\n`));
+  console.error(chalk.white(`Use ${chalk.cyan('diagram --help')} to see all available commands and options.`));
+  console.error(chalk.white(`Remember to use ${chalk.cyan('--format json')} instead of ${chalk.cyan('--json')} if you need machine-readable output.`));
+  process.exit(1);
+});
+
 // Only run CLI when executed directly, not when required for testing
 if (require.main === module) {
   // Load and validate .diagramrc from cwd before parsing commands.
@@ -1141,7 +1157,58 @@ if (require.main === module) {
   const diagramRc = loadDiagramRc(process.cwd());
   // Attach to program so commands can read it
   program._diagramRc = diagramRc;
-  program.parse();
+
+  // AI Agent syntax forgiveness logic
+  const args = process.argv;
+  const resolvedArgs = [];
+  let commandFound = false;
+  const flagsWithValue = ['-f', '--format', '-o', '--output', '-t', '--type', '-m', '--max-files', '-p', '--patterns', '-e', '--exclude', '-c', '--config', '--theme', '--duration', '--fps', '--width', '--height', '--focus', '--analyzer', '-O', '--output-dir'];
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--json') {
+      console.error(chalk.yellow(`🤖 Note for AI Agent: The '--json' flag is deprecated. In the future, please use '--format json'. Continuing execution...`));
+      resolvedArgs.push('--format');
+      resolvedArgs.push('json');
+      continue;
+    }
+
+    if (i >= 2 && !arg.startsWith('-') && !commandFound) {
+      const prev = args[i - 1];
+      if (!flagsWithValue.includes(prev)) {
+        if (arg === 'test') {
+          console.error(chalk.yellow(`🤖 Note for AI Agent: The 'test' command has been renamed. In the future, please use 'validate'. Continuing execution...`));
+          resolvedArgs.push('validate');
+          commandFound = true;
+          continue;
+        }
+        if (arg === 'all') {
+          console.error(chalk.yellow(`🤖 Note for AI Agent: The 'all' command has been renamed. In the future, please use 'generate-all'. Continuing execution...`));
+          resolvedArgs.push('generate-all');
+          commandFound = true;
+          continue;
+        }
+        if (arg === 'video') {
+          console.error(chalk.yellow(`🤖 Note for AI Agent: The 'video' command has been renamed. In the future, please use 'generate-video'. Continuing execution...`));
+          resolvedArgs.push('generate-video');
+          commandFound = true;
+          continue;
+        }
+        if (arg === 'animate') {
+          console.error(chalk.yellow(`🤖 Note for AI Agent: The 'animate' command has been renamed. In the future, please use 'generate-animated'. Continuing execution...`));
+          resolvedArgs.push('generate-animated');
+          commandFound = true;
+          continue;
+        }
+        commandFound = true;
+      }
+    }
+
+    resolvedArgs.push(arg);
+  }
+
+  program.parse(resolvedArgs);
 }
 
 // Export for testing (only when run as module)
