@@ -1,0 +1,34 @@
+flowchart LR
+  UserQ(["👤 User Query"])
+  Embed["📐 Embedding Model"]
+  VecDB[("📚 Vector Store")]
+  Retriever["🔍 Retriever"]
+  LLMNode["🧠 LLM / Generator"]
+  Output(["✅ Response"])
+  UserQ -->|query| Embed
+  Embed -->|vector| VecDB
+  VecDB -->|top-k chunks| Retriever
+  Retriever -->|context + query| LLMNode
+  LLMNode -->|generated answer| Output
+  subgraph DetectedMemory["Detected memory stores"]
+    analysis_generation_b5695ac7[("analysis-generation")]
+  end
+  VecDB -. "implemented by" .-> DetectedMemory
+  subgraph DetectedLLM["Detected LLM clients"]
+    deep_regression_4f028409["deep-regression"]
+    analysis_generation_b5695ac7["analysis-generation"]
+  end
+  LLMNode -. "implemented by" .-> DetectedLLM
+  subgraph DetectedTools["Agentic tool calls"]
+    diagram_2c20a6b0["🔧 diagram"]
+    deep_regression_4f028409["🔧 deep-regression"]
+    pr_command_8b1c5f2a["🔧 pr-command"]
+    analysis_generation_b5695ac7["🔧 analysis-generation"]
+  end
+  LLMNode -->|tool use| DetectedTools
+  DetectedTools -->|result| LLMNode
+  classDef memNode  fill:#065f46,color:#fff
+  classDef llmNode  fill:#6d28d9,color:#fff
+  classDef toolNode fill:#1d4ed8,color:#fff
+  class VecDB,Retriever memNode
+  class LLMNode,Embed llmNode

@@ -1,0 +1,7 @@
+C4Context
+  title "System Context — diagram cli"
+  System(mainSystem, "diagram cli", "The system being documented")
+  Person(developer, "Developer / User", "Uses the system")
+  Rel(developer, mainSystem, "Uses")
+  System_Ext(ext_0, "External Service", "path, chai, assert")
+  Rel(mainSystem, ext_0, "uses")

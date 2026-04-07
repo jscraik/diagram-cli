@@ -10,7 +10,7 @@
 
 - [ ] I did not push directly to `main`; this PR is from a dedicated branch.
 - [ ] Branch name follows policy (`codex/*` for agent-created branches).
-- [ ] Required local gates run: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run audit`, `npm run check`, `test -f memory.json && jq -e '.meta.version == "1.0" and (.preamble.bootstrap | type == "boolean") and (.preamble.search | type == "boolean") and (.entries | type == "array")' memory.json >/dev/null`.
+- [ ] Required local gates run: `npm test`, `npm run test:deep`, `npm run harness:check`.
 - [ ] Greptile review completed and findings handled (or explicitly waived).
 - [ ] Greptile review was performed by an independent reviewer (not the coding agent).
 - [ ] Greptile confidence score is `>= 4/5` for merge eligibility.
@@ -23,12 +23,9 @@
 - verification_commands: list exact commands run here
 - verification_outcomes: record pass/fail/blocked for each command here
 - blocked_steps_reason: none if all planned steps ran
-- Command: `npm run lint` -> pass/fail
-- Command: `npm run typecheck` -> pass/fail
-- Command: `npm run test` -> pass/fail
-- Command: `npm run audit` -> pass/fail
-- Command: `npm run check` -> pass/fail
-- Command: `test -f memory.json && jq -e '.meta.version == "1.0" and (.preamble.bootstrap | type == "boolean") and (.preamble.search | type == "boolean") and (.entries | type == "array")' memory.json >/dev/null` -> pass/fail
+- Command: `npm test` -> pass/fail
+- Command: `npm run test:deep` -> pass/fail
+- Command: `npm run harness:check` -> pass/fail
 - Any other command(s):
 
 ## Review artifacts

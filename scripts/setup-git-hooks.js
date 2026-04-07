@@ -12,7 +12,7 @@
  *   4. Runs package-manager install to activate hooks
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync } from "node:fs";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -32,17 +32,16 @@ const POSTINSTALL_BOOTSTRAP =
 	"command -v simple-git-hooks >/dev/null 2>&1 && simple-git-hooks || true";
 
 function main() {
-	if (!existsSync(PACKAGE_JSON_PATH)) {
-		console.error("Error: package.json not found in current directory");
-		console.error("  Run this script from your project root.");
-		process.exit(1);
-	}
-
 	let packageJson;
 	try {
 		packageJson = JSON.parse(readFileSync(PACKAGE_JSON_PATH, "utf-8"));
-	} catch {
-		console.error("Error: Failed to parse package.json");
+	} catch (e) {
+		if (e.code === 'ENOENT') {
+			console.error("Error: package.json not found in current directory");
+			console.error("  Run this script from your project root.");
+		} else {
+			console.error("Error: Failed to parse package.json");
+		}
 		process.exit(1);
 	}
 
@@ -104,7 +103,9 @@ function main() {
 
 	// Write changes if modified
 	if (modified) {
-		writeFileSync(PACKAGE_JSON_PATH, JSON.stringify(packageJson, null, 2) + "\n");
+		const tmpPath = `${PACKAGE_JSON_PATH}.tmp-${Date.now()}`;
+		writeFileSync(tmpPath, JSON.stringify(packageJson, null, 2) + "\n");
+		renameSync(tmpPath, PACKAGE_JSON_PATH);
 		console.info("\n✓ package.json updated");
 	}
 

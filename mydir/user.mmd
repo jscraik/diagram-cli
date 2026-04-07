@@ -1,0 +1,36 @@
+flowchart LR
+  User(("User"))
+  rules_test_055a2615["rules.test"]
+  User --> rules_test_055a2615
+  rules_inward_only_test_8e19a333["rules.inward_only.test"]
+  User --> rules_inward_only_test_8e19a333
+  pr_impact_test_66267a43["pr-impact.test"]
+  User --> pr_impact_test_66267a43
+  confidence_test_eed6c8ab["confidence.test"]
+  User --> confidence_test_eed6c8ab
+  deep_regression_4f028409["deep-regression"]
+  User --> deep_regression_4f028409
+  import_rule_641ce46a["import-rule"]
+  User --> import_rule_641ce46a
+  rules_test_055a2615 --> import_rule_641ce46a
+  rules_inward_only_test_8e19a333 --> import_rule_641ce46a
+  rules_inward_only_test_8e19a333 --> factory_06c8aaa9
+  rules_inward_only_test_8e19a333 --> rules_6c621d1a
+  rules_inward_only_test_8e19a333 --> rules_schema_1b0ae367
+  pr_impact_test_66267a43 --> diagram_2c20a6b0
+  confidence_test_eed6c8ab --> pipeline_23bf0d24
+  confidence_test_eed6c8ab --> architecture_ir_78febc36
+  confidence_test_eed6c8ab --> cache_5e1ecee0
+  deep_regression_4f028409 --> commands_10f5f77e
+  import_rule_641ce46a --> base_cae66217
+  factory_06c8aaa9 --> import_rule_641ce46a
+  diagram_2c20a6b0 --> commands_10f5f77e
+  diagram_2c20a6b0 --> architecture_ir_78febc36
+  diagram_2c20a6b0 --> pipeline_23bf0d24
+  diagram_2c20a6b0 --> cache_5e1ecee0
+  diagram_2c20a6b0 --> rules_6c621d1a
+  diagram_2c20a6b0 --> factory_06c8aaa9
+  diagram_2c20a6b0 --> rules_schema_1b0ae367
+  pipeline_23bf0d24 --> commands_10f5f77e
+  classDef userNode fill:#16a34a,color:#fff
+  class rules_test_055a2615,rules_inward_only_test_8e19a333,pr_impact_test_66267a43,confidence_test_eed6c8ab,deep_regression_4f028409,import_rule_641ce46a userNode
