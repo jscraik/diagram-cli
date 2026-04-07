@@ -21,15 +21,13 @@ jobs:
 
       - uses: actions/setup-node@v6.3.0
         with:
-          node-version: "25"
-
-      - name: Configure npm for private packages
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Run architecture impact analysis
         env:
@@ -60,15 +58,13 @@ jobs:
 
       - uses: actions/setup-node@v6.3.0
         with:
-          node-version: "25"
-
-      - name: Configure npm for private packages
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm install
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Check risk threshold
         env:
