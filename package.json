@@ -31,7 +31,7 @@
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
-    "@brainwav/coding-harness": "^0.6.0",
+    "@brainwav/coding-harness": "^0.12.0",
     "@octokit/plugin-retry": "^8.1.0",
     "@octokit/plugin-throttling": "^11.0.3",
     "@octokit/request-error": "^7.1.0",
