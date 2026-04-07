@@ -148,11 +148,14 @@ jobs:
           fi
           # Invoke the tracked wrapper instead of npx directly so the full
           # preflight → policy → diff-budget → review-gate sequence runs.
+          # RUN_MEMORY_GATE=0: memory-gate validates local agent session logs
+          # (FORJAMIE.md closeout) — not applicable in CI where no metrics file exists.
           export HARNESS_CONTRACT_PATH="$CONTRACT_PATH"
           export BASE_SHA HEAD_SHA
           export PR_NUMBER="${{ github.event.pull_request.number }}"
           export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
           export SKIP_REVIEW_GATE=1
+          export RUN_MEMORY_GATE=0
           bash scripts/harness-pr-gates.sh
 
   dependency-review:
