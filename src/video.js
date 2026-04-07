@@ -2,7 +2,6 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { pathToFileURL } = require('url');
 const chalk = require('chalk');

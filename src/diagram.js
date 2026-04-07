@@ -6,7 +6,6 @@ const path = require('path');
 const chalk = require('chalk');
 const { spawn, spawnSync, execFileSync } = require('child_process');
 const os = require('os');
-const crypto = require('crypto');
 const zlib = require('zlib');
 const { getOpenCommand, getNpxCommandCandidates } = require('./utils/commands');
 const { runAnalyzer } = require('./analyzers');
@@ -331,16 +330,6 @@ function validateMermaidSyntax(mermaid, theme = 'default') {
   }
 
   return result;
-}
-
-function validateExistingPathInRoot(targetPath, rootPath, label = 'path') {
-  const realRoot = fs.realpathSync(rootPath);
-  const realTarget = fs.realpathSync(targetPath);
-  const relative = path.relative(realRoot, realTarget);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error(`Invalid ${label}: path escapes project root`);
-  }
-  return realTarget;
 }
 
 // Commands
@@ -921,19 +910,22 @@ program
     if (options.init) {
       const configPath = path.join(root, '.architecture.yml');
       
-      if (fs.existsSync(configPath) && !options.force) {
-        console.error(chalk.yellow('⚠️  Configuration already exists:'), configPath);
-        console.log(chalk.gray('   Use --force to overwrite'));
-        process.exit(2);
-      }
-      
       const defaultConfig = getDefaultConfig();
       const yaml = YAML.stringify(defaultConfig, { 
         indent: 2,
         lineWidth: 0 
       });
-      
-      fs.writeFileSync(configPath, yaml);
+
+      try {
+        fs.writeFileSync(configPath, yaml, { flag: options.force ? 'w' : 'wx' });
+      } catch (err) {
+        if (err.code === 'EEXIST') {
+          console.error(chalk.yellow('⚠️  Configuration already exists:'), configPath);
+          console.log(chalk.gray('   Use --force to overwrite'));
+          process.exit(2);
+        }
+        throw err;
+      }
       console.log(chalk.green('✅ Created configuration:'), configPath);
       console.log(chalk.gray('\nEdit the file to define your architecture rules, then run:'));
       console.log(chalk.cyan('  diagram validate'));
@@ -1023,7 +1015,7 @@ program
     const results = engine.validate(rules, graph);
 
     // Apply baseline logic
-    const baselineInfo = applyBaseline(results, config, options.saveBaseline, configPath, root, quietMachineOutput);
+    applyBaseline(results, config, options.saveBaseline, configPath, root, quietMachineOutput);
 
     // Validate output path if specified
     let safeOutput = options.output;
