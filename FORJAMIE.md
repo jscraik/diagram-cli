@@ -5,15 +5,15 @@
 ## Status
 
 <!-- STATUS_START — agents update this block -->
-**Last updated:** 2026-03-09
+**Last updated:** 2026-04-07
 **Production status:** LIVE
-**Overall health:** 🟢 Healthy
+**Overall health:** 🟢 All CI green — PR #56 ready to merge
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Build / CI | ✅ | |
-| Tests | ✅ | |
-| Open PRs | 0 | |
+| Build / CI | ✅ | All checks green — PR #56 ready to squash-merge |
+| Tests | ✅ | 52/52 passing |
+| Open PRs | 1 | #56 ci: full CI pipeline hardening (auth, node 24, lock file, scripts) |
 | Blockers | None | |
 <!-- STATUS_END -->
 
@@ -50,6 +50,17 @@ gantt
 ## Recent changes
 
 <!-- CHANGES_START — agents prepend entries here, newest first -->
+
+### 2026-04-07
+
+- **CI full pipeline hardening (PR #56):** Comprehensive CI fixes:
+  - Added `registry-url` + `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` to all workflow `setup-node` steps across 4 workflow files
+  - Bumped `@brainwav/coding-harness` from `^0.6.0` to `^0.12.0`, regenerated `package-lock.json`
+  - Bumped `node-version` from `20` to `24` across all workflow files (harness 0.12.0 requires node >=24)
+  - Moved `CONTRACT_PATH` from `$RUNNER_TEMP` into `.harness/` inside workspace (harness flags out-of-cwd paths as path traversal)
+  - Fixed `pnpm exec tsx src/cli.ts drift-gate` → `npx harness drift-gate` for both advisory and health drift-gate jobs
+  - Added missing npm scripts `lint`, `typecheck`, `audit`, `check` required by harness-generated pipeline jobs
+- **CodeQL remediation (merged PR #55):** All 6 open CodeQL scanning alerts resolved — 4× unused variable (`crypto` ×2, dead function, unused binding) removed; 2× TOCTOU race fixed with atomic `wx` flag write and `openSync`+`fstatSync(fd)` byte-size guard.
 
 ### 2026-03-09
 
