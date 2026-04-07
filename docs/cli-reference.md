@@ -10,7 +10,6 @@ This document is the primary command reference for `diagram-cli`. It covers all 
   - [diagram generate-all](#diagram-generate-all-path)
   - [diagram validate](#diagram-validate-path)
   - [diagram workflow pr](#diagram-workflow-pr-path)
-  - [diagram manifest](#diagram-manifest-path)
   - [diagram diff](#diagram-diff-base-head)
   - [diagram generate-video](#diagram-generate-video-path)
   - [diagram generate-animated](#diagram-generate-animated-path)
@@ -115,7 +114,7 @@ Analyze the blast-radius of architectural changes for a pull request. Produces `
 
 ```bash
 diagram workflow pr . --base origin/main --head HEAD
-diagram workflow pr . --base origin/main --head HEAD --fail-on-risk
+diagram workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
 diagram workflow pr . --base origin/main --head HEAD --format json
 ```
 
@@ -123,14 +122,12 @@ diagram workflow pr . --base origin/main --head HEAD --format json
 
 - `--base <ref>` — base git ref to compare from
 - `--head <ref>` — head git ref to compare to
-- `--fail-on-risk` — exit 1 when high architectural risk is detected
+- `--risk-threshold <level>` — risk level that triggers the gate: `none` (default, gate disabled), `low`, `medium`, `high`
+- `--fail-on-risk` — exit 1 when detected risk meets or exceeds `--risk-threshold` (has no effect when `--risk-threshold` is `none`)
+- `--risk-override-reason <string>` — document a reason to suppress the exit 1 (requires `--fail-on-risk`)
 - `--format <fmt>` — output format: `text` (default) or `json`
 
 ---
-
-### `diagram manifest [path]`
-
-Summarize the generated `.diagram/manifest.json` artifact produced by `diagram generate-all`.
 
 ---
 
