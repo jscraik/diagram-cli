@@ -363,11 +363,13 @@ program
   .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
   .option('--emit-ir', 'Write typed architecture IR artifact', false)
   .option('--incremental', 'Use incremental cache when available', false)
-  .option('-j, --json', 'Output as JSON')
+  .option('-f, --format <type>', 'Output format (text, json)', 'text')
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
-    if (!options.json) {
-      console.log(chalk.blue('Analyzing'), root);
+    const isJson = options.format === 'json';
+    if (!options.quiet) {
+      console.error(chalk.blue('Analyzing'), root);
     }
 
     const pipeline = await runAnalysisPipeline(root, options, 'analyze');
@@ -375,12 +377,12 @@ program
 
     if (options.emitIr) {
       const irPath = maybeWriteArchitectureIR(root, data, pipeline.analyzer, true);
-      if (!options.json && irPath) {
-        console.log(chalk.gray('  IR:'), path.relative(root, irPath));
+      if (!isJson && irPath && !options.quiet) {
+        console.error(chalk.gray('  IR:'), path.relative(root, irPath));
       }
     }
     
-    if (options.json) {
+    if (isJson) {
       console.log(JSON.stringify(data, null, 2));
     } else {
       console.log(chalk.green('\n📊 Summary'));
@@ -408,8 +410,11 @@ program
   .command('generate [path]')
   .description('Generate a diagram')
   .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, user, events, auth, security, agent, c4context, rag', 'architecture')
-  .option('-f, --focus <module>', 'Focus on specific module')
+  .option('--focus <module>', 'Focus on specific module')
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
+  .option('-f, --format <type>', 'Output format (text, json)', 'text')
+  .option('--force', 'Overwrite output file if it exists', false)
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
   .option('--emit-ir', 'Write typed architecture IR artifact', false)
@@ -469,15 +474,20 @@ program
       process.exit(0);
     }
 
-    console.log(chalk.blue('Generating'), options.type, 'diagram for', root);
+    const isJson = options.format === 'json';
+    if (!options.quiet && !isJson) {
+      console.error(chalk.blue('Generating'), options.type, 'diagram for', root);
+    } else if (isJson) {
+      console.error(chalk.blue('Generating'), options.type, 'diagram for', root);
+    }
 
     const pipeline = await runAnalysisPipeline(root, options, 'generate');
     const data = pipeline.analysis;
 
     if (options.emitIr) {
       const irPath = maybeWriteArchitectureIR(root, data, pipeline.analyzer, true);
-      if (irPath) {
-        console.log(chalk.gray('IR artifact:'), irPath);
+      if (irPath && !options.quiet) {
+        console.error(chalk.gray('IR artifact:'), irPath);
       }
     }
 
@@ -491,16 +501,16 @@ program
 
     // Validate Mermaid syntax if requested
     if (options.validate) {
-      console.log(chalk.blue('\n🔍 Validating Mermaid syntax...'));
+      if (!options.quiet) console.error(chalk.blue('\n🔍 Validating Mermaid syntax...'));
       validationResult = validateMermaidSyntax(mermaid, safeTheme);
       validationResult.enabled = true;
 
       if (validationResult.valid) {
-        console.log(chalk.green('✅ Mermaid syntax is valid'));
+        if (!options.quiet) console.error(chalk.green('✅ Mermaid syntax is valid'));
       } else {
-        console.log(chalk.yellow('⚠️  Mermaid syntax issues detected:'));
+        console.error(chalk.yellow('⚠️  Mermaid syntax issues detected:'));
         for (const error of validationResult.errors) {
-          console.log(chalk.yellow(`   Line ${error.line || '?'}: ${error.message}`));
+          console.error(chalk.yellow(`   Line ${error.line || '?'}: ${error.message}`));
         }
 
         if (options.failOnValidationError) {
@@ -556,19 +566,31 @@ program
       }
     }
 
-    console.log(chalk.green('\n📐 Mermaid Diagram:\n'));
-    console.log('```mermaid');
-    console.log(mermaid);
-    console.log('```\n');
-
     // Preview URL
     const { url, large } = createMermaidUrl(mermaid);
     
-    if (large || !url) {
-      console.log(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
-      console.log(chalk.cyan('💾 Save to file:'), 'diagram generate . --output diagram.svg');
-    } else {
-      console.log(chalk.cyan('🔗 Preview:'), url);
+    if (!options.output) {
+      if (isJson) {
+        console.log(JSON.stringify({
+          schema: "1.0",
+          meta: { root_path: root, type: options.type },
+          status: validationResult.valid ? "success" : "failure",
+          data: mermaid,
+          errors: validationResult.errors
+        }, null, 2));
+      } else {
+        console.log(chalk.green('\n📐 Mermaid Diagram:\n'));
+        console.log('```mermaid');
+        console.log(mermaid);
+        console.log('```\n');
+        
+        if (large || !url) {
+          console.error(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
+          console.error(chalk.cyan('💾 Save to file:'), 'diagram generate . --output diagram.svg');
+        } else {
+          console.error(chalk.cyan('🔗 Preview:'), url);
+        }
+      }
     }
     
     // Save to file if requested
@@ -582,6 +604,12 @@ program
         process.exit(2);
       }
       
+      if (fs.existsSync(safeOutput) && !options.force) {
+        console.error(chalk.red(`❌ Target file exists: ${safeOutput}`));
+        console.error(chalk.yellow('Use --force to overwrite.'));
+        process.exit(1);
+      }
+      
       // Ensure output directory exists
       const outputDir = path.dirname(safeOutput);
       if (!fs.existsSync(outputDir)) {
@@ -591,7 +619,7 @@ program
       const ext = outputExt;
       if (ext === '.md' || ext === '.mmd') {
         fs.writeFileSync(safeOutput, mermaid);
-        console.log(chalk.green('✅ Saved to'), options.output);
+        if (!options.quiet) console.error(chalk.green('✅ Saved to'), options.output);
       } else {
         // Try to render
         let tempFile = null;
@@ -602,7 +630,7 @@ program
           fs.writeFileSync(tempFile, `%%{init: {'theme': '${safeTheme}'}}%%\n${mermaid}`);
           runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent']);
           fs.unlinkSync(tempFile);
-          console.log(chalk.green('✅ Rendered to'), options.output);
+          if (!options.quiet) console.error(chalk.green('✅ Rendered to'), options.output);
         } catch (e) {
           if (tempFile && fs.existsSync(tempFile)) {
             try { fs.unlinkSync(tempFile); } catch (e2) {}
@@ -625,9 +653,10 @@ program
   });
 
 program
-  .command('all [path]')
+  .command('generate-all [path]')
   .description('Generate all diagram types')
-  .option('-o, --output-dir <dir>', 'Output directory', './diagrams')
+  .option('-O, --output-dir <dir>', 'Output directory', './diagrams')
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-p, --patterns <list>', 'File patterns', '**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs')
   .option('-e, --exclude <list>', 'Exclude patterns', 'node_modules/**,.git/**,dist/**')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
@@ -644,8 +673,10 @@ program
       process.exit(2);
     }
     
-    console.log(chalk.blue('Analyzing'), root);
-    const pipeline = await runAnalysisPipeline(root, options, 'all');
+    if (!options.quiet) {
+      console.error(chalk.blue('Analyzing'), root);
+    }
+    const pipeline = await runAnalysisPipeline(root, options, 'generate-all');
     const data = pipeline.analysis;
 
     if (options.emitIr) {
@@ -670,20 +701,22 @@ program
       const file = path.join(outDir, `${type}.mmd`);
       fs.writeFileSync(file, mermaid);
       manifest.diagrams.push(toManifestEntry(type, file, mermaid, root));
-      console.log(chalk.green('✅'), type, '→', file);
+      if (!options.quiet) console.error(chalk.green('✅'), type, '→', file);
     }
 
     const manifestPath = path.join(outDir, 'manifest.json');
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    console.log(chalk.green('✅ manifest'), '→', manifestPath);
-    
-    console.log(chalk.cyan('\n🔗 Preview all at: https://mermaid.live'));
+    if (!options.quiet) {
+      console.error(chalk.green('✅ manifest'), '→', manifestPath);
+      console.error(chalk.cyan('\n🔗 Preview all at: https://mermaid.live'));
+    }
   });
 
 program
   .command('diff <base> <head>')
   .description('Compare architecture diagrams between two git refs')
-  .option('-j, --json', 'Output as JSON')
+  .option('-f, --format <type>', 'Output format (text, json)', 'text')
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-m, --max-files <n>', 'Max files to analyze per ref', '100')
   .option('-p, --patterns <list>', 'File patterns to include (comma-separated)')
   .option('-e, --exclude <list>', 'Paths to exclude (comma-separated)')
@@ -713,11 +746,12 @@ program
       process.exit(2);
     }
 
-    if (!options.json) {
-      console.log(chalk.blue('\n🔍 Architecture Diff'));
-      console.log(chalk.gray(`   Base: ${baseRef}`));
-      console.log(chalk.gray(`   Head: ${headRef}`));
-      console.log('');
+    const isJson = options.format === 'json';
+    if (!isJson && !options.quiet) {
+      console.error(chalk.blue('\n🔍 Architecture Diff'));
+      console.error(chalk.gray(`   Base: ${baseRef}`));
+      console.error(chalk.gray(`   Head: ${headRef}`));
+      console.error('');
     }
 
     const analysisOptions = {
@@ -730,13 +764,13 @@ program
     let baseAnalysis, headAnalysis;
     try {
       baseAnalysis = await analyzeAtRef(baseRef, root, analysisOptions);
-      if (verbose && !options.json) {
-        console.log(chalk.gray(`   Base components: ${baseAnalysis.components.length}`));
+      if (verbose && !isJson) {
+        console.error(chalk.gray(`   Base components: ${baseAnalysis.components.length}`));
       }
 
       headAnalysis = await analyzeAtRef(headRef, root, analysisOptions);
-      if (verbose && !options.json) {
-        console.log(chalk.gray(`   Head components: ${headAnalysis.components.length}`));
+      if (verbose && !isJson) {
+        console.error(chalk.gray(`   Head components: ${headAnalysis.components.length}`));
       }
     } catch (e) {
       console.error(chalk.red('❌ Analysis error:'), e.message);
@@ -746,7 +780,7 @@ program
     // Build comparison
     const diff = computeArchitectureDiff(baseAnalysis, headAnalysis);
 
-    if (options.json) {
+    if (isJson) {
       console.log(JSON.stringify(diff, null, 2));
       return;
     }
@@ -756,10 +790,12 @@ program
   });
 
 program
-  .command('video [path]')
+  .command('generate-video [path]')
   .description('Generate an animated video of the diagram')
   .option('-t, --type <type>', 'Diagram type', 'architecture')
   .option('-o, --output <file>', 'Output file (.mp4, .webm, .mov)', 'diagram.mp4')
+  .option('--force', 'Overwrite output file if it exists', false)
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-d, --duration <sec>', 'Video duration in seconds', '5')
   .option('-f, --fps <n>', 'Frames per second', '30')
   .option('--width <n>', 'Video width', '1280')
@@ -779,12 +815,18 @@ program
       process.exit(2);
     }
 
+    if (fs.existsSync(safeOutput) && !options.force) {
+      console.error(chalk.red(`❌ Target file exists: ${safeOutput}`));
+      console.error(chalk.yellow('Use --force to overwrite.'));
+      process.exit(1);
+    }
+    
     const outputDir = path.dirname(safeOutput);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
     }
     
-    console.log(chalk.blue('🎬 Generating video for'), root);
+    if (!options.quiet) console.error(chalk.blue('🎬 Generating video for'), root);
     
     const data = await analyze(root, options);
     const mermaid = generate(data, options.type);
@@ -801,10 +843,12 @@ program
   });
 
 program
-  .command('animate [path]')
+  .command('generate-animated [path]')
   .description('Generate animated SVG with CSS animations')
   .option('-t, --type <type>', 'Diagram type', 'architecture')
   .option('-o, --output <file>', 'Output file', 'diagram-animated.svg')
+  .option('--force', 'Overwrite output file if it exists', false)
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light', 'dark')
   .option('-m, --max-files <n>', 'Max files to analyze', '100')
   .action(async (targetPath, options) => {
@@ -820,12 +864,18 @@ program
       process.exit(2);
     }
 
+    if (fs.existsSync(safeOutput) && !options.force) {
+      console.error(chalk.red(`❌ Target file exists: ${safeOutput}`));
+      console.error(chalk.yellow('Use --force to overwrite.'));
+      process.exit(1);
+    }
+
     const outputDir = path.dirname(safeOutput);
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true, mode: 0o755 });
     }
     
-    console.log(chalk.blue('✨ Generating animated SVG for'), root);
+    if (!options.quiet) console.error(chalk.blue('✨ Generating animated SVG for'), root);
     
     const data = await analyze(root, options);
     const mermaid = generate(data, options.type);
@@ -838,8 +888,9 @@ program
   });
 
 program
-  .command('test [path]')
+  .command('validate [path]')
   .description('Validate architecture against .architecture.yml rules')
+  .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-c, --config <file>', 'Config file path', '.architecture.yml')
   .option('-f, --format <format>', 'Output format: console, json, junit', 'console')
   .option('-o, --output <file>', 'Output file (for json/junit formats)')
@@ -864,7 +915,7 @@ program
     const startTime = Date.now();
     const outputsMachineFormat =
       !options.output && (options.format === 'json' || options.format === 'junit');
-    const quietMachineOutput = outputsMachineFormat && !options.verbose;
+    const quietMachineOutput = options.quiet || (outputsMachineFormat && !options.verbose);
     
     // Init mode - generate starter config
     if (options.init) {
@@ -885,7 +936,7 @@ program
       fs.writeFileSync(configPath, yaml);
       console.log(chalk.green('✅ Created configuration:'), configPath);
       console.log(chalk.gray('\nEdit the file to define your architecture rules, then run:'));
-      console.log(chalk.cyan('  diagram test'));
+      console.log(chalk.cyan('  diagram validate'));
       process.exit(0);
     }
     
@@ -906,7 +957,7 @@ program
       // Try to find config in root
       const found = engine.findConfig(root);
       if (!found) {
-        console.error(chalk.red('❌ No .architecture.yml found. Run: diagram test --init'));
+        console.error(chalk.red('❌ No .architecture.yml found. Run: diagram validate --init'));
         process.exit(2);
       }
       configPath = found;
@@ -1067,7 +1118,7 @@ function applyBaseline(results, config, saveBaseline, configPath, root, quiet = 
       fs.writeFileSync(configPath, yaml);
       if (!quiet) {
         console.log(chalk.green('✅ Baseline saved:'), configPath);
-        console.log(chalk.gray('   Run `diagram test` to verify'));
+        console.log(chalk.gray('   Run `diagram validate` to verify'));
       }
     } else if (!quiet) {
       console.log(chalk.gray('ℹ️  Baseline already up to date'));

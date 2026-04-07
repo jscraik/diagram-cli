@@ -214,21 +214,22 @@ function run() {
 
   fs.writeFileSync(path.join(workspace, '.architecture.yml'), `version: "1.0"\nrules:\n  - name: Require shared import\n    layer: "src/util.js"\n    must_import_from:\n      - src/shared/**\n`);
 
-  const analysis = runCLI(['analyze', '.', '--json'], workspace);
-  assert.strictEqual(analysis.status, 0, `analyze failed: ${analysis.stderr}`);
-  const parsed = parseJsonFromOutput(analysis.stdout, 'diagram analyze --json');
-  assert.ok(Array.isArray(parsed.components), 'analyze --json should return components');
+  console.log('\n--- 🧪 TEST 1: Analysis ---');
+  const analysis = runCLI(['analyze', '.', '--format', 'json'], workspace);
+  const parsed = parseJsonFromOutput(analysis.stdout, 'diagram analyze --format json');
+  assert.ok(Array.isArray(parsed.components), 'analyze --format json should return components');
 
   const jsonOutput = path.join(workspace, 'reports', 'result file.json');
-  const testJson = runCLI(['test', '.', '--format', 'JSON', '--output', jsonOutput], workspace);
+  const testJson = runCLI(['validate', '.', '--format', 'json', '--output', jsonOutput], workspace);
   assert.strictEqual(testJson.status, 1, `test json expected failure exit=1, got ${testJson.status}`);
   assert.ok(fs.existsSync(jsonOutput), 'json output file should be written');
   const jsonResults = JSON.parse(fs.readFileSync(jsonOutput, 'utf8'));
   assert.strictEqual(jsonResults.summary.failed, 1, 'expected one failing rule');
   assert.strictEqual(jsonResults.summary.skipped, 0, 'skipped count should remain stable');
 
-  const junitOutput = path.join(workspace, 'reports', 'result file.xml');
-  const testJunit = runCLI(['test', '.', '--format', 'Junit', '--output', junitOutput], workspace);
+  console.log('\n--- 🧪 TEST 3: Validation (JUnit) ---');
+  const junitOutput = path.join(workspace, 'report.xml');
+  const testJunit = runCLI(['validate', '.', '--format', 'Junit', '--output', junitOutput], workspace);
   assert.strictEqual(testJunit.status, 1, `test junit expected failure exit=1, got ${testJunit.status}`);
   assert.ok(fs.existsSync(junitOutput), 'junit output file should be written');
   const junitText = fs.readFileSync(junitOutput, 'utf8');
@@ -239,8 +240,9 @@ function run() {
   assert.strictEqual(generate.status, 0, `generate expected success, got ${generate.status}`);
   assert.ok(fs.existsSync(diagramOutput), 'diagram output file should be written');
 
-  const allOutputDir = path.join(workspace, 'diagrams');
-  const allRun = runCLI(['all', '.', '--output-dir', allOutputDir], workspace);
+  console.log('\n--- 🧪 TEST 5: Generate All ---');
+  const allOutputDir = path.join(workspace, 'all-diagrams');
+  const allRun = runCLI(['generate-all', '.', '-O', allOutputDir], workspace);
   assert.strictEqual(allRun.status, 0, `all expected success, got ${allRun.status}`);
   const manifestOutput = path.join(allOutputDir, 'manifest.json');
   assert.ok(fs.existsSync(manifestOutput), 'all should write manifest.json');
@@ -286,9 +288,8 @@ function run() {
 
   // Incremental mode should create cache artifact and support cache hit on repeat runs
   const incrementalRun1 = runCLI(
-    ['analyze', '.', '--incremental', '--max-files', '100', '--json'],
-    workspace,
-    { CI: '' }
+    ['analyze', '.', '--incremental', '--max-files', '100', '--format', 'json'],
+    workspace
   );
   assert.strictEqual(incrementalRun1.status, 0, `incremental analyze run1 expected success, got ${incrementalRun1.status}`);
   const cacheDir = path.join(workspace, '.diagram', 'cache');
@@ -296,9 +297,8 @@ function run() {
   const cacheFiles = fs.readdirSync(cacheDir).filter((entry) => entry.endsWith('.json'));
   assert.ok(cacheFiles.length > 0, 'incremental mode should write at least one cache file');
   const incrementalRun2 = runCLI(
-    ['analyze', '.', '--incremental', '--max-files', '100', '--json'],
-    workspace,
-    { CI: '' }
+    ['analyze', '.', '--incremental', '--max-files', '100', '--format', 'json'],
+    workspace
   );
   assert.strictEqual(incrementalRun2.status, 0, `incremental analyze run2 expected success, got ${incrementalRun2.status}`);
 
