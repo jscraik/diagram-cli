@@ -113,6 +113,8 @@ jobs:
         run: npm install
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Fetch base branch for contract lookup
+        run: git fetch origin main
       - name: Run fast preflight policy gate
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
