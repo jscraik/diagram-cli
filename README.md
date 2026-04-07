@@ -33,8 +33,8 @@ npm link
 1. Use a small test repo and run from the root.
 2. View repository stats: `diagram analyze .`
 3. Generate image/text diagram: `diagram generate . --output diagram.svg`
-4. Generate all views into `./diagrams`: `diagram all .`
-5. *Deep integration:* Try `diagram test --init` to setup CI rules.
+4. Generate all views into `./diagrams`: `diagram generate-all .`
+5. *Deep integration:* Try `diagram validate --init` to setup CI rules.
 
 ## 3. Core Workflows
 
@@ -55,7 +55,7 @@ This produces `pr-impact.html` and JSON artifacts for structured PR review narra
 ### AI-Focused Pipeline Outputs
 For AI agents (e.g., Cursor, GitHub Copilot), feeding `.mmd` files is far more efficient than loading the entire source tree into context. Run:
 ```bash
-diagram all . --output-dir .diagram
+diagram generate-all . --output-dir .diagram
 ```
 This produces minimal, highly textual context maps (e.g., Databases, User paths, Auth flows).
 
@@ -64,8 +64,8 @@ This produces minimal, highly textual context maps (e.g., Databases, User paths,
 Validate your codebase architecture against declarative YAML rules (`.architecture.yml`) to prevent directional drift.
 
 ```bash
-diagram test --init    # Generate starter configuration
-diagram test           # Run validation checks
+diagram validate --init   # Generate starter configuration
+diagram validate          # Run validation checks
 ```
 
 **Example Rule (`.architecture.yml`)**:
@@ -81,7 +81,7 @@ rules:
 
 ## 5. Command Reference & Docs
 
-For an exhaustive list of arguments, video generation prerequisites, CI setups, and more, refer to our detailed documentation:
+For the full list of arguments, video generation prerequisites, CI setups, and more, refer to our detailed documentation:
 
 - 📖 **[CLI Command Reference](docs/cli-reference.md)**
 - Setting up architecture tests: [docs/architecture-testing.md](docs/architecture-testing.md)

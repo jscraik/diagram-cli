@@ -7,13 +7,13 @@ This document is the primary command reference for `diagram-cli`. It covers all 
 - [Commands](#commands)
   - [diagram analyze](#diagram-analyze-path)
   - [diagram generate](#diagram-generate-path)
-  - [diagram all](#diagram-all-path)
-  - [diagram test](#diagram-test-path)
+  - [diagram generate-all](#diagram-generate-all-path)
+  - [diagram validate](#diagram-validate-path)
   - [diagram workflow pr](#diagram-workflow-pr-path)
   - [diagram manifest](#diagram-manifest-path)
   - [diagram diff](#diagram-diff-base-head)
-  - [diagram video](#diagram-video-path)
-  - [diagram animate](#diagram-animate-path)
+  - [diagram generate-video](#diagram-generate-video-path)
+  - [diagram generate-animated](#diagram-generate-animated-path)
 - [Diagram Types](#diagram-types)
 
 ---
@@ -76,13 +76,13 @@ diagram generate . --validate
 
 ---
 
-### `diagram all [path]`
+### `diagram generate-all [path]`
 
 Generate all supported diagram types in one run.
 
 ```bash
-diagram all .
-diagram all . --output-dir ./docs/diagrams
+diagram generate-all .
+diagram generate-all . --output-dir ./docs/diagrams
 ```
 
 **Options:**
@@ -94,13 +94,13 @@ diagram all . --output-dir ./docs/diagrams
 
 ---
 
-### `diagram test [path]`
+### `diagram validate [path]`
 
 Validate codebase architecture against declarative rules in `.architecture.yml`.
 
 ```bash
-diagram test --init   # generate a starter .architecture.yml
-diagram test .        # run validation checks
+diagram validate --init   # generate a starter .architecture.yml
+diagram validate .        # run validation checks
 ```
 
 **Options:**
@@ -130,7 +130,7 @@ diagram workflow pr . --base origin/main --head HEAD --format json
 
 ### `diagram manifest [path]`
 
-Summarize the generated `.diagram/manifest.json` artifact produced by `diagram all`.
+Summarize the generated `.diagram/manifest.json` artifact produced by `diagram generate-all`.
 
 ---
 
@@ -152,7 +152,7 @@ diagram diff origin/main HEAD
 
 ---
 
-### `diagram video [path]`
+### `diagram generate-video [path]`
 
 Generate an animated video (`.mp4`, `.webm`, `.mov`) from a Mermaid diagram.
 
@@ -165,7 +165,7 @@ brew install ffmpeg
 ```
 
 ```bash
-diagram video . --duration 8 --fps 60 --width 1920 --height 1080
+diagram generate-video . --duration 8 --fps 60 --width 1920 --height 1080
 ```
 
 **Options:**
@@ -181,7 +181,7 @@ diagram video . --duration 8 --fps 60 --width 1920 --height 1080
 
 ---
 
-### `diagram animate [path]`
+### `diagram generate-animated [path]`
 
 Generate an animated SVG with CSS animations.
 
