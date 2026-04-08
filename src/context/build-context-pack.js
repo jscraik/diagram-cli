@@ -50,6 +50,77 @@ function buildOmittedSection(omittedTypes, compact = false) {
   ].join('\n');
 }
 
+function buildHeaderText({
+  sortedDiagrams,
+  contextMaxBytes,
+  contextMaxEmbeddedDiagrams,
+  contextMaxLinesPerDiagram,
+}) {
+  const staticPrefix = [
+    '# Diagram Context Pack',
+    '',
+    'Machine-oriented context for agents. This pack is intentionally compact and token-budgeted.',
+    '',
+    `Context byte budget: ${contextMaxBytes}`,
+    `Max embedded diagrams: ${contextMaxEmbeddedDiagrams}`,
+    `Max lines per embedded diagram: ${contextMaxLinesPerDiagram}`,
+    '',
+    '## Diagram Index',
+    '',
+    '| Type | File | Bytes | Lines | Placeholder | Approx Tokens |',
+    '| --- | --- | ---: | ---: | --- | ---: |',
+  ];
+  const staticSuffix = ['', '## Embedded Mermaid (Budgeted)', '', ''];
+  const indexRows = [];
+
+  const buildCandidate = (rows, summaryLine = '') => {
+    const summary = summaryLine ? ['', summaryLine] : [];
+    return `${staticPrefix.concat(rows, summary, staticSuffix).join('\n')}`;
+  };
+
+  for (const entry of sortedDiagrams) {
+    const row = `| ${entry.type} | ${entry.file} | ${entry.bytes} | ${entry.lines} | ${entry.isPlaceholder ? 'yes' : 'no'} | ${estimateTokensFromBytes(entry.bytes || 0)} |`;
+    const candidateWithRow = buildCandidate(indexRows.concat(row));
+    if (Buffer.byteLength(candidateWithRow, 'utf8') > contextMaxBytes) {
+      break;
+    }
+    indexRows.push(row);
+  }
+
+  const compacted = indexRows.length < sortedDiagrams.length;
+  const compactSummary = compacted
+    ? `Diagram index compacted to ${indexRows.length}/${sortedDiagrams.length} row(s) to fit budget.`
+    : '';
+  const candidate = buildCandidate(indexRows, compactSummary);
+  if (Buffer.byteLength(candidate, 'utf8') <= contextMaxBytes) {
+    return {
+      text: candidate,
+      indexRowsIncluded: indexRows.length,
+      headerCompacted: compacted,
+    };
+  }
+
+  const minimal = [
+    '# Diagram Context Pack',
+    '',
+    `Compact header due to strict budget (${contextMaxBytes} bytes).`,
+    `Diagrams available: ${sortedDiagrams.length}`,
+    `Max embedded diagrams: ${contextMaxEmbeddedDiagrams}`,
+    `Max lines per embedded diagram: ${contextMaxLinesPerDiagram}`,
+    '',
+    '## Embedded Mermaid (Budgeted)',
+    '',
+  ].join('\n');
+  if (Buffer.byteLength(minimal, 'utf8') > contextMaxBytes) {
+    throw new Error(`Context byte budget (${contextMaxBytes}) is too small for header.`);
+  }
+  return {
+    text: minimal,
+    indexRowsIncluded: 0,
+    headerCompacted: true,
+  };
+}
+
 function buildContextPack({
   rootDir,
   tmpDir,
@@ -71,32 +142,13 @@ function buildContextPack({
   const diagramEntries = Array.isArray(manifest.diagrams) ? manifest.diagrams : [];
   const sortedDiagrams = sortByPriority(diagramEntries, AGENT_DIAGRAM_PRIORITY);
 
-  const headerLines = [
-    '# Diagram Context Pack',
-    '',
-    'Machine-oriented context for agents. This pack is intentionally compact and token-budgeted.',
-    '',
-    `Context byte budget: ${contextMaxBytes}`,
-    `Max embedded diagrams: ${contextMaxEmbeddedDiagrams}`,
-    `Max lines per embedded diagram: ${contextMaxLinesPerDiagram}`,
-    '',
-    '## Diagram Index',
-    '',
-    '| Type | File | Bytes | Lines | Placeholder | Approx Tokens |',
-    '| --- | --- | ---: | ---: | --- | ---: |',
-  ];
-
-  for (const entry of sortedDiagrams) {
-    headerLines.push(
-      `| ${entry.type} | ${entry.file} | ${entry.bytes} | ${entry.lines} | ${entry.isPlaceholder ? 'yes' : 'no'} | ${estimateTokensFromBytes(entry.bytes || 0)} |`
-    );
-  }
-
-  headerLines.push('');
-  headerLines.push('## Embedded Mermaid (Budgeted)');
-  headerLines.push('');
-
-  const headerText = `${headerLines.join('\n')}\n`;
+  const header = buildHeaderText({
+    sortedDiagrams,
+    contextMaxBytes,
+    contextMaxEmbeddedDiagrams,
+    contextMaxLinesPerDiagram,
+  });
+  const headerText = header.text;
   let contextText = headerText;
   let embeddedCount = 0;
   const omittedTypes = [];
@@ -181,6 +233,8 @@ function buildContextPack({
     embeddedCount,
     omittedTypes,
     bytes: Buffer.byteLength(contextText, 'utf8'),
+    headerCompacted: header.headerCompacted,
+    indexRowsIncluded: header.indexRowsIncluded,
   };
   writeFileSync(contextPath, contextText);
   if (contextMetaPath) {

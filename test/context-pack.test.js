@@ -4,6 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { normalizeDiagramManifest } = require('../src/context/normalize-diagram-manifest');
 const { buildContextPack } = require('../src/context/build-context-pack');
+const { estimateTokensFromBytes } = require('../src/artifacts/artifact-budget');
 
 function withTempDiagrams(prefix, run) {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -97,6 +98,140 @@ describe('context pack helpers', () => {
       expect(contextText).to.include('## Omitted Diagrams');
       expect(contextText).to.include('Machine-oriented context for agents');
       expect(contextText).to.include('Note: truncated to 12 lines');
+    });
+  });
+
+  it('compacts the header/index when the context budget is tight', () => {
+    withTempDiagrams('diagram-context-header-budget-', ({ tmpRoot, diagramsDir }) => {
+      const diagrams = [];
+      for (let i = 0; i < 12; i += 1) {
+        const type = `diagram-${i}`;
+        const file = `${type}.mmd`;
+        fs.writeFileSync(path.join(diagramsDir, file), `graph TD\nA${i} --> B${i}\n`);
+        diagrams.push({
+          type,
+          file,
+          bytes: 24,
+          lines: 2,
+          isPlaceholder: false,
+        });
+      }
+
+      fs.writeFileSync(path.join(diagramsDir, 'manifest.json'), JSON.stringify({
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        rootPath: '/tmp/example',
+        diagramDir: '.diagram',
+        diagrams,
+      }));
+
+      const outputPath = path.join(tmpRoot, 'diagram-context.md');
+      const result = buildContextPack({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        contextPath: outputPath,
+        contextMaxBytes: 420,
+        contextMaxLinesPerDiagram: 10,
+        contextMaxEmbeddedDiagrams: 2,
+      });
+
+      const contextText = fs.readFileSync(outputPath, 'utf8');
+      expect(Buffer.byteLength(contextText, 'utf8')).to.be.at.most(420);
+      expect(result.headerCompacted).to.equal(true);
+      expect(result.indexRowsIncluded).to.be.at.least(0);
+    });
+  });
+
+  it('throws when context budget is too small for even a minimal header', () => {
+    withTempDiagrams('diagram-context-header-too-small-', ({ tmpRoot, diagramsDir }) => {
+      fs.writeFileSync(path.join(diagramsDir, 'architecture.mmd'), 'graph TD\nA --> B\n');
+      fs.writeFileSync(path.join(diagramsDir, 'manifest.json'), JSON.stringify({
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        rootPath: '/tmp/example',
+        diagramDir: '.diagram',
+        diagrams: [
+          { type: 'architecture', file: 'architecture.mmd', bytes: 16, lines: 2, isPlaceholder: false },
+        ],
+      }));
+
+      const outputPath = path.join(tmpRoot, 'diagram-context.md');
+      expect(() => buildContextPack({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        contextPath: outputPath,
+        contextMaxBytes: 40,
+        contextMaxLinesPerDiagram: 10,
+        contextMaxEmbeddedDiagrams: 1,
+      })).to.throw('Context byte budget (40) is too small for header.');
+    });
+  });
+
+  it('fails closed when architecture parsing produces no canonical nodes', () => {
+    withTempDiagrams('diagram-context-normalize-fail-closed-', ({ tmpRoot, diagramsDir }) => {
+      const manifestPath = path.join(diagramsDir, 'manifest.json');
+      const architecturePath = path.join(diagramsDir, 'architecture.mmd');
+      const dependencyPath = path.join(diagramsDir, 'dependency.mmd');
+      const architectureInput = 'graph TD\n  A --> B\n';
+      const dependencyInput = 'graph LR\n  X["External"] --> A\n';
+      fs.writeFileSync(architecturePath, architectureInput);
+      fs.writeFileSync(dependencyPath, dependencyInput);
+      fs.writeFileSync(manifestPath, JSON.stringify({
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        rootPath: '/tmp/example',
+        diagramDir: '.diagram',
+        diagrams: [],
+      }));
+
+      expect(() => normalizeDiagramManifest({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        manifestPath,
+      })).to.throw('Failed to normalize architecture.mmd: parsed structure was empty.');
+
+      expect(fs.readFileSync(architecturePath, 'utf8')).to.equal(architectureInput);
+      expect(fs.readFileSync(dependencyPath, 'utf8')).to.equal(dependencyInput);
+    });
+  });
+
+  it('preserves existing per-diagram metadata while recomputing derived values', () => {
+    withTempDiagrams('diagram-context-normalize-merge-', ({ tmpRoot, diagramsDir }) => {
+      const manifestPath = path.join(diagramsDir, 'manifest.json');
+      const flowPath = path.join(diagramsDir, 'flow.mmd');
+      fs.writeFileSync(flowPath, 'flowchart TD\n  A --> B\n');
+      fs.writeFileSync(manifestPath, JSON.stringify({
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        rootPath: '/tmp/example',
+        diagramDir: '.diagram',
+        compaction: {
+          profile: 'agent',
+          applied: true,
+        },
+        diagrams: [
+          {
+            type: 'flow',
+            file: 'flow.mmd',
+            compacted: true,
+            sourceBytes: 2048,
+            bytesSaved: 1900,
+            approxTokens: 1,
+            bytes: 1,
+            lines: 1,
+          },
+        ],
+      }));
+
+      const manifest = normalizeDiagramManifest({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        manifestPath,
+      });
+      const flowEntry = manifest.diagrams.find((entry) => entry.file === 'flow.mmd');
+      expect(flowEntry).to.exist;
+      expect(flowEntry.compacted).to.equal(true);
+      expect(flowEntry.bytesSaved).to.equal(1900);
+      expect(flowEntry.sourceBytes).to.equal(2048);
+      expect(flowEntry.approxTokens).to.equal(estimateTokensFromBytes(2048));
+      expect(flowEntry.bytes).to.equal(Buffer.byteLength(fs.readFileSync(flowPath, 'utf8')));
+      expect(flowEntry.lines).to.equal(fs.readFileSync(flowPath, 'utf8').split(/\r?\n/).length);
     });
   });
 });

@@ -1,6 +1,7 @@
 const { createHash } = require('node:crypto');
 const { readdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { join } = require('node:path');
+const { estimateTokensFromBytes } = require('../artifacts/artifact-budget');
 
 function ensureTrailingNewline(content) {
   return content.endsWith('\n') ? content : `${content}\n`;
@@ -134,6 +135,13 @@ function isPlaceholderDiagram(content) {
     || /limited to/i.test(text);
 }
 
+function parseNonNegativeInt(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  if (parsed < 0) return null;
+  return Math.floor(parsed);
+}
+
 function normalizeDiagramManifest({ rootDir, tmpDir, manifestPath }) {
   if (!rootDir || !tmpDir || !manifestPath) {
     throw new Error('normalizeDiagramManifest requires rootDir, tmpDir, and manifestPath');
@@ -153,9 +161,18 @@ function normalizeDiagramManifest({ rootDir, tmpDir, manifestPath }) {
 
   if (diagramFiles.includes('architecture.mmd')) {
     const architectureContent = readFileSync(architecturePath, 'utf8');
-    const { content: canonicalArchitecture, nodeMap } = buildArchitecture(
-      parseArchitecture(architectureContent)
+    const parsedArchitecture = parseArchitecture(architectureContent);
+    const hasParsedNodes = parsedArchitecture.some((subgraph) =>
+      Array.isArray(subgraph.nodes) && subgraph.nodes.length > 0
     );
+    if (!hasParsedNodes) {
+      throw new Error('Failed to normalize architecture.mmd: parsed structure was empty.');
+    }
+
+    const { content: canonicalArchitecture, nodeMap } = buildArchitecture(parsedArchitecture);
+    if (!(nodeMap instanceof Map) || nodeMap.size === 0) {
+      throw new Error('Failed to normalize architecture.mmd: canonical node map was empty.');
+    }
     writeFileSync(architecturePath, canonicalArchitecture);
 
     if (diagramFiles.includes('dependency.mmd')) {
@@ -172,17 +189,39 @@ function normalizeDiagramManifest({ rootDir, tmpDir, manifestPath }) {
     writeFileSync(filePath, ensureTrailingNewline(readFileSync(filePath, 'utf8').trimEnd()));
   }
 
+  const sourceDiagramEntries = Array.isArray(sourceManifest.diagrams)
+    ? sourceManifest.diagrams.filter((entry) => entry && typeof entry === 'object')
+    : [];
+  const sourceByFile = new Map();
+  const sourceByType = new Map();
+  for (const entry of sourceDiagramEntries) {
+    if (typeof entry.file === 'string' && entry.file) {
+      sourceByFile.set(entry.file, entry);
+    }
+    if (typeof entry.type === 'string' && entry.type) {
+      sourceByType.set(entry.type, entry);
+    }
+  }
+
   const diagrams = readdirSync(diagramsDir)
     .filter((file) => file.endsWith('.mmd'))
     .sort()
     .map((file) => {
       const content = readFileSync(join(diagramsDir, file), 'utf8');
+      const type = file.replace(/\.mmd$/, '');
+      const existingEntry = sourceByFile.get(file) || sourceByType.get(type) || {};
+      const bytes = Buffer.byteLength(content);
+      const sourceBytes = parseNonNegativeInt(existingEntry.sourceBytes) ?? bytes;
+      const tokenBaseBytes = sourceBytes > 0 ? sourceBytes : bytes;
       return {
-        type: file.replace(/\.mmd$/, ''),
+        ...existingEntry,
+        type,
         file,
         outputPath: `.diagram/${file}`,
         lines: content.split(/\r?\n/).length,
-        bytes: Buffer.byteLength(content),
+        bytes,
+        sourceBytes,
+        approxTokens: estimateTokensFromBytes(tokenBaseBytes),
         isPlaceholder: isPlaceholderDiagram(content),
       };
     });

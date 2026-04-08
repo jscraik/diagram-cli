@@ -27,6 +27,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=/dev/null
+source "$ROOT_DIR/scripts/codex-preflight.sh"
+preflight_repo
+
 DIAGRAM_DIR="$ROOT_DIR/.diagram"
 CONTEXT_DIR="$DIAGRAM_DIR/context"
 CONTEXT_FILE="$CONTEXT_DIR/diagram-context.md"
@@ -85,10 +89,9 @@ GENERATE_ALL_CMD=(
 	--max-files "$MAX_FILES"
 )
 if [[ "$QUIET" -eq 1 ]]; then
-	"${GENERATE_ALL_CMD[@]}" >/dev/null 2>&1
-else
-	"${GENERATE_ALL_CMD[@]}"
+	GENERATE_ALL_CMD+=(--quiet)
 fi
+"${GENERATE_ALL_CMD[@]}"
 popd >/dev/null
 
 if ! ls "$TMP_DIR/diagrams"/*.mmd >/dev/null 2>&1; then
@@ -129,7 +132,12 @@ cp "$TMP_DIR"/diagrams/*.mmd "$DIAGRAM_DIR/"
 cp "$TMP_DIR/diagrams/manifest.json" "$DIAGRAM_DIR/manifest.json"
 cp "$TMP_CONTEXT" "$CONTEXT_FILE"
 
-jq --tab -n \
+if [[ ! -f "$TMP_CONTEXT_META" ]]; then
+	log "error: context pack metadata sidecar missing at $TMP_CONTEXT_META"
+	exit 1
+fi
+
+jq --tab \
 	--arg generated_at "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
 	--arg git_head "$GIT_HEAD" \
 	--arg context_sha256 "$CONTEXT_SHA" \
@@ -142,20 +150,28 @@ jq --tab -n \
 	--argjson min_interval_seconds "$MIN_SECONDS" \
 	--arg changed "$CHANGED" \
 	--arg root_path "$ROOT_DIR" \
-	'{
-		schema_version: 1,
-		generated_at: $generated_at,
-		root_path: $root_path,
-		git_head: $git_head,
-		context_sha256: $context_sha256,
-		context_bytes: $context_bytes,
-		context_max_bytes: $context_max_bytes,
-		context_max_lines_per_diagram: $context_max_lines_per_diagram,
-		context_max_embedded_diagrams: $context_max_embedded_diagrams,
-		diagram_count: $diagram_count,
-		last_generated_epoch: $last_generated_epoch,
-		min_interval_seconds: $min_interval_seconds,
-		changed: ($changed == "true")
-	}' > "$META_FILE"
+	'
+		. as $packer
+		| ($packer // {})
+		| .schema_version = 1
+		| .generated_at = $generated_at
+		| .root_path = $root_path
+		| .git_head = $git_head
+		| .context_sha256 = $context_sha256
+		| .context_bytes = $context_bytes
+		| .context_max_bytes = $context_max_bytes
+		| .context_max_lines_per_diagram = $context_max_lines_per_diagram
+		| .context_max_embedded_diagrams = $context_max_embedded_diagrams
+		| .diagram_count = $diagram_count
+		| .last_generated_epoch = $last_generated_epoch
+		| .min_interval_seconds = $min_interval_seconds
+		| .changed = ($changed == "true")
+		| .context_path = ".diagram/context/diagram-context.md"
+		| .context_meta_path = ".diagram/context/diagram-context.meta.json"
+		| .diagram_manifest_path = ".diagram/manifest.json"
+		| .embedded_diagram_count = ((.embeddedCount // 0) | tonumber)
+		| .omitted_types = (.omittedTypes // [])
+		| .omitted_count = ((.omittedTypes // []) | length)
+	' "$TMP_CONTEXT_META" > "$META_FILE"
 
 log "ok: refreshed ${DIAGRAM_COUNT} diagrams (changed=${CHANGED})"
