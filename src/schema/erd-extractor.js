@@ -17,6 +17,12 @@ const SQL_CREATE_TABLE_RE = new RegExp(
   'gi'
 );
 const SQL_INLINE_REFERENCES_RE = new RegExp(`\\breferences\\s+(${SQL_QUALIFIED_IDENTIFIER_SOURCE})`, 'i');
+const SQL_TABLE_PRIMARY_KEY_RE = /^(?:constraint\s+\S+\s+)?primary\s+key\s*\(([^)]+)\)/i;
+const SQL_TABLE_UNIQUE_RE = /^(?:constraint\s+\S+\s+)?unique\s*\(([^)]+)\)/i;
+const SQL_TABLE_FOREIGN_KEY_RE = new RegExp(
+  `^(?:constraint\\s+\\S+\\s+)?foreign\\s+key\\s*\\(([^)]+)\\)\\s+references\\s+(${SQL_QUALIFIED_IDENTIFIER_SOURCE})`,
+  'i'
+);
 
 function parsePrismaField(line) {
   const trimmed = line.trim();
@@ -134,6 +140,48 @@ function tableNameFromSql(token) {
   return base.replace(/^["`]/, '').replace(/["`]$/, '');
 }
 
+function parseSqlIdentifierList(tokenList) {
+  return String(tokenList || '')
+    .split(',')
+    .map((token) => tableNameFromSql(token))
+    .filter(Boolean);
+}
+
+function addSqlKeyFlags(attributeMap, columns, flag) {
+  for (const column of columns) {
+    const attribute = attributeMap.get(String(column).toLowerCase());
+    if (!attribute) continue;
+    if (!attribute.keyFlags.includes(flag)) {
+      attribute.keyFlags.push(flag);
+    }
+  }
+}
+
+function applyTableConstraint(line, tableName, attributeMap, relationships) {
+  const primaryMatch = line.match(SQL_TABLE_PRIMARY_KEY_RE);
+  if (primaryMatch) {
+    addSqlKeyFlags(attributeMap, parseSqlIdentifierList(primaryMatch[1]), 'PK');
+    return;
+  }
+
+  const uniqueMatch = line.match(SQL_TABLE_UNIQUE_RE);
+  if (uniqueMatch) {
+    addSqlKeyFlags(attributeMap, parseSqlIdentifierList(uniqueMatch[1]), 'UK');
+    return;
+  }
+
+  const foreignKeyMatch = line.match(SQL_TABLE_FOREIGN_KEY_RE);
+  if (!foreignKeyMatch) return;
+
+  addSqlKeyFlags(attributeMap, parseSqlIdentifierList(foreignKeyMatch[1]), 'FK');
+  relationships.push({
+    fromEntity: tableName,
+    toEntity: tableNameFromSql(foreignKeyMatch[2]),
+    cardinality: '}o--||',
+    provenance: 'explicit',
+  });
+}
+
 function parseSqlSchema(fileContent) {
   const entities = [];
   const relationships = [];
@@ -145,21 +193,14 @@ function parseSqlSchema(fileContent) {
     const body = tableMatch[2];
     const definitions = splitSqlDefinitions(body);
     const attributes = [];
+    const tableConstraints = [];
 
     for (const definition of definitions) {
       const line = definition.trim();
       if (!line) continue;
 
       if (/^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i.test(line)) {
-        const fkConstraint = line.match(SQL_INLINE_REFERENCES_RE);
-        if (fkConstraint) {
-          relationships.push({
-            fromEntity: tableName,
-            toEntity: tableNameFromSql(fkConstraint[1]),
-            cardinality: '}o--||',
-            provenance: 'explicit',
-          });
-        }
+        tableConstraints.push(line);
         continue;
       }
 
@@ -191,6 +232,13 @@ function parseSqlSchema(fileContent) {
         nullable: !/\bnot\s+null\b/.test(remainderLower),
         keyFlags,
       });
+    }
+
+    const attributeMap = new Map(
+      attributes.map((attribute) => [String(attribute.name).toLowerCase(), attribute])
+    );
+    for (const constraintLine of tableConstraints) {
+      applyTableConstraint(constraintLine, tableName, attributeMap, relationships);
     }
 
     entities.push({
