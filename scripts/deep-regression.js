@@ -156,6 +156,9 @@ function run() {
     'src/rules/types/import-rule.js',
     'src/schema/rules-schema.js',
     'src/core/analysis-generation.js',
+    'src/schema/erd-extractor.js',
+    'src/schema/erd-model.js',
+    'src/schema/erd-confidence.js',
     'src/workflow/pr-impact.js',
     'src/workflow/git-helpers.js',
     'src/workflow/pr-command.js',
@@ -211,6 +214,22 @@ function run() {
     path.join(workspace, 'src', 'user-route.js'),
     'const router = require("./router");\nfunction userLanding(req, res) { return router(req, res); }\nmodule.exports = userLanding;\n'
   );
+  fs.mkdirSync(path.join(workspace, 'prisma'), { recursive: true });
+  fs.writeFileSync(
+    path.join(workspace, 'prisma', 'schema.prisma'),
+    `model User {
+  id Int @id @default(autoincrement())
+  email String @unique
+  sessions Session[]
+}
+
+model Session {
+  id Int @id @default(autoincrement())
+  userId Int
+  user User @relation(fields: [userId], references: [id])
+}
+`
+  );
 
   fs.writeFileSync(path.join(workspace, '.architecture.yml'), `version: "1.0"\nrules:\n  - name: Require shared import\n    layer: "src/util.js"\n    must_import_from:\n      - src/shared/**\n`);
 
@@ -248,7 +267,7 @@ function run() {
   assert.ok(fs.existsSync(manifestOutput), 'all should write manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestOutput, 'utf8'));
   assert.ok(Array.isArray(manifest.diagrams), 'manifest should include diagrams array');
-  const expectedTypes = ['architecture', 'sequence', 'dependency', 'class', 'flow', 'database', 'user', 'events', 'auth', 'security'];
+  const expectedTypes = ['architecture', 'sequence', 'dependency', 'class', 'flow', 'database', 'erd', 'user', 'events', 'auth', 'security', 'agent', 'c4context', 'rag'];
   for (const type of expectedTypes) {
     assert.ok(
       manifest.diagrams.some((entry) => entry.type === type),

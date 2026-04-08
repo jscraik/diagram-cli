@@ -79,6 +79,8 @@ diagram generate . --validate
 
 Generate all supported diagram types in one run.
 
+`generate-all` uses strict completeness for ERD: if ERD confidence resolves to a hard fail (for example no schema evidence or inference-heavy output), the command exits with failure and does not write `manifest.json`.
+
 ```bash
 diagram generate-all .
 diagram generate-all . --output-dir ./docs/diagrams
@@ -86,7 +88,7 @@ diagram generate-all . --output-dir ./docs/diagrams
 
 **Options:**
 
-- `-o, --output-dir <dir>` — output directory (default: `./diagrams`)
+- `-O, --output-dir <dir>` — output directory (default: `./diagrams`)
 - `--analyzer <name>` — analyzer plugin (default: `default`)
 - `--emit-ir` — write typed IR artifact to `.diagram/ir/architecture-ir.json`
 - `--incremental` — use incremental cache at `.diagram/cache` when available
@@ -201,6 +203,7 @@ Generate an animated SVG with CSS animations.
 | `class` | Class-oriented relationships | OOP-heavy codebases |
 | `flow` | Process/data flow | Control-flow mapping |
 | `database` | Database operations and condition paths | Conditional persistence flows |
+| `erd` | Relational entity map with keys and cardinality (`erDiagram`) | Schema onboarding and data-model structure |
 | `user` | User-facing entrypoints and handlers | Interaction flow mapping |
 | `events` | Event streams and async channels | Event-driven architecture |
 | `auth` | Authentication and authorization checks | Credential/identity flow |

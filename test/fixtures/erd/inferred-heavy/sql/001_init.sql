@@ -1,0 +1,15 @@
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY,
+  email TEXT UNIQUE
+);
+
+CREATE TABLE sessions (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL
+);
+
+CREATE TABLE comments (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  session_id INTEGER
+);

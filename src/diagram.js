@@ -25,6 +25,7 @@ const {
   SUPPORTED_DIAGRAM_TYPES,
   analyze,
   generate,
+  generateErdArtifact,
   toManifestEntry,
 } = require('./core/analysis-generation');
 const {
@@ -151,6 +152,23 @@ function resolveRootPathOrExit(targetPath) {
     process.exit(2);
   }
   return root;
+}
+
+function removeGenerateAllArtifacts(outDir, types) {
+  if (!outDir || !fs.existsSync(outDir)) return;
+
+  const candidates = [
+    path.join(outDir, 'manifest.json'),
+    ...types.map((type) => path.join(outDir, `${type}.mmd`)),
+  ];
+
+  for (const target of candidates) {
+    try {
+      if (fs.existsSync(target)) fs.rmSync(target, { force: true });
+    } catch (error) {
+      // Best-effort cleanup: keep original generation failure as the primary error.
+    }
+  }
 }
 
 function openPreviewUrl(url) {
@@ -394,7 +412,7 @@ program
 program
   .command('generate [path]')
   .description('Generate a diagram')
-  .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, user, events, auth, security, agent, c4context, rag', 'architecture')
+  .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, erd, user, events, auth, security, agent, c4context, rag', 'architecture')
   .option('-f, --focus <module>', 'Focus on specific module')
   .option('-o, --output <file>', 'Output file (SVG/PNG)')
   .option('--format <type>', 'Output format (text, json)', 'text')
@@ -475,7 +493,70 @@ program
       }
     }
 
-    const mermaid = generate(data, options.type, options.focus);
+    let mermaid = '';
+    let erdMeta = null;
+
+    if (options.type === 'erd') {
+      const erdArtifact = generateErdArtifact(data);
+      mermaid = erdArtifact.mermaid;
+      erdMeta = erdArtifact.meta;
+
+      if (erdMeta.shouldFail) {
+        if (confidenceEnabled) {
+          const failureReport = buildConfidenceReport({
+            command: 'generate',
+            rootPath: root,
+            capabilities,
+            validation: {
+              enabled: false,
+              valid: false,
+              errors: [{ message: 'erd_generation_failed' }],
+              mode: 'erd',
+            },
+            fallback: {
+              used: true,
+              reasons: [`erd_${erdMeta.terminalClass}`],
+            },
+            notes: [
+              `erd_outcome:${erdMeta.outcome}`,
+              `erd_terminal:${erdMeta.terminalClass}`,
+            ],
+          });
+
+          if (options.confidenceReport || options.strictConfidence) {
+            const confidencePath = writeConfidenceReport(root, failureReport);
+            console.log(chalk.gray('Confidence report:'), confidencePath);
+          }
+        }
+
+        if (isJson) {
+          console.log(JSON.stringify({
+            schema: '1.0',
+            meta: {
+              root_path: root,
+              type: options.type,
+              erd: erdMeta,
+            },
+            status: 'failure',
+            data: null,
+            errors: erdMeta.diagnostics.map((message) => ({ message })),
+          }, null, 2));
+        } else {
+          console.error(chalk.red('❌ ERD generation failed'));
+          for (const message of erdMeta.diagnostics) {
+            console.error(chalk.yellow(`   • ${message}`));
+          }
+        }
+        process.exit(1);
+      }
+
+      if (erdMeta.markerRequired && !options.quiet) {
+        console.error(chalk.yellow('⚠️  ERD emitted with low-confidence marker (inferred relationships are high)'));
+      }
+    } else {
+      mermaid = generate(data, options.type, options.focus);
+    }
+
     let validationResult = {
       enabled: Boolean(options.validate),
       valid: true,
@@ -515,6 +596,9 @@ program
         fallbackReasons.push(`incremental_${incrementalReason}`);
       }
     }
+    if (erdMeta?.markerRequired) {
+      fallbackReasons.push('erd_publishable_with_marker');
+    }
     const fallback = {
       used: fallbackReasons.length > 0,
       reasons: fallbackReasons,
@@ -533,10 +617,12 @@ program
         },
         fallback,
         notes: [
+          erdMeta ? `erd_terminal:${erdMeta.terminalClass}` : null,
+          erdMeta ? `erd_outcome:${erdMeta.outcome}` : null,
           pipeline.incremental.requested
             ? `incremental:${pipeline.incremental.used ? 'hit' : pipeline.incremental.reason}`
             : 'incremental:not_requested',
-        ],
+        ].filter(Boolean),
       });
 
       if (options.confidenceReport || options.strictConfidence) {
@@ -557,7 +643,11 @@ program
       if (isJson) {
         console.log(JSON.stringify({
           schema: "1.0",
-          meta: { root_path: root, type: options.type },
+          meta: {
+            root_path: root,
+            type: options.type,
+            erd: erdMeta || undefined,
+          },
           status: validationResult.valid ? "success" : "failure",
           data: mermaid,
           errors: validationResult.errors
@@ -672,22 +762,54 @@ program
       }
     }
     
-    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-    
     const types = [...SUPPORTED_DIAGRAM_TYPES];
+    const generated = [];
+
+    for (const type of types) {
+      if (type === 'erd') {
+        const erdArtifact = generateErdArtifact(data);
+        if (erdArtifact.meta.shouldFail) {
+          removeGenerateAllArtifacts(outDir, types);
+          console.error(chalk.red('❌ ERD strict completeness check failed'));
+          for (const message of erdArtifact.meta.diagnostics) {
+            console.error(chalk.yellow(`   • ${message}`));
+          }
+          process.exit(1);
+        }
+        if (erdArtifact.meta.markerRequired && !options.quiet) {
+          console.error(chalk.yellow('⚠️  ERD emitted with low-confidence marker (inferred relationships are high)'));
+        }
+        generated.push({
+          type,
+          mermaid: erdArtifact.mermaid,
+          metadata: { erd: erdArtifact.meta },
+        });
+        continue;
+      }
+
+      generated.push({
+        type,
+        mermaid: generate(data, type),
+        metadata: undefined,
+      });
+    }
+
+    if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
     const manifest = {
       generatedAt: new Date().toISOString(),
       rootPath: root,
       diagramDir: path.relative(root, outDir) || '.',
       diagrams: [],
     };
-    
-    for (const type of types) {
-      const mermaid = generate(data, type);
-      const file = path.join(outDir, `${type}.mmd`);
-      fs.writeFileSync(file, mermaid);
-      manifest.diagrams.push(toManifestEntry(type, file, mermaid, root));
-      if (!options.quiet) console.error(chalk.green('✅'), type, '→', file);
+
+    for (const entry of generated) {
+      const file = path.join(outDir, `${entry.type}.mmd`);
+      fs.writeFileSync(file, entry.mermaid);
+      manifest.diagrams.push(
+        toManifestEntry(entry.type, file, entry.mermaid, root, entry.metadata)
+      );
+      if (!options.quiet) console.error(chalk.green('✅'), entry.type, '→', file);
     }
 
     const manifestPath = path.join(outDir, 'manifest.json');

@@ -3,6 +3,9 @@ const path = require('path');
 const { glob } = require('glob');
 const chalk = require('chalk');
 const crypto = require('crypto');
+const { extractErdModel } = require('../schema/erd-extractor');
+const { evaluateErdConfidence } = require('../schema/erd-confidence');
+const { renderErdMermaid } = require('../schema/erd-model');
 
 function detectLanguage(filePath) {
   if (typeof filePath !== 'string') return 'unknown';
@@ -283,6 +286,7 @@ const SUPPORTED_DIAGRAM_TYPES = Object.freeze([
   'class',
   'flow',
   'database',
+  'erd',
   'user',
   'events',
   'auth',
@@ -1383,6 +1387,60 @@ function generateRag(data) {
   return lines.join('\n');
 }
 
+function buildErdFailurePlaceholder(reason) {
+  const safeReason = escapeMermaid(reason || 'erd generation failed');
+  return `erDiagram\n  %% erd generation failed: ${safeReason}`;
+}
+
+function generateErdArtifact(data) {
+  const extraction = extractErdModel({ rootPath: data?.rootPath });
+  const confidence = evaluateErdConfidence(extraction.model);
+  const diagnostics = [...(extraction.diagnostics || [])];
+  let terminalClass = extraction.terminalClass || 'completed';
+  let mermaid = '';
+  let shouldFail = false;
+
+  if (terminalClass === 'failed_no_schema') {
+    shouldFail = true;
+    mermaid = buildErdFailurePlaceholder('no supported schema sources found');
+  } else if (terminalClass === 'failed_parse') {
+    shouldFail = true;
+    mermaid = buildErdFailurePlaceholder('schema parsing failed');
+  } else if (confidence.outcome === 'fail_confidence') {
+    shouldFail = true;
+    terminalClass = 'failed_low_confidence';
+    diagnostics.push(
+      `confidence policy blocked ERD emission (inference_share=${confidence.counts.inferenceShare})`
+    );
+    mermaid = buildErdFailurePlaceholder('confidence policy blocked ERD emission');
+  } else {
+    mermaid = renderErdMermaid(extraction.model, {
+      lowConfidenceMarker: confidence.markerRequired,
+      inferenceShare: confidence.counts.inferenceShare,
+    });
+    terminalClass = 'completed';
+  }
+
+  return {
+    mermaid,
+    meta: {
+      extractionInvoked: true,
+      sourcePrecedence: extraction.sourcePrecedence || [],
+      sourceFiles: extraction.sourceFiles || [],
+      outcome: confidence.outcome,
+      markerRequired: confidence.markerRequired,
+      shouldFail,
+      terminalClass,
+      counts: confidence.counts,
+      provenanceCounts: {
+        explicit: confidence.counts.explicitRelationshipCount,
+        inferred: confidence.counts.inferredRelationshipCount,
+      },
+      diagnostics,
+    },
+  };
+}
+
 function generate(data, type, focus) {
   switch (type) {
     case 'architecture': return generateArchitecture(data, focus);
@@ -1391,6 +1449,7 @@ function generate(data, type, focus) {
     case 'class':        return generateClass(data);
     case 'flow':         return generateFlow(data);
     case 'database':     return generateDatabase(data);
+    case 'erd':          return generateErdArtifact(data).mermaid;
     case 'user':         return generateUserInteractions(data);
     case 'events':       return generateEvents(data);
     case 'auth':         return generateAuth(data);
@@ -1426,13 +1485,14 @@ function isPlaceholderDiagram(mermaidCode) {
     || compact.includes('note["no security-focused components found"]')
     || compact.includes('no architecture data')
     || compact.includes('no agent/llm components found')
+    || compact.includes('%% erd generation failed')
     || compact.includes('no data available') // c4context / rag fallback;
   ;
 }
 
-function toManifestEntry(type, filePath, mermaidCode, rootPath) {
+function toManifestEntry(type, filePath, mermaidCode, rootPath, metadata) {
   const lines = typeof mermaidCode === 'string' ? mermaidCode.split('\n') : [];
-  return {
+  const entry = {
     type,
     file: path.basename(filePath),
     outputPath: rootPath ? path.relative(rootPath, filePath) : filePath,
@@ -1440,6 +1500,10 @@ function toManifestEntry(type, filePath, mermaidCode, rootPath) {
     bytes: Buffer.byteLength(mermaidCode || '', 'utf8'),
     isPlaceholder: isPlaceholderDiagram(mermaidCode),
   };
+  if (metadata && typeof metadata === 'object' && Object.keys(metadata).length > 0) {
+    entry.metadata = metadata;
+  }
+  return entry;
 }
 
 
@@ -1462,6 +1526,7 @@ module.exports = {
   ROLE_COLOURS,
   analyze,
   generate,
+  generateErdArtifact,
   isPlaceholderDiagram,
   toManifestEntry,
 };
