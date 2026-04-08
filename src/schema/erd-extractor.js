@@ -23,6 +23,7 @@ const SQL_TABLE_FOREIGN_KEY_RE = new RegExp(
   `^(?:constraint\\s+\\S+\\s+)?foreign\\s+key\\s*\\(([^)]+)\\)\\s+references\\s+(${SQL_QUALIFIED_IDENTIFIER_SOURCE})`,
   'i'
 );
+const SQL_TABLE_CONSTRAINT_LINE_RE = /^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i;
 
 function parsePrismaField(line) {
   const trimmed = line.trim();
@@ -157,6 +158,17 @@ function addSqlKeyFlags(attributeMap, columns, flag) {
   }
 }
 
+function pushExplicitSqlRelationship(relationships, fromEntity, toEntityToken) {
+  const toEntity = tableNameFromSql(toEntityToken);
+  if (!toEntity) return;
+  relationships.push({
+    fromEntity,
+    toEntity,
+    cardinality: '}o--||',
+    provenance: 'explicit',
+  });
+}
+
 function applyTableConstraint(line, tableName, attributeMap, relationships) {
   const primaryMatch = line.match(SQL_TABLE_PRIMARY_KEY_RE);
   if (primaryMatch) {
@@ -174,12 +186,7 @@ function applyTableConstraint(line, tableName, attributeMap, relationships) {
   if (!foreignKeyMatch) return;
 
   addSqlKeyFlags(attributeMap, parseSqlIdentifierList(foreignKeyMatch[1]), 'FK');
-  relationships.push({
-    fromEntity: tableName,
-    toEntity: tableNameFromSql(foreignKeyMatch[2]),
-    cardinality: '}o--||',
-    provenance: 'explicit',
-  });
+  pushExplicitSqlRelationship(relationships, tableName, foreignKeyMatch[2]);
 }
 
 function parseSqlSchema(fileContent) {
@@ -199,7 +206,7 @@ function parseSqlSchema(fileContent) {
       const line = definition.trim();
       if (!line) continue;
 
-      if (/^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i.test(line)) {
+      if (SQL_TABLE_CONSTRAINT_LINE_RE.test(line)) {
         tableConstraints.push(line);
         continue;
       }
@@ -218,12 +225,7 @@ function parseSqlSchema(fileContent) {
       const referencesMatch = remainder.match(SQL_INLINE_REFERENCES_RE);
       if (referencesMatch) {
         keyFlags.push('FK');
-        relationships.push({
-          fromEntity: tableName,
-          toEntity: tableNameFromSql(referencesMatch[1]),
-          cardinality: '}o--||',
-          provenance: 'explicit',
-        });
+        pushExplicitSqlRelationship(relationships, tableName, referencesMatch[1]);
       }
 
       attributes.push({
@@ -234,11 +236,13 @@ function parseSqlSchema(fileContent) {
       });
     }
 
-    const attributeMap = new Map(
-      attributes.map((attribute) => [String(attribute.name).toLowerCase(), attribute])
-    );
-    for (const constraintLine of tableConstraints) {
-      applyTableConstraint(constraintLine, tableName, attributeMap, relationships);
+    if (tableConstraints.length > 0) {
+      const attributeMap = new Map(
+        attributes.map((attribute) => [String(attribute.name).toLowerCase(), attribute])
+      );
+      for (const constraintLine of tableConstraints) {
+        applyTableConstraint(constraintLine, tableName, attributeMap, relationships);
+      }
     }
 
     entities.push({
