@@ -28,6 +28,11 @@ const {
   toManifestEntry,
 } = require('./core/analysis-generation');
 const {
+  estimateTokensFromBytes,
+  resolveArtifactProfile,
+  applyArtifactBudget,
+} = require('./artifacts/artifact-budget');
+const {
   escapeHtml,
   groupChangePaths,
   buildRiskNarrative,
@@ -641,6 +646,7 @@ program
   .command('generate-all [path]')
   .description('Generate all diagram types')
   .option('-O, --output-dir <dir>', 'Output directory', './diagrams')
+  .option('--artifact-profile <profile>', 'Artifact output profile (full, agent, ultra-compact)', 'full')
   .option('-q, --quiet', 'Suppress non-essential logging', false)
   .option('-p, --patterns <list>', 'File patterns', '**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs')
   .option('-e, --exclude <list>', 'Exclude patterns', 'node_modules/**,.git/**,dist/**')
@@ -652,10 +658,12 @@ program
   .action(async (targetPath, options) => {
     const root = resolveRootPathOrExit(targetPath);
     let outDir;
+    let artifactProfile;
     try {
       outDir = validateOutputPath(options.outputDir, root);
+      artifactProfile = resolveArtifactProfile(options.artifactProfile);
     } catch (err) {
-      console.error(chalk.red('❌ Output path error:'), err.message);
+      console.error(chalk.red('❌ Configuration error:'), err.message);
       process.exit(2);
     }
     
@@ -675,24 +683,68 @@ program
     if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
     
     const types = [...SUPPORTED_DIAGRAM_TYPES];
+    const generatedDiagrams = types.map((type) => ({
+      type,
+      mermaid: generate(data, type),
+    }));
+    const budgeted = applyArtifactBudget(generatedDiagrams, artifactProfile);
+
+    const staleMermaidFiles = fs
+      .readdirSync(outDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.mmd'))
+      .map((entry) => path.join(outDir, entry.name));
+    for (const staleFile of staleMermaidFiles) {
+      fs.rmSync(staleFile, { force: true });
+    }
+
     const manifest = {
       generatedAt: new Date().toISOString(),
       rootPath: root,
       diagramDir: path.relative(root, outDir) || '.',
+      compaction: {
+        applied: budgeted.applied,
+        profile: artifactProfile.name,
+        maxTotalBytes: artifactProfile.maxBytesTotal,
+        maxPerDiagramBytes: artifactProfile.maxBytesPerDiagram,
+        maxDiagrams: artifactProfile.maxDiagrams,
+        generatedDiagrams: budgeted.summary.generatedCount,
+        writtenDiagrams: budgeted.summary.includedCount,
+        omittedTypes: budgeted.omitted.map((entry) => entry.type),
+        truncatedTypes: budgeted.truncatedTypes,
+        bytesSaved: budgeted.summary.bytesSaved,
+        estimatedTokensSaved: estimateTokensFromBytes(budgeted.summary.bytesSaved),
+        reason: artifactProfile.name === 'full'
+          ? 'full_profile'
+          : (budgeted.applied ? 'budget_constraints' : 'within_budget'),
+      },
       diagrams: [],
     };
-    
-    for (const type of types) {
-      const mermaid = generate(data, type);
-      const file = path.join(outDir, `${type}.mmd`);
-      fs.writeFileSync(file, mermaid);
-      manifest.diagrams.push(toManifestEntry(type, file, mermaid, root));
-      if (!options.quiet) console.error(chalk.green('✅'), type, '→', file);
+
+    for (const entry of budgeted.included) {
+      const file = path.join(outDir, `${entry.type}.mmd`);
+      fs.writeFileSync(file, entry.mermaid);
+      const manifestEntry = toManifestEntry(entry.type, file, entry.mermaid, root);
+      if (entry.truncated) {
+        manifestEntry.compacted = true;
+        manifestEntry.sourceBytes = entry.originalBytes;
+        manifestEntry.bytesSaved = entry.bytesSaved;
+      }
+      manifest.diagrams.push(manifestEntry);
+      if (!options.quiet) {
+        const truncationSuffix = entry.truncated ? chalk.yellow(' [truncated]') : '';
+        console.error(chalk.green('✅'), entry.type, '→', file, truncationSuffix);
+      }
     }
 
     const manifestPath = path.join(outDir, 'manifest.json');
     fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     if (!options.quiet) {
+      if (manifest.compaction.omittedTypes.length > 0) {
+        console.error(
+          chalk.yellow('⚠️  omitted diagrams:'),
+          manifest.compaction.omittedTypes.join(', ')
+        );
+      }
       console.error(chalk.green('✅ manifest'), '→', manifestPath);
       console.error(chalk.cyan('\n🔗 Preview all at: https://mermaid.live'));
     }
@@ -1156,7 +1208,7 @@ if (require.main === module) {
   const resolvedArgs = [];
   let commandFound = false;
   let activeCommand = null;
-  const flagsWithValue = ['-f', '--format', '-o', '--output', '-t', '--type', '-m', '--max-files', '-p', '--patterns', '-e', '--exclude', '-c', '--config', '--theme', '--duration', '--fps', '--width', '--height', '--focus', '--analyzer', '-O', '--output-dir'];
+  const flagsWithValue = ['-f', '--format', '-o', '--output', '-t', '--type', '-m', '--max-files', '-p', '--patterns', '-e', '--exclude', '-c', '--config', '--theme', '--duration', '--fps', '--width', '--height', '--focus', '--analyzer', '-O', '--output-dir', '--artifact-profile'];
 
   for (let i = 2; i < args.length; i++) {
     if (!args[i].startsWith('-')) {

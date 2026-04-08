@@ -1432,12 +1432,14 @@ function isPlaceholderDiagram(mermaidCode) {
 
 function toManifestEntry(type, filePath, mermaidCode, rootPath) {
   const lines = typeof mermaidCode === 'string' ? mermaidCode.split('\n') : [];
+  const bytes = Buffer.byteLength(mermaidCode || '', 'utf8');
   return {
     type,
     file: path.basename(filePath),
     outputPath: rootPath ? path.relative(rootPath, filePath) : filePath,
     lines: lines.length,
-    bytes: Buffer.byteLength(mermaidCode || '', 'utf8'),
+    bytes,
+    approxTokens: Math.ceil(bytes / 4),
     isPlaceholder: isPlaceholderDiagram(mermaidCode),
   };
 }

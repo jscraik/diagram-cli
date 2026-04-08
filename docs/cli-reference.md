@@ -81,12 +81,14 @@ Generate all supported diagram types in one run.
 
 ```bash
 diagram generate-all .
-diagram generate-all . --output-dir ./docs/diagrams
+diagram generate-all . -O ./docs/diagrams
+diagram generate-all . -O ./.diagram --artifact-profile agent
 ```
 
 **Options:**
 
-- `-o, --output-dir <dir>` — output directory (default: `./diagrams`)
+- `-O, --output-dir <dir>` — output directory (default: `./diagrams`)
+- `--artifact-profile <profile>` — artifact profile: `full` (default, write all diagrams), `agent` (budgeted compact output), or `ultra-compact` (aggressive token budget)
 - `--analyzer <name>` — analyzer plugin (default: `default`)
 - `--emit-ir` — write typed IR artifact to `.diagram/ir/architecture-ir.json`
 - `--incremental` — use incremental cache at `.diagram/cache` when available
