@@ -5,6 +5,7 @@
 - [Cleanup policy](#cleanup-policy)
 
 ## Resolved contradictions
+
 - Home-level AGENTS text references `/Users/jamiecraik/dev/configs/codex` as a repo-specific preflight path.
 - For this repository scope, the nearest-repo guidance applies and uses `/Users/jamiecraik/dev/diagram-cli` as the working root.
 - Node runtime expectations vary by source. Package metadata requires `node >=18`, while workflows currently include Node 20, 24, and 25 lanes.
