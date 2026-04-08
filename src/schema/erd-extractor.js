@@ -5,9 +5,18 @@ const { canonicalEntityName, normalizeErdModel } = require('./erd-model');
 
 const DEFAULT_IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
 const SOURCE_PRECEDENCE = Object.freeze(['prisma', 'sql']);
+const SOURCE_FILE_PATTERNS = Object.freeze({
+  prisma: '**/schema.prisma',
+  sql: '**/*.sql',
+});
 const PRISMA_SCALAR_TYPES = new Set(['String', 'Int', 'BigInt', 'Float', 'Decimal', 'Boolean', 'DateTime', 'Json', 'Bytes']);
 const SQL_IDENTIFIER_SOURCE = '(?:["`][^"`]+["`]|[A-Za-z_][A-Za-z0-9_]*)';
 const SQL_QUALIFIED_IDENTIFIER_SOURCE = `${SQL_IDENTIFIER_SOURCE}(?:\\s*\\.\\s*${SQL_IDENTIFIER_SOURCE})?`;
+const SQL_CREATE_TABLE_RE = new RegExp(
+  `\\bcreate\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?(${SQL_QUALIFIED_IDENTIFIER_SOURCE})\\s*\\(([\\s\\S]*?)\\)\\s*(?:;|(?=\\s*(?:create\\s+table\\b|$)))`,
+  'gi'
+);
+const SQL_INLINE_REFERENCES_RE = new RegExp(`\\breferences\\s+(${SQL_QUALIFIED_IDENTIFIER_SOURCE})`, 'i');
 
 function parsePrismaField(line) {
   const trimmed = line.trim();
@@ -128,14 +137,10 @@ function tableNameFromSql(token) {
 function parseSqlSchema(fileContent) {
   const entities = [];
   const relationships = [];
-  const createTableRe = new RegExp(
-    `\\bcreate\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?(${SQL_QUALIFIED_IDENTIFIER_SOURCE})\\s*\\(([\\s\\S]*?)\\)\\s*(?:;|(?=\\s*(?:create\\s+table\\b|$)))`,
-    'gi'
-  );
-  const inlineReferencesRe = new RegExp(`\\breferences\\s+(${SQL_QUALIFIED_IDENTIFIER_SOURCE})`, 'i');
   let tableMatch;
+  SQL_CREATE_TABLE_RE.lastIndex = 0;
 
-  while ((tableMatch = createTableRe.exec(fileContent)) !== null) {
+  while ((tableMatch = SQL_CREATE_TABLE_RE.exec(fileContent)) !== null) {
     const tableName = tableNameFromSql(tableMatch[1]);
     const body = tableMatch[2];
     const definitions = splitSqlDefinitions(body);
@@ -146,7 +151,7 @@ function parseSqlSchema(fileContent) {
       if (!line) continue;
 
       if (/^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i.test(line)) {
-        const fkConstraint = line.match(inlineReferencesRe);
+        const fkConstraint = line.match(SQL_INLINE_REFERENCES_RE);
         if (fkConstraint) {
           relationships.push({
             fromEntity: tableName,
@@ -169,7 +174,7 @@ function parseSqlSchema(fileContent) {
       if (/\bprimary\s+key\b/i.test(remainder)) keyFlags.push('PK');
       if (/\bunique\b/i.test(remainder)) keyFlags.push('UK');
 
-      const referencesMatch = remainder.match(inlineReferencesRe);
+      const referencesMatch = remainder.match(SQL_INLINE_REFERENCES_RE);
       if (referencesMatch) {
         keyFlags.push('FK');
         relationships.push({
@@ -196,6 +201,17 @@ function parseSqlSchema(fileContent) {
   }
 
   return { entities, relationships };
+}
+
+function parseSchemaSource(source, content) {
+  if (source === 'prisma') return parsePrismaSchema(content);
+  if (source === 'sql') return parseSqlSchema(content);
+  throw new Error(`unsupported schema source: ${source}`);
+}
+
+function appendParseDiagnostics(diagnostics, parseErrors) {
+  if (parseErrors.length === 0) return;
+  diagnostics.push(...parseErrors.map((error) => `${error.source}:${error.file}: ${error.message}`));
 }
 
 function inferRelationshipsFromForeignKeyNames(entities, explicitRelationships) {
@@ -255,19 +271,17 @@ function extractErdModel({ rootPath }) {
     return result;
   }
 
-  const prismaFiles = globSync('**/schema.prisma', {
-    cwd: rootPath,
-    absolute: true,
-    ignore: DEFAULT_IGNORE,
-    nodir: true,
-  }).sort();
-  const sqlFiles = globSync('**/*.sql', {
-    cwd: rootPath,
-    absolute: true,
-    ignore: DEFAULT_IGNORE,
-    nodir: true,
-  }).sort();
-  const sourceCandidates = { prisma: prismaFiles, sql: sqlFiles };
+  const sourceCandidates = Object.fromEntries(
+    SOURCE_PRECEDENCE.map((source) => [
+      source,
+      globSync(SOURCE_FILE_PATTERNS[source], {
+        cwd: rootPath,
+        absolute: true,
+        ignore: DEFAULT_IGNORE,
+        nodir: true,
+      }).sort(),
+    ])
+  );
 
   const entities = [];
   const relationships = [];
@@ -278,7 +292,7 @@ function extractErdModel({ rootPath }) {
     for (const filePath of files) {
       try {
         const content = fs.readFileSync(filePath, 'utf8');
-        const parsed = source === 'prisma' ? parsePrismaSchema(content) : parseSqlSchema(content);
+        const parsed = parseSchemaSource(source, content);
         entities.push(...parsed.entities);
         relationships.push(...parsed.relationships);
         result.sourceFiles.push(path.relative(rootPath, filePath));
@@ -315,21 +329,14 @@ function extractErdModel({ rootPath }) {
     result.diagnostics.push('no supported schema sources found (expected schema.prisma or .sql files)');
   } else if (model.entities.length === 0) {
     result.terminalClass = 'failed_parse';
-    if (parseErrors.length > 0) {
-      result.diagnostics.push(
-        ...parseErrors.map((error) => `${error.source}:${error.file}: ${error.message}`)
-      );
-    } else {
+    if (parseErrors.length === 0) {
       result.diagnostics.push(
         'schema sources found but no ERD entities extracted (check supported model shapes)'
       );
     }
+    appendParseDiagnostics(result.diagnostics, parseErrors);
   } else {
-    if (parseErrors.length > 0) {
-      result.diagnostics.push(
-        ...parseErrors.map((error) => `${error.source}:${error.file}: ${error.message}`)
-      );
-    }
+    appendParseDiagnostics(result.diagnostics, parseErrors);
     result.terminalClass = 'completed';
   }
 
