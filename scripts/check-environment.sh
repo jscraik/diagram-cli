@@ -7,21 +7,19 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 CONTRACT_PATH="$REPO_ROOT/harness.contract.json"
-ATTESTATION_PATH="$REPO_ROOT/artifacts/policy/environment-attestation.json"
-MISE_PATH="$REPO_ROOT/.mise.toml"
-CODEX_ENVIRONMENT_PATH="$REPO_ROOT/.codex/environments/environment.toml"
-MAKEFILE_PATH="$REPO_ROOT/Makefile"
-PREK_CONFIG_PATH="$REPO_ROOT/prek.toml"
-PACKAGE_JSON_PATH="$REPO_ROOT/package.json"
-TOOLING_DOC_PRIMARY_PATH="$HOME/dev/configs/codex/instructions/tooling.md"
-TOOLING_DOC_LEGACY_PATH="$HOME/dev/config/codex/instructions/tooling.md"
-TOOLING_DOC_PATH="${TOOLING_DOC_PATH:-}"
+	ATTESTATION_PATH="$REPO_ROOT/artifacts/policy/environment-attestation.json"
+	MISE_PATH="$REPO_ROOT/.mise.toml"
+	CODEX_ENVIRONMENT_PATH="$REPO_ROOT/.codex/environments/environment.toml"
+	MAKEFILE_PATH="$REPO_ROOT/Makefile"
+	PREK_CONFIG_PATH="$REPO_ROOT/prek.toml"
+	PACKAGE_JSON_PATH="$REPO_ROOT/package.json"
+	TOOLING_DOC_PATH="${TOOLING_DOC_PATH:-}"
 
 if [[ -z "$TOOLING_DOC_PATH" ]]; then
-	if [[ -f "$TOOLING_DOC_PRIMARY_PATH" ]]; then
-		TOOLING_DOC_PATH="$TOOLING_DOC_PRIMARY_PATH"
+	if [[ -f "$HOME/dev/configs/codex/instructions/tooling.md" ]]; then
+		TOOLING_DOC_PATH="$HOME/dev/configs/codex/instructions/tooling.md"
 	else
-		TOOLING_DOC_PATH="$TOOLING_DOC_LEGACY_PATH"
+		TOOLING_DOC_PATH="$HOME/dev/config/codex/instructions/tooling.md"
 	fi
 fi
 
