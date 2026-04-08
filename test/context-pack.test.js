@@ -93,6 +93,7 @@ describe('context pack helpers', () => {
 
       const contextText = fs.readFileSync(outputPath, 'utf8');
       expect(result.embeddedCount).to.be.at.most(2);
+      expect(Buffer.byteLength(contextText, 'utf8')).to.be.at.most(1400);
       expect(contextText).to.include('## Omitted Diagrams');
       expect(contextText).to.include('Machine-oriented context for agents');
       expect(contextText).to.include('Note: truncated to 12 lines');

@@ -3,6 +3,7 @@ const path = require('path');
 const { glob } = require('glob');
 const chalk = require('chalk');
 const crypto = require('crypto');
+const { estimateTokensFromBytes } = require('../artifacts/artifact-budget');
 
 function detectLanguage(filePath) {
   if (typeof filePath !== 'string') return 'unknown';
@@ -1439,7 +1440,7 @@ function toManifestEntry(type, filePath, mermaidCode, rootPath) {
     outputPath: rootPath ? path.relative(rootPath, filePath) : filePath,
     lines: lines.length,
     bytes,
-    approxTokens: Math.ceil(bytes / 4),
+    approxTokens: estimateTokensFromBytes(bytes),
     isPlaceholder: isPlaceholderDiagram(mermaidCode),
   };
 }

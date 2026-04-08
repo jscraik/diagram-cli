@@ -143,8 +143,8 @@ function normalizeDiagramManifest({ rootDir, tmpDir, manifestPath }) {
   let sourceManifest = {};
   try {
     sourceManifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  } catch (_error) {
-    sourceManifest = {};
+  } catch (error) {
+    throw new Error(`Failed to read diagram manifest at ${manifestPath}: ${error.message}`);
   }
 
   const diagramFiles = readdirSync(diagramsDir).filter((entry) => entry.endsWith('.mmd'));
@@ -188,7 +188,9 @@ function normalizeDiagramManifest({ rootDir, tmpDir, manifestPath }) {
     });
 
   const manifest = {
-    generatedAt: new Date().toISOString(),
+    ...(typeof sourceManifest.generatedAt === 'string' && sourceManifest.generatedAt
+      ? { generatedAt: sourceManifest.generatedAt }
+      : {}),
     rootPath: rootDir,
     diagramDir: '.diagram',
     ...(sourceManifest && typeof sourceManifest.compaction === 'object'

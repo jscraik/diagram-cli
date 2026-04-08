@@ -101,12 +101,14 @@ ROOT_DIR="$ROOT_DIR" TMP_DIR="$TMP_DIR" MANIFEST_PATH="$MANIFEST_PATH" \
 	node "$ROOT_DIR/src/context/normalize-diagram-manifest.js"
 
 TMP_CONTEXT="$TMP_DIR/diagram-context.md"
+TMP_CONTEXT_META="$TMP_DIR/diagram-context.meta.json"
 ROOT_DIR="$ROOT_DIR" \
 TMP_DIR="$TMP_DIR" \
 CONTEXT_MAX_BYTES="$CONTEXT_MAX_BYTES" \
 CONTEXT_MAX_LINES_PER_DIAGRAM="$CONTEXT_MAX_LINES_PER_DIAGRAM" \
 CONTEXT_MAX_EMBEDDED_DIAGRAMS="$CONTEXT_MAX_EMBEDDED_DIAGRAMS" \
 CONTEXT_OUTPUT_PATH="$TMP_CONTEXT" \
+CONTEXT_META_OUTPUT_PATH="$TMP_CONTEXT_META" \
 	node "$ROOT_DIR/src/context/build-context-pack.js"
 
 CONTEXT_SHA="$(shasum -a 256 "$TMP_CONTEXT" | awk '{print $1}')"
@@ -139,9 +141,11 @@ jq --tab -n \
 	--argjson last_generated_epoch "$NOW_EPOCH" \
 	--argjson min_interval_seconds "$MIN_SECONDS" \
 	--arg changed "$CHANGED" \
+	--arg root_path "$ROOT_DIR" \
 	'{
 		schema_version: 1,
 		generated_at: $generated_at,
+		root_path: $root_path,
 		git_head: $git_head,
 		context_sha256: $context_sha256,
 		context_bytes: $context_bytes,

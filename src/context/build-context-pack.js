@@ -27,6 +27,29 @@ function trimToMaxLines(content, maxLines) {
   };
 }
 
+function buildOmittedSection(omittedTypes, compact = false) {
+  if (!Array.isArray(omittedTypes) || omittedTypes.length === 0) {
+    return '';
+  }
+
+  if (compact) {
+    return [
+      '## Omitted Diagrams',
+      '',
+      `Omitted from embedding due to budget/profile constraints: ${omittedTypes.length} diagram(s).`,
+      '',
+    ].join('\n');
+  }
+
+  return [
+    '## Omitted Diagrams',
+    '',
+    `Omitted from embedding due to budget/profile constraints: ${omittedTypes.join(', ')}`,
+    'Use `.diagram/*.mmd` files directly for full-fidelity diagram content.',
+    '',
+  ].join('\n');
+}
+
 function buildContextPack({
   rootDir,
   tmpDir,
@@ -34,6 +57,7 @@ function buildContextPack({
   contextMaxLinesPerDiagram = 140,
   contextMaxEmbeddedDiagrams = 3,
   contextPath,
+  contextMetaPath,
 }) {
   if (!rootDir || !tmpDir || !contextPath) {
     throw new Error('buildContextPack requires rootDir, tmpDir, and contextPath');
@@ -52,8 +76,6 @@ function buildContextPack({
     '',
     'Machine-oriented context for agents. This pack is intentionally compact and token-budgeted.',
     '',
-    `Generated: ${nowIso}`,
-    `Root: ${rootDir}`,
     `Context byte budget: ${contextMaxBytes}`,
     `Max embedded diagrams: ${contextMaxEmbeddedDiagrams}`,
     `Max lines per embedded diagram: ${contextMaxLinesPerDiagram}`,
@@ -74,11 +96,14 @@ function buildContextPack({
   headerLines.push('## Embedded Mermaid (Budgeted)');
   headerLines.push('');
 
-  let contextText = `${headerLines.join('\n')}\n`;
+  const headerText = `${headerLines.join('\n')}\n`;
+  let contextText = headerText;
   let embeddedCount = 0;
   const omittedTypes = [];
+  const includedSections = [];
 
-  for (const entry of sortedDiagrams) {
+  for (let index = 0; index < sortedDiagrams.length; index += 1) {
+    const entry = sortedDiagrams[index];
     if (embeddedCount >= contextMaxEmbeddedDiagrams) {
       omittedTypes.push(entry.type);
       continue;
@@ -109,32 +134,66 @@ function buildContextPack({
       omittedTypes.push(entry.type);
       continue;
     }
+
+    const remainingTypes = sortedDiagrams
+      .slice(index + 1)
+      .map((remaining) => remaining.type);
+    const reservedOmittedSection = buildOmittedSection(
+      omittedTypes.concat(remainingTypes)
+    );
+    if (Buffer.byteLength(next + reservedOmittedSection, 'utf8') > contextMaxBytes) {
+      omittedTypes.push(entry.type);
+      continue;
+    }
+
     contextText = next;
     embeddedCount += 1;
+    includedSections.push({ type: entry.type, section });
   }
 
-  if (omittedTypes.length > 0) {
-    contextText += [
-      '## Omitted Diagrams',
-      '',
-      `Omitted from embedding due to budget/profile constraints: ${omittedTypes.join(', ')}`,
-      'Use `.diagram/*.mmd` files directly for full-fidelity diagram content.',
-      '',
-    ].join('\n');
+  let omittedSection = buildOmittedSection(omittedTypes);
+  while (
+    Buffer.byteLength(contextText + omittedSection, 'utf8') > contextMaxBytes
+    && includedSections.length > 0
+  ) {
+    const removed = includedSections.pop();
+    embeddedCount = Math.max(embeddedCount - 1, 0);
+    omittedTypes.push(removed.type);
+    contextText = headerText + includedSections.map((entry) => entry.section).join('');
+    omittedSection = buildOmittedSection(omittedTypes);
   }
 
-  writeFileSync(contextPath, contextText);
-  return {
+  if (
+    Buffer.byteLength(contextText + omittedSection, 'utf8') > contextMaxBytes
+    && omittedTypes.length > 0
+  ) {
+    omittedSection = buildOmittedSection(omittedTypes, true);
+  }
+
+  if (Buffer.byteLength(contextText + omittedSection, 'utf8') > contextMaxBytes) {
+    omittedSection = '';
+  }
+
+  contextText += omittedSection;
+  const result = {
+    generatedAt: nowIso,
+    rootPath: rootDir,
     embeddedCount,
     omittedTypes,
     bytes: Buffer.byteLength(contextText, 'utf8'),
   };
+  writeFileSync(contextPath, contextText);
+  if (contextMetaPath) {
+    writeFileSync(contextMetaPath, `${JSON.stringify(result, null, 2)}\n`);
+  }
+  return result;
 }
 
 function runFromEnv() {
   const rootDir = process.env.ROOT_DIR;
   const tmpDir = process.env.TMP_DIR;
   const contextPath = process.env.CONTEXT_OUTPUT_PATH;
+  const contextMetaPath = process.env.CONTEXT_META_OUTPUT_PATH;
   const contextMaxBytes = parsePositiveInt(process.env.CONTEXT_MAX_BYTES || '12000', 12000);
   const contextMaxLinesPerDiagram = parsePositiveInt(
     process.env.CONTEXT_MAX_LINES_PER_DIAGRAM || '140',
@@ -149,6 +208,7 @@ function runFromEnv() {
     rootDir,
     tmpDir,
     contextPath,
+    contextMetaPath,
     contextMaxBytes,
     contextMaxLinesPerDiagram,
     contextMaxEmbeddedDiagrams,
