@@ -13,7 +13,15 @@ CONTRACT_PATH="$REPO_ROOT/harness.contract.json"
 	MAKEFILE_PATH="$REPO_ROOT/Makefile"
 	PREK_CONFIG_PATH="$REPO_ROOT/prek.toml"
 	PACKAGE_JSON_PATH="$REPO_ROOT/package.json"
-	TOOLING_DOC_PATH="${TOOLING_DOC_PATH:-$HOME/dev/config/codex/instructions/tooling.md}"
+	TOOLING_DOC_PATH="${TOOLING_DOC_PATH:-}"
+
+if [[ -z "$TOOLING_DOC_PATH" ]]; then
+	if [[ -f "$HOME/dev/configs/codex/instructions/tooling.md" ]]; then
+		TOOLING_DOC_PATH="$HOME/dev/configs/codex/instructions/tooling.md"
+	else
+		TOOLING_DOC_PATH="$HOME/dev/config/codex/instructions/tooling.md"
+	fi
+fi
 
 if [[ ! -f "$CONTRACT_PATH" ]]; then
 	echo "Error: missing contract file at $CONTRACT_PATH"
