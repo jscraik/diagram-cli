@@ -4,8 +4,26 @@ const { globSync } = require('glob');
 const { canonicalEntityName, normalizeErdModel } = require('./erd-model');
 
 const DEFAULT_IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
-const SOURCE_PRECEDENCE = Object.freeze(['prisma']);
+const SOURCE_PRECEDENCE = Object.freeze(['prisma', 'sql']);
+const SOURCE_FILE_PATTERNS = Object.freeze({
+  prisma: '**/schema.prisma',
+  sql: '**/*.sql',
+});
 const PRISMA_SCALAR_TYPES = new Set(['String', 'Int', 'BigInt', 'Float', 'Decimal', 'Boolean', 'DateTime', 'Json', 'Bytes']);
+const SQL_IDENTIFIER_SOURCE = '(?:["`][^"`]+["`]|[A-Za-z_][A-Za-z0-9_]*)';
+const SQL_QUALIFIED_IDENTIFIER_SOURCE = `${SQL_IDENTIFIER_SOURCE}(?:\\s*\\.\\s*${SQL_IDENTIFIER_SOURCE})?`;
+const SQL_CREATE_TABLE_RE = new RegExp(
+  `\\bcreate\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?(${SQL_QUALIFIED_IDENTIFIER_SOURCE})\\s*\\(([\\s\\S]*?)\\)\\s*(?:;|(?=\\s*(?:create\\s+table\\b|$)))`,
+  'gi'
+);
+const SQL_INLINE_REFERENCES_RE = new RegExp(`\\breferences\\s+(${SQL_QUALIFIED_IDENTIFIER_SOURCE})`, 'i');
+const SQL_TABLE_PRIMARY_KEY_RE = /^(?:constraint\s+\S+\s+)?primary\s+key\s*\(([^)]+)\)/i;
+const SQL_TABLE_UNIQUE_RE = /^(?:constraint\s+\S+\s+)?unique\s*\(([^)]+)\)/i;
+const SQL_TABLE_FOREIGN_KEY_RE = new RegExp(
+  `^(?:constraint\\s+\\S+\\s+)?foreign\\s+key\\s*\\(([^)]+)\\)\\s+references\\s+(${SQL_QUALIFIED_IDENTIFIER_SOURCE})`,
+  'i'
+);
+const SQL_TABLE_CONSTRAINT_LINE_RE = /^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i;
 
 function parsePrismaField(line) {
   const trimmed = line.trim();
@@ -98,6 +116,156 @@ function parsePrismaSchema(fileContent) {
   return { entities, relationships };
 }
 
+function splitSqlDefinitions(body) {
+  const chunks = [];
+  let cursor = '';
+  let depth = 0;
+  for (const char of body) {
+    if (char === '(') depth += 1;
+    if (char === ')') depth = Math.max(0, depth - 1);
+    if (char === ',' && depth === 0) {
+      chunks.push(cursor.trim());
+      cursor = '';
+      continue;
+    }
+    cursor += char;
+  }
+  if (cursor.trim()) chunks.push(cursor.trim());
+  return chunks;
+}
+
+function tableNameFromSql(token) {
+  const normalized = String(token || '').trim().replace(/\s*\.\s*/g, '.');
+  if (!normalized) return '';
+  const base = normalized.split('.').pop() || normalized;
+  return base.replace(/^["`]/, '').replace(/["`]$/, '');
+}
+
+function parseSqlIdentifierList(tokenList) {
+  return String(tokenList || '')
+    .split(',')
+    .map((token) => tableNameFromSql(token))
+    .filter(Boolean);
+}
+
+function addSqlKeyFlags(attributeMap, columns, flag) {
+  for (const column of columns) {
+    const attribute = attributeMap.get(String(column).toLowerCase());
+    if (!attribute) continue;
+    if (!attribute.keyFlags.includes(flag)) {
+      attribute.keyFlags.push(flag);
+    }
+  }
+}
+
+function pushExplicitSqlRelationship(relationships, fromEntity, toEntityToken) {
+  const toEntity = tableNameFromSql(toEntityToken);
+  if (!toEntity) return;
+  relationships.push({
+    fromEntity,
+    toEntity,
+    cardinality: '}o--||',
+    provenance: 'explicit',
+  });
+}
+
+function applyTableConstraint(line, tableName, attributeMap, relationships) {
+  const primaryMatch = line.match(SQL_TABLE_PRIMARY_KEY_RE);
+  if (primaryMatch) {
+    addSqlKeyFlags(attributeMap, parseSqlIdentifierList(primaryMatch[1]), 'PK');
+    return;
+  }
+
+  const uniqueMatch = line.match(SQL_TABLE_UNIQUE_RE);
+  if (uniqueMatch) {
+    addSqlKeyFlags(attributeMap, parseSqlIdentifierList(uniqueMatch[1]), 'UK');
+    return;
+  }
+
+  const foreignKeyMatch = line.match(SQL_TABLE_FOREIGN_KEY_RE);
+  if (!foreignKeyMatch) return;
+
+  addSqlKeyFlags(attributeMap, parseSqlIdentifierList(foreignKeyMatch[1]), 'FK');
+  pushExplicitSqlRelationship(relationships, tableName, foreignKeyMatch[2]);
+}
+
+function parseSqlSchema(fileContent) {
+  const entities = [];
+  const relationships = [];
+  let tableMatch;
+  SQL_CREATE_TABLE_RE.lastIndex = 0;
+
+  while ((tableMatch = SQL_CREATE_TABLE_RE.exec(fileContent)) !== null) {
+    const tableName = tableNameFromSql(tableMatch[1]);
+    const body = tableMatch[2];
+    const definitions = splitSqlDefinitions(body);
+    const attributes = [];
+    const tableConstraints = [];
+
+    for (const definition of definitions) {
+      const line = definition.trim();
+      if (!line) continue;
+
+      if (SQL_TABLE_CONSTRAINT_LINE_RE.test(line)) {
+        tableConstraints.push(line);
+        continue;
+      }
+
+      const columnMatch = line.match(/^([`"]?[A-Za-z_][A-Za-z0-9_]*[`"]?)\s+([A-Za-z0-9_()]+)([\s\S]*)$/);
+      if (!columnMatch) continue;
+      const columnName = tableNameFromSql(columnMatch[1]);
+      const columnType = columnMatch[2];
+      const remainder = columnMatch[3] || '';
+      const remainderLower = remainder.toLowerCase();
+      const keyFlags = [];
+
+      if (/\bprimary\s+key\b/i.test(remainder)) keyFlags.push('PK');
+      if (/\bunique\b/i.test(remainder)) keyFlags.push('UK');
+
+      const referencesMatch = remainder.match(SQL_INLINE_REFERENCES_RE);
+      if (referencesMatch) {
+        keyFlags.push('FK');
+        pushExplicitSqlRelationship(relationships, tableName, referencesMatch[1]);
+      }
+
+      attributes.push({
+        name: columnName,
+        type: columnType.toLowerCase(),
+        nullable: !/\bnot\s+null\b/.test(remainderLower),
+        keyFlags,
+      });
+    }
+
+    if (tableConstraints.length > 0) {
+      const attributeMap = new Map(
+        attributes.map((attribute) => [String(attribute.name).toLowerCase(), attribute])
+      );
+      for (const constraintLine of tableConstraints) {
+        applyTableConstraint(constraintLine, tableName, attributeMap, relationships);
+      }
+    }
+
+    entities.push({
+      name: tableName,
+      source: 'explicit',
+      attributes,
+    });
+  }
+
+  return { entities, relationships };
+}
+
+function parseSchemaSource(source, content) {
+  if (source === 'prisma') return parsePrismaSchema(content);
+  if (source === 'sql') return parseSqlSchema(content);
+  throw new Error(`unsupported schema source: ${source}`);
+}
+
+function appendParseDiagnostics(diagnostics, parseErrors) {
+  if (parseErrors.length === 0) return;
+  diagnostics.push(...parseErrors.map((error) => `${error.source}:${error.file}: ${error.message}`));
+}
+
 function inferRelationshipsFromForeignKeyNames(entities, explicitRelationships) {
   const byEntity = new Map(entities.map((entity) => [canonicalEntityName(entity.name), entity]));
   const explicitKeys = new Set(
@@ -155,30 +323,38 @@ function extractErdModel({ rootPath }) {
     return result;
   }
 
-  const prismaFiles = globSync('**/schema.prisma', {
-    cwd: rootPath,
-    absolute: true,
-    ignore: DEFAULT_IGNORE,
-    nodir: true,
-  }).sort();
+  const sourceCandidates = Object.fromEntries(
+    SOURCE_PRECEDENCE.map((source) => [
+      source,
+      globSync(SOURCE_FILE_PATTERNS[source], {
+        cwd: rootPath,
+        absolute: true,
+        ignore: DEFAULT_IGNORE,
+        nodir: true,
+      }).sort(),
+    ])
+  );
 
   const entities = [];
   const relationships = [];
   const parseErrors = [];
 
-  for (const filePath of prismaFiles) {
-    try {
-      const content = fs.readFileSync(filePath, 'utf8');
-      const parsed = parsePrismaSchema(content);
-      entities.push(...parsed.entities);
-      relationships.push(...parsed.relationships);
-      result.sourceFiles.push(path.relative(rootPath, filePath));
-    } catch (error) {
-      parseErrors.push({
-        source: 'prisma',
-        file: path.relative(rootPath, filePath),
-        message: error.message,
-      });
+  for (const source of SOURCE_PRECEDENCE) {
+    const files = sourceCandidates[source] || [];
+    for (const filePath of files) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const parsed = parseSchemaSource(source, content);
+        entities.push(...parsed.entities);
+        relationships.push(...parsed.relationships);
+        result.sourceFiles.push(path.relative(rootPath, filePath));
+      } catch (error) {
+        parseErrors.push({
+          source,
+          file: path.relative(rootPath, filePath),
+          message: error.message,
+        });
+      }
     }
   }
 
@@ -202,24 +378,17 @@ function extractErdModel({ rootPath }) {
 
   if (result.sourceFiles.length === 0 && parseErrors.length === 0) {
     result.terminalClass = 'failed_no_schema';
-    result.diagnostics.push('no supported schema sources found (expected schema.prisma files)');
+    result.diagnostics.push('no supported schema sources found (expected schema.prisma or .sql files)');
   } else if (model.entities.length === 0) {
     result.terminalClass = 'failed_parse';
-    if (parseErrors.length > 0) {
-      result.diagnostics.push(
-        ...parseErrors.map((error) => `${error.source}:${error.file}: ${error.message}`)
-      );
-    } else {
+    if (parseErrors.length === 0) {
       result.diagnostics.push(
         'schema sources found but no ERD entities extracted (check supported model shapes)'
       );
     }
+    appendParseDiagnostics(result.diagnostics, parseErrors);
   } else {
-    if (parseErrors.length > 0) {
-      result.diagnostics.push(
-        ...parseErrors.map((error) => `${error.source}:${error.file}: ${error.message}`)
-      );
-    }
+    appendParseDiagnostics(result.diagnostics, parseErrors);
     result.terminalClass = 'completed';
   }
 
