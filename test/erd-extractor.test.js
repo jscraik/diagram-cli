@@ -67,6 +67,42 @@ describe('erd extractor', () => {
     )).to.equal(true);
   });
 
+  it('extracts table-level SQL constraints into key flags and relationships', () => {
+    const extracted = extractErdModel({ rootPath: fixturePath('sql-table-constraints') });
+
+    expect(extracted.terminalClass).to.equal('completed');
+
+    const users = extracted.model.entities.find((entity) => entity.name === 'USERS');
+    expect(users).to.exist;
+    const userId = users.attributes.find((attribute) => attribute.name === 'id');
+    const email = users.attributes.find((attribute) => attribute.name === 'email');
+    expect(userId.keyFlags).to.include('PK');
+    expect(email.keyFlags).to.include('UK');
+
+    const sessions = extracted.model.entities.find((entity) => entity.name === 'SESSIONS');
+    expect(sessions).to.exist;
+    const userIdFk = sessions.attributes.find((attribute) => attribute.name === 'user_id');
+    expect(userIdFk.keyFlags).to.include('FK');
+
+    expect(extracted.model.relationships.some((relationship) =>
+      relationship.fromEntity === 'SESSIONS'
+      && relationship.toEntity === 'USERS'
+      && relationship.provenance === 'explicit'
+    )).to.equal(true);
+  });
+
+  it('parses sequential SQL CREATE TABLE blocks without semicolons', () => {
+    const extracted = extractErdModel({ rootPath: fixturePath('sql-no-semicolon') });
+
+    expect(extracted.terminalClass).to.equal('completed');
+    expect(extracted.model.entities.map((entity) => entity.name)).to.deep.equal(['COMMENTS', 'USERS']);
+    expect(extracted.model.relationships.some((relationship) =>
+      relationship.fromEntity === 'COMMENTS'
+      && relationship.toEntity === 'USERS'
+      && relationship.provenance === 'explicit'
+    )).to.equal(true);
+  });
+
   it('marks sources with no extractable entities as failed_parse', () => {
     const extracted = extractErdModel({ rootPath: fixturePath('sql-no-table') });
 
