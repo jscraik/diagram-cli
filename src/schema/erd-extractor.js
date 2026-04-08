@@ -4,8 +4,10 @@ const { globSync } = require('glob');
 const { canonicalEntityName, normalizeErdModel } = require('./erd-model');
 
 const DEFAULT_IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
-const SOURCE_PRECEDENCE = Object.freeze(['prisma']);
+const SOURCE_PRECEDENCE = Object.freeze(['prisma', 'sql']);
 const PRISMA_SCALAR_TYPES = new Set(['String', 'Int', 'BigInt', 'Float', 'Decimal', 'Boolean', 'DateTime', 'Json', 'Bytes']);
+const SQL_IDENTIFIER_SOURCE = '(?:["`][^"`]+["`]|[A-Za-z_][A-Za-z0-9_]*)';
+const SQL_QUALIFIED_IDENTIFIER_SOURCE = `${SQL_IDENTIFIER_SOURCE}(?:\\s*\\.\\s*${SQL_IDENTIFIER_SOURCE})?`;
 
 function parsePrismaField(line) {
   const trimmed = line.trim();
@@ -98,6 +100,104 @@ function parsePrismaSchema(fileContent) {
   return { entities, relationships };
 }
 
+function splitSqlDefinitions(body) {
+  const chunks = [];
+  let cursor = '';
+  let depth = 0;
+  for (const char of body) {
+    if (char === '(') depth += 1;
+    if (char === ')') depth = Math.max(0, depth - 1);
+    if (char === ',' && depth === 0) {
+      chunks.push(cursor.trim());
+      cursor = '';
+      continue;
+    }
+    cursor += char;
+  }
+  if (cursor.trim()) chunks.push(cursor.trim());
+  return chunks;
+}
+
+function tableNameFromSql(token) {
+  const normalized = String(token || '').trim().replace(/\s*\.\s*/g, '.');
+  if (!normalized) return '';
+  const base = normalized.split('.').pop() || normalized;
+  return base.replace(/^["`]/, '').replace(/["`]$/, '');
+}
+
+function parseSqlSchema(fileContent) {
+  const entities = [];
+  const relationships = [];
+  const createTableRe = new RegExp(
+    `\\bcreate\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?(${SQL_QUALIFIED_IDENTIFIER_SOURCE})\\s*\\(([\\s\\S]*?)\\)\\s*(?:;|(?=\\s*(?:create\\s+table\\b|$)))`,
+    'gi'
+  );
+  const inlineReferencesRe = new RegExp(`\\breferences\\s+(${SQL_QUALIFIED_IDENTIFIER_SOURCE})`, 'i');
+  let tableMatch;
+
+  while ((tableMatch = createTableRe.exec(fileContent)) !== null) {
+    const tableName = tableNameFromSql(tableMatch[1]);
+    const body = tableMatch[2];
+    const definitions = splitSqlDefinitions(body);
+    const attributes = [];
+
+    for (const definition of definitions) {
+      const line = definition.trim();
+      if (!line) continue;
+
+      if (/^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i.test(line)) {
+        const fkConstraint = line.match(inlineReferencesRe);
+        if (fkConstraint) {
+          relationships.push({
+            fromEntity: tableName,
+            toEntity: tableNameFromSql(fkConstraint[1]),
+            cardinality: '}o--||',
+            provenance: 'explicit',
+          });
+        }
+        continue;
+      }
+
+      const columnMatch = line.match(/^([`"]?[A-Za-z_][A-Za-z0-9_]*[`"]?)\s+([A-Za-z0-9_()]+)([\s\S]*)$/);
+      if (!columnMatch) continue;
+      const columnName = tableNameFromSql(columnMatch[1]);
+      const columnType = columnMatch[2];
+      const remainder = columnMatch[3] || '';
+      const remainderLower = remainder.toLowerCase();
+      const keyFlags = [];
+
+      if (/\bprimary\s+key\b/i.test(remainder)) keyFlags.push('PK');
+      if (/\bunique\b/i.test(remainder)) keyFlags.push('UK');
+
+      const referencesMatch = remainder.match(inlineReferencesRe);
+      if (referencesMatch) {
+        keyFlags.push('FK');
+        relationships.push({
+          fromEntity: tableName,
+          toEntity: tableNameFromSql(referencesMatch[1]),
+          cardinality: '}o--||',
+          provenance: 'explicit',
+        });
+      }
+
+      attributes.push({
+        name: columnName,
+        type: columnType.toLowerCase(),
+        nullable: !/\bnot\s+null\b/.test(remainderLower),
+        keyFlags,
+      });
+    }
+
+    entities.push({
+      name: tableName,
+      source: 'explicit',
+      attributes,
+    });
+  }
+
+  return { entities, relationships };
+}
+
 function inferRelationshipsFromForeignKeyNames(entities, explicitRelationships) {
   const byEntity = new Map(entities.map((entity) => [canonicalEntityName(entity.name), entity]));
   const explicitKeys = new Set(
@@ -161,24 +261,34 @@ function extractErdModel({ rootPath }) {
     ignore: DEFAULT_IGNORE,
     nodir: true,
   }).sort();
+  const sqlFiles = globSync('**/*.sql', {
+    cwd: rootPath,
+    absolute: true,
+    ignore: DEFAULT_IGNORE,
+    nodir: true,
+  }).sort();
+  const sourceCandidates = { prisma: prismaFiles, sql: sqlFiles };
 
   const entities = [];
   const relationships = [];
   const parseErrors = [];
 
-  for (const filePath of prismaFiles) {
-    try {
-      const content = fs.readFileSync(filePath, 'utf8');
-      const parsed = parsePrismaSchema(content);
-      entities.push(...parsed.entities);
-      relationships.push(...parsed.relationships);
-      result.sourceFiles.push(path.relative(rootPath, filePath));
-    } catch (error) {
-      parseErrors.push({
-        source: 'prisma',
-        file: path.relative(rootPath, filePath),
-        message: error.message,
-      });
+  for (const source of SOURCE_PRECEDENCE) {
+    const files = sourceCandidates[source] || [];
+    for (const filePath of files) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const parsed = source === 'prisma' ? parsePrismaSchema(content) : parseSqlSchema(content);
+        entities.push(...parsed.entities);
+        relationships.push(...parsed.relationships);
+        result.sourceFiles.push(path.relative(rootPath, filePath));
+      } catch (error) {
+        parseErrors.push({
+          source,
+          file: path.relative(rootPath, filePath),
+          message: error.message,
+        });
+      }
     }
   }
 
@@ -202,7 +312,7 @@ function extractErdModel({ rootPath }) {
 
   if (result.sourceFiles.length === 0 && parseErrors.length === 0) {
     result.terminalClass = 'failed_no_schema';
-    result.diagnostics.push('no supported schema sources found (expected schema.prisma files)');
+    result.diagnostics.push('no supported schema sources found (expected schema.prisma or .sql files)');
   } else if (model.entities.length === 0) {
     result.terminalClass = 'failed_parse';
     if (parseErrors.length > 0) {
