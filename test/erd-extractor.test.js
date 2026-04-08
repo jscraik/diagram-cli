@@ -43,4 +43,35 @@ describe('erd extractor', () => {
     expect(extracted.model.entities).to.have.length(0);
     expect(extracted.diagnostics[0]).to.include('no supported schema sources found');
   });
+
+  it('infers relationships from *_id fields when explicit FK constraints are absent', () => {
+    const extracted = extractErdModel({ rootPath: fixturePath('inferred-heavy') });
+
+    expect(extracted.terminalClass).to.equal('completed');
+    expect(extracted.model.relationships.some((relationship) =>
+      relationship.fromEntity === 'COMMENTS'
+      && relationship.toEntity === 'USERS'
+      && relationship.provenance === 'inferred'
+    )).to.equal(true);
+  });
+
+  it('supports schema-qualified SQL table names and references', () => {
+    const extracted = extractErdModel({ rootPath: fixturePath('sql-schema-qualified') });
+
+    expect(extracted.terminalClass).to.equal('completed');
+    expect(extracted.model.entities.map((entity) => entity.name)).to.deep.equal(['SESSIONS', 'USERS']);
+    expect(extracted.model.relationships.some((relationship) =>
+      relationship.fromEntity === 'SESSIONS'
+      && relationship.toEntity === 'USERS'
+      && relationship.provenance === 'explicit'
+    )).to.equal(true);
+  });
+
+  it('marks sources with no extractable entities as failed_parse', () => {
+    const extracted = extractErdModel({ rootPath: fixturePath('sql-no-table') });
+
+    expect(extracted.terminalClass).to.equal('failed_parse');
+    expect(extracted.model.entities).to.have.length(0);
+    expect(extracted.diagnostics[0]).to.include('schema sources found but no ERD entities extracted');
+  });
 });
