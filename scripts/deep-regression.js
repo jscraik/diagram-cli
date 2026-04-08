@@ -162,6 +162,9 @@ function run() {
     'src/confidence/pipeline.js',
     'src/incremental/cache.js',
     'src/ir/architecture-ir.js',
+    'src/artifacts/artifact-budget.js',
+    'src/context/normalize-diagram-manifest.js',
+    'src/context/build-context-pack.js',
     'src/analyzers/default-analyzer.js',
     'src/analyzers/index.js',
   ];
@@ -255,6 +258,54 @@ function run() {
       `manifest should include ${type} diagram`
     );
   }
+  assert.strictEqual(manifest.compaction?.profile, 'full', 'default generate-all profile should be full');
+  assert.strictEqual(manifest.compaction?.applied, false, 'full profile should not compact artifacts');
+
+  const agentOutputDir = path.join(workspace, 'all-diagrams-agent');
+  const allAgentRun = runCLI([
+    'generate-all',
+    '.',
+    '-O',
+    agentOutputDir,
+    '--artifact-profile',
+    'agent'
+  ], workspace);
+  assert.strictEqual(allAgentRun.status, 0, `agent generate-all expected success, got ${allAgentRun.status}`);
+  const agentManifest = JSON.parse(fs.readFileSync(path.join(agentOutputDir, 'manifest.json'), 'utf8'));
+  assert.strictEqual(agentManifest.compaction?.profile, 'agent', 'agent profile should be recorded in manifest');
+  assert.ok(
+    Number.isInteger(agentManifest.compaction?.maxDiagrams),
+    'agent profile should expose maxDiagrams in manifest compaction metadata'
+  );
+  assert.ok(
+    agentManifest.diagrams.length <= agentManifest.compaction.maxDiagrams,
+    'agent profile should enforce maxDiagrams limit'
+  );
+  assert.ok(
+    Array.isArray(agentManifest.compaction?.omittedTypes) && agentManifest.compaction.omittedTypes.length > 0,
+    'agent profile should record omitted diagram types'
+  );
+
+  const ultraCompactOutputDir = path.join(workspace, 'all-diagrams-ultra-compact');
+  const ultraCompactRun = runCLI([
+    'generate-all',
+    '.',
+    '-O',
+    ultraCompactOutputDir,
+    '--artifact-profile',
+    'ultra-compact'
+  ], workspace);
+  assert.strictEqual(ultraCompactRun.status, 0, `ultra-compact generate-all expected success, got ${ultraCompactRun.status}`);
+  const ultraCompactManifest = JSON.parse(fs.readFileSync(path.join(ultraCompactOutputDir, 'manifest.json'), 'utf8'));
+  assert.strictEqual(
+    ultraCompactManifest.compaction?.profile,
+    'ultra-compact',
+    'ultra-compact profile should be recorded in manifest'
+  );
+  assert.ok(
+    ultraCompactManifest.diagrams.length <= ultraCompactManifest.compaction.maxDiagrams,
+    'ultra-compact profile should enforce stricter maxDiagrams limit'
+  );
 
 
   // Confidence pipeline capability checks should produce report artifact

@@ -55,7 +55,7 @@ This produces `pr-impact.html` and JSON artifacts for structured PR review narra
 ### AI-Focused Pipeline Outputs
 For AI agents (e.g., Cursor, GitHub Copilot), feeding `.mmd` files is far more efficient than loading the entire source tree into context. Run:
 ```bash
-diagram generate-all . --output-dir .diagram
+diagram generate-all . --output-dir .diagram --artifact-profile agent
 ```
 This produces minimal, highly textual context maps (e.g., Databases, User paths, Auth flows).
 

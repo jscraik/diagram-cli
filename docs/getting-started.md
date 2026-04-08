@@ -34,7 +34,7 @@ npm link
 ```bash
 diagram analyze .
 diagram generate .
-diagram all .
+diagram generate-all .
 ```
 
 Without linking:
@@ -42,14 +42,14 @@ Without linking:
 ```bash
 node src/diagram.js analyze .
 node src/diagram.js generate .
-node src/diagram.js all .
+node src/diagram.js generate-all .
 ```
 
 ## Verify your setup
 
 ```bash
 node src/diagram.js --help
-node src/diagram.js test --help
+node src/diagram.js validate --help
 npm test
 ```
 
