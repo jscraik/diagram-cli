@@ -6,7 +6,10 @@ const {
   inferDbIntent,
 } = require('./analysis-generation-utils');
 const { flowNote, noteNode } = require('./analysis-generation-diagrams-empty');
-const { emitClassStyle } = require('./analysis-generation-diagrams-role-helpers');
+const {
+  emitClassStyle,
+  emitSeedNodesWithIngress,
+} = require('./analysis-generation-diagrams-role-helpers');
 
 function generateDatabase(data) {
   if (!data || !Array.isArray(data.components)) {
@@ -82,13 +85,12 @@ function generateUserInteractions(data) {
   const userNodeIds = [];
 
   lines.push('  User(("User"))');
-  for (const seed of seeds) {
-    const safe = safeNames.get(seed);
-    if (!safe) continue;
-    userNodeIds.push(safe);
-    lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
-    lines.push(`  User --> ${safe}`);
-  }
+  emitSeedNodesWithIngress(lines, seeds, safeNames, {
+    nodeIds: userNodeIds,
+    renderNode: (seed, safe) => `${safe}["${escapeMermaid(seed.originalName)}"]`,
+    ingressFrom: 'User',
+    edges,
+  });
 
   appendDependencyEdges(lines, connected, byName, safeNames, edges);
 
@@ -111,12 +113,13 @@ function generateEvents(data) {
   const { connected, byName, safeNames } = buildRoleDiagramContext(data, seeds, 2, 30);
   const edges = new Set();
   const eventNodeIds = [];
+  const eventSeedNames = new Set(seeds.map((seed) => seed.name));
 
   lines.push('  subgraph Channels["Event channels / queues"]');
   for (const component of connected) {
     const safe = safeNames.get(component);
     if (!safe) continue;
-    const isEventSource = seeds.includes(component);
+    const isEventSource = eventSeedNames.has(component.name);
     if (isEventSource) {
       eventNodeIds.push(safe);
       lines.push(`    ${safe}{{"${escapeMermaid(component.originalName)}"}}`);
@@ -132,7 +135,7 @@ function generateEvents(data) {
     byName,
     safeNames,
     edges,
-    (component) => (seeds.includes(component) ? 'emit' : 'consume')
+    (component) => (eventSeedNames.has(component.name) ? 'emit' : 'consume')
   );
 
   emitClassStyle(lines, 'eventNode', '#db2777', '#fff', eventNodeIds);

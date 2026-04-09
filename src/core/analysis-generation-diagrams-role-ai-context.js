@@ -11,6 +11,35 @@ const {
   emitSubgraph,
 } = require('./analysis-generation-diagrams-role-helpers');
 
+const EXTERNAL_CATEGORY_RULES = Object.freeze([
+  { category: 'payment', pattern: /stripe|pay|billing|invoice/ },
+  { category: 'email', pattern: /sendgrid|mail|email|smtp|postmark/ },
+  { category: 'database', pattern: /postgres|mysql|sqlite|mongo|redis|dynamo|prisma|typeorm|sequelize/ },
+  { category: 'ai', pattern: /openai|anthropic|gemini|ollama|hugging/ },
+  { category: 'vcs', pattern: /github|gitlab|bitbucket|octokit/ },
+  { category: 'messaging', pattern: /slack|discord|teams|twilio/ },
+  { category: 'cloud', pattern: /s3|gcs|azure|cloudflare|vercel|supabase/ },
+]);
+
+const CATEGORY_LABELS = Object.freeze({
+  payment: 'Payment Provider',
+  email: 'Email Service',
+  database: 'Database',
+  ai: 'AI / LLM Provider',
+  vcs: 'Version Control',
+  messaging: 'Messaging Service',
+  cloud: 'Cloud Provider',
+  external: 'External Service',
+});
+
+function classifyExternalPackage(pkg) {
+  const candidate = String(pkg || '').toLowerCase();
+  for (const rule of EXTERNAL_CATEGORY_RULES) {
+    if (rule.pattern.test(candidate)) return rule.category;
+  }
+  return 'external';
+}
+
 function generateC4Context(data) {
   if (!data || !Array.isArray(data.components)) {
     return graphNote('No data available');
@@ -26,30 +55,11 @@ function generateC4Context(data) {
   const externalByRole = new Map();
   for (const component of data.components) {
     for (const pkg of collectExternalImports(component.imports || [])) {
-      const pkgLower = pkg.toLowerCase();
-      let category = 'external';
-      if (/stripe|pay|billing|invoice/.test(pkgLower)) category = 'payment';
-      else if (/sendgrid|mail|email|smtp|postmark/.test(pkgLower)) category = 'email';
-      else if (/postgres|mysql|sqlite|mongo|redis|dynamo|prisma|typeorm|sequelize/.test(pkgLower)) category = 'database';
-      else if (/openai|anthropic|gemini|ollama|hugging/.test(pkgLower)) category = 'ai';
-      else if (/github|gitlab|bitbucket|octokit/.test(pkgLower)) category = 'vcs';
-      else if (/slack|discord|teams|twilio/.test(pkgLower)) category = 'messaging';
-      else if (/s3|gcs|azure|cloudflare|vercel|supabase/.test(pkgLower)) category = 'cloud';
+      const category = classifyExternalPackage(pkg);
       if (!externalByRole.has(category)) externalByRole.set(category, new Set());
       externalByRole.get(category).add(pkg);
     }
   }
-
-  const CATEGORY_LABELS = {
-    payment: 'Payment Provider',
-    email: 'Email Service',
-    database: 'Database',
-    ai: 'AI / LLM Provider',
-    vcs: 'Version Control',
-    messaging: 'Messaging Service',
-    cloud: 'Cloud Provider',
-    external: 'External Service',
-  };
 
   let extIdx = 0;
   for (const [category, packages] of externalByRole) {
@@ -134,4 +144,5 @@ function generateRag(data) {
 module.exports = {
   generateC4Context,
   generateRag,
+  classifyExternalPackage,
 };

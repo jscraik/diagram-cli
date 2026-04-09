@@ -8,7 +8,10 @@ const {
 } = require('./analysis-generation-utils');
 const { collectExternalImports } = require('./analysis-generation-role-tags');
 const { flowNote, noteNode } = require('./analysis-generation-diagrams-empty');
-const { emitClassStyle } = require('./analysis-generation-diagrams-role-helpers');
+const {
+  emitClassStyle,
+  emitSeedNodesWithIngress,
+} = require('./analysis-generation-diagrams-role-helpers');
 
 function generateAuth(data) {
   if (!data || !Array.isArray(data.components)) {
@@ -30,17 +33,12 @@ function generateAuth(data) {
   lines.push('  Boundary{"Auth Boundary"}');
   lines.push('  Request --> Boundary');
 
-  for (const seed of seeds) {
-    const safe = safeNames.get(seed);
-    if (!safe) continue;
-    authNodeIds.push(safe);
-    lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
-    const key = `Boundary->${safe}`;
-    if (!edges.has(key)) {
-      edges.add(key);
-      lines.push(`  Boundary --> ${safe}`);
-    }
-  }
+  emitSeedNodesWithIngress(lines, seeds, safeNames, {
+    nodeIds: authNodeIds,
+    renderNode: (seed, safe) => `${safe}["${escapeMermaid(seed.originalName)}"]`,
+    ingressFrom: 'Boundary',
+    edges,
+  });
 
   appendDependencyEdges(lines, connected, byName, safeNames, edges);
 
@@ -77,17 +75,12 @@ function generateSecurity(data) {
   const securityNodeIds = [];
 
   lines.push('  Untrusted["Untrusted input"]');
-  for (const seed of seeds) {
-    const safe = safeNames.get(seed);
-    if (!safe) continue;
-    securityNodeIds.push(safe);
-    lines.push(`  ${safe}["${escapeMermaid(seed.originalName)}"]`);
-    const key = `Untrusted->${safe}`;
-    if (!edges.has(key)) {
-      edges.add(key);
-      lines.push(`  Untrusted --> ${safe}`);
-    }
-  }
+  emitSeedNodesWithIngress(lines, seeds, safeNames, {
+    nodeIds: securityNodeIds,
+    renderNode: (seed, safe) => `${safe}["${escapeMermaid(seed.originalName)}"]`,
+    ingressFrom: 'Untrusted',
+    edges,
+  });
 
   appendDependencyEdges(lines, connected, byName, safeNames, edges);
 

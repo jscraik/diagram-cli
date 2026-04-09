@@ -102,11 +102,12 @@ function collectConnectedComponents(components, seedComponents, maxDepth = 2, ma
   }
 
   let depth = 0;
+  let levelStart = 0;
   const visited = new Set();
-  while (queue.length > 0 && depth < maxDepth) {
-    const levelSize = queue.length;
-    for (let i = 0; i < levelSize; i++) {
-      const current = queue.shift();
+  while (levelStart < queue.length && depth < maxDepth) {
+    const levelEnd = queue.length;
+    for (let i = levelStart; i < levelEnd; i++) {
+      const current = queue[i];
       if (!current || typeof current.name !== 'string') continue;
       const depthKey = `${current.name}:${depth}`;
       if (visited.has(depthKey)) continue;
@@ -134,6 +135,7 @@ function collectConnectedComponents(components, seedComponents, maxDepth = 2, ma
       }
       if (selected.size >= maxNodes) break;
     }
+    levelStart = levelEnd;
     depth += 1;
   }
 

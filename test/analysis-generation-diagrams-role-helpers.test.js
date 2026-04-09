@@ -1,6 +1,7 @@
 const { expect } = require('chai');
 const {
   emitClassStyle,
+  emitSeedNodesWithIngress,
   emitSubgraph,
 } = require('../src/core/analysis-generation-diagrams-role-helpers');
 
@@ -34,5 +35,33 @@ describe('analysis generation role diagram helpers', () => {
       '  class NodeA,NodeB demoNode',
       '  classDef emptyNode fill:#222,color:#eee',
     ]);
+  });
+
+  it('emits seed nodes with deduped ingress edges', () => {
+    const lines = [];
+    const edges = new Set();
+    const first = { name: 'auth-service' };
+    const second = { name: 'token-checker' };
+    const safeNames = new Map([
+      [first, 'AuthSvc'],
+      [second, 'TokenChecker'],
+    ]);
+    const nodeIds = [];
+
+    emitSeedNodesWithIngress(lines, [first, first, second], safeNames, {
+      nodeIds,
+      renderNode: (_component, safe) => `${safe}["node"]`,
+      ingressFrom: 'Boundary',
+      edges,
+    });
+
+    expect(lines).to.deep.equal([
+      '  AuthSvc["node"]',
+      '  Boundary --> AuthSvc',
+      '  AuthSvc["node"]',
+      '  TokenChecker["node"]',
+      '  Boundary --> TokenChecker',
+    ]);
+    expect(nodeIds).to.deep.equal(['AuthSvc', 'AuthSvc', 'TokenChecker']);
   });
 });

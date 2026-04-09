@@ -25,67 +25,88 @@ function inferType(filePath, content) {
   return 'file';
 }
 
-function extractImports(content, lang) {
-  const imports = [];
-  if (lang === 'typescript' || lang === 'javascript') {
-    const es6Regex = /import\s+(?:(?:\{[^}]*?\}|\*\s+as\s+\w+|\w+)\s+from\s+)?["']([^"']+)["']/g;
-    const es6 = [...content.matchAll(es6Regex)];
-    es6.forEach(m => imports.push(m[1]));
+const IMPORT_PATTERNS = Object.freeze({
+  javascript: [
+    /import\s+(?:(?:\{[^}]*?\}|\*\s+as\s+\w+|\w+)\s+from\s+)?["']([^"']+)["']/g,
+    /require\s*\(\s*["']([^"']+)["']\s*\)/g,
+    /import\s*\(\s*["']([^"']+)["']\s*\)/g,
+  ],
+  python: [
+    /^\s*from\s+([\w.]+)/gm,
+    /^\s*import\s+([\w.]+)/gm,
+  ],
+  go: [
+    /import\s+(?:\(\s*)?["']([^"']+)["']/g,
+  ],
+});
 
-    const cjs = [...content.matchAll(/require\s*\(\s*["']([^"']+)["']\s*\)/g)];
-    cjs.forEach(m => imports.push(m[1]));
-
-    const dynamic = [...content.matchAll(/import\s*\(\s*["']([^"']+)["']\s*\)/g)];
-    dynamic.forEach(m => imports.push(m[1]));
-  } else if (lang === 'python') {
-    const py = [...content.matchAll(/(?:from|import)\s+([\w.]+)/g)];
-    py.forEach(m => imports.push(m[1]));
-  } else if (lang === 'go') {
-    const go = [...content.matchAll(/import\s+(?:\(\s*)?["']([^"']+)["']/g)];
-    go.forEach(m => imports.push(m[1]));
-  }
-  return imports;
+function resolveImportPatterns(lang) {
+  if (lang === 'typescript' || lang === 'javascript') return IMPORT_PATTERNS.javascript;
+  if (lang === 'python') return IMPORT_PATTERNS.python;
+  if (lang === 'go') return IMPORT_PATTERNS.go;
+  return [];
 }
 
-function extractImportsWithPositions(content, lang) {
-  const imports = [];
-  const lines = content.split(/\r?\n/);
+function collectImportMatches(content, lang) {
+  if (typeof content !== 'string' || content.length === 0) return [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lineNum = i + 1;
-
-    if (lang === 'typescript' || lang === 'javascript') {
-      const es6 = line.match(/import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+)?["']([^"']+)["']/);
-      if (es6) {
-        imports.push({ path: es6[1], line: lineNum });
-        continue;
-      }
-
-      const cjs = line.match(/require\s*\(\s*["']([^"']+)["']\s*\)/);
-      if (cjs) {
-        imports.push({ path: cjs[1], line: lineNum });
-        continue;
-      }
-
-      const dynamic = line.match(/import\s*\(\s*["']([^"']+)["']\s*\)/);
-      if (dynamic) {
-        imports.push({ path: dynamic[1], line: lineNum });
-      }
-    } else if (lang === 'python') {
-      const py = line.match(/(?:from|import)\s+([\w.]+)/);
-      if (py) {
-        imports.push({ path: py[1], line: lineNum });
-      }
-    } else if (lang === 'go') {
-      const go = line.match(/import\s+(?:\(\s*)?["']([^"']+)["']/);
-      if (go) {
-        imports.push({ path: go[1], line: lineNum });
-      }
+  const matches = [];
+  let order = 0;
+  for (const pattern of resolveImportPatterns(lang)) {
+    for (const match of content.matchAll(pattern)) {
+      const importPath = match[1];
+      if (!importPath) continue;
+      matches.push({
+        path: importPath,
+        index: typeof match.index === 'number' ? match.index : 0,
+        order,
+      });
+      order += 1;
     }
   }
 
-  return imports;
+  matches.sort((a, b) => {
+    if (a.index !== b.index) return a.index - b.index;
+    return a.order - b.order;
+  });
+  return matches;
+}
+
+function buildLineStarts(content) {
+  const starts = [0];
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === '\n') starts.push(i + 1);
+  }
+  return starts;
+}
+
+function lineNumberForIndex(lineStarts, index) {
+  if (!Array.isArray(lineStarts) || lineStarts.length === 0) return 1;
+  const boundedIndex = Math.max(0, Number.isFinite(index) ? index : 0);
+
+  let low = 0;
+  let high = lineStarts.length - 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (lineStarts[mid] <= boundedIndex) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return high + 1;
+}
+
+function extractImports(content, lang) {
+  return collectImportMatches(content, lang).map((match) => match.path);
+}
+
+function extractImportsWithPositions(content, lang) {
+  const lineStarts = buildLineStarts(typeof content === 'string' ? content : '');
+  return collectImportMatches(content, lang).map((match) => ({
+    path: match.path,
+    line: lineNumberForIndex(lineStarts, match.index),
+  }));
 }
 
 function sanitize(name) {

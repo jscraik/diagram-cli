@@ -13,6 +13,32 @@ function emitClassStyle(lines, className, fill, color, nodeIds) {
   appendClassAssignment(lines, nodeIds, className);
 }
 
+function emitSeedNodesWithIngress(lines, seeds, safeNames, options = {}) {
+  const {
+    nodeIds,
+    renderNode,
+    ingressFrom,
+    edges,
+  } = options;
+
+  if (!Array.isArray(seeds)) return;
+  for (const seed of seeds) {
+    const safe = safeNames.get(seed);
+    if (!safe) continue;
+
+    if (Array.isArray(nodeIds)) nodeIds.push(safe);
+    if (typeof renderNode === 'function') {
+      lines.push(`  ${renderNode(seed, safe)}`);
+    }
+
+    if (!ingressFrom || !(edges instanceof Set)) continue;
+    const key = `${ingressFrom}->${safe}`;
+    if (edges.has(key)) continue;
+    edges.add(key);
+    lines.push(`  ${ingressFrom} --> ${safe}`);
+  }
+}
+
 function emitSubgraph(lines, id, title, components, renderNode, safeNames) {
   if (!Array.isArray(components) || components.length === 0) return false;
 
@@ -30,5 +56,6 @@ function emitSubgraph(lines, id, title, components, renderNode, safeNames) {
 module.exports = {
   safeNodeIds,
   emitClassStyle,
+  emitSeedNodesWithIngress,
   emitSubgraph,
 };

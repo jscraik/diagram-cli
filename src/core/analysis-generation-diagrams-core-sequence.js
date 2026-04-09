@@ -53,8 +53,9 @@ function generateSequence(data) {
       queue.push({ comp: root, depth: 0 });
     }
   }
-  while (queue.length > 0 && visited.size < MAX_PARTICIPANTS) {
-    const { comp, depth } = queue.shift();
+  let queueIndex = 0;
+  while (queueIndex < queue.length && visited.size < MAX_PARTICIPANTS) {
+    const { comp, depth } = queue[queueIndex++];
     for (const depName of comp.dependencies || []) {
       if (visited.has(depName)) continue;
       const dep = byName.get(depName);
