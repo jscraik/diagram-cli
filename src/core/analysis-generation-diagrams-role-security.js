@@ -5,10 +5,10 @@ const {
   mergeRoleComponents,
   buildRoleDiagramContext,
   appendDependencyEdges,
-  appendClassAssignment,
 } = require('./analysis-generation-utils');
 const { collectExternalImports } = require('./analysis-generation-role-tags');
 const { flowNote, noteNode } = require('./analysis-generation-diagrams-empty');
+const { emitClassStyle } = require('./analysis-generation-diagrams-role-helpers');
 
 function generateAuth(data) {
   if (!data || !Array.isArray(data.components)) {
@@ -55,8 +55,7 @@ function generateAuth(data) {
     lines.push(`  ${providerNode}[("${escapeMermaid(provider)}")]`);
   }
 
-  lines.push('  classDef authNode fill:#7c3aed,color:#fff');
-  appendClassAssignment(lines, authNodeIds, 'authNode');
+  emitClassStyle(lines, 'authNode', '#7c3aed', '#fff', authNodeIds);
   return lines.join('\n');
 }
 
@@ -92,8 +91,7 @@ function generateSecurity(data) {
 
   appendDependencyEdges(lines, connected, byName, safeNames, edges);
 
-  lines.push('  classDef securityNode fill:#dc2626,color:#fff');
-  appendClassAssignment(lines, securityNodeIds, 'securityNode');
+  emitClassStyle(lines, 'securityNode', '#dc2626', '#fff', securityNodeIds);
   return lines.join('\n');
 }
 

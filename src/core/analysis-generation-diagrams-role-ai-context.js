@@ -3,10 +3,13 @@ const { ROLE_COLOURS } = require('./analysis-generation-constants');
 const {
   escapeMermaid,
   componentsByRole,
-  mapSafeNames,
 } = require('./analysis-generation-utils');
 const { collectExternalImports } = require('./analysis-generation-role-tags');
 const { graphNote, flowNote } = require('./analysis-generation-diagrams-empty');
+const {
+  emitClassStyle,
+  emitSubgraph,
+} = require('./analysis-generation-diagrams-role-helpers');
 
 function generateC4Context(data) {
   if (!data || !Array.isArray(data.components)) {
@@ -87,45 +90,40 @@ function generateRag(data) {
   lines.push('  Retriever -->|context + query| LLMNode');
   lines.push('  LLMNode -->|generated answer| Output');
 
-  if (memories.length > 0) {
-    lines.push('  subgraph DetectedMemory["Detected memory stores"]');
-    const safeM = mapSafeNames(memories);
-    for (const memory of memories) {
-      const safe = safeM.get(memory);
-      if (safe) lines.push(`    ${safe}[("${escapeMermaid(memory.originalName)}")]`);
-    }
-    lines.push('  end');
+  if (emitSubgraph(
+    lines,
+    'DetectedMemory',
+    'Detected memory stores',
+    memories,
+    (memory, safe) => `${safe}[("${escapeMermaid(memory.originalName)}")]`
+  )) {
     lines.push('  VecDB -. "implemented by" .-> DetectedMemory');
   }
 
-  if (llms.length > 0) {
-    lines.push('  subgraph DetectedLLM["Detected LLM clients"]');
-    const safeL = mapSafeNames(llms);
-    for (const llm of llms) {
-      const safe = safeL.get(llm);
-      if (safe) lines.push(`    ${safe}["${escapeMermaid(llm.originalName)}"]`);
-    }
-    lines.push('  end');
+  if (emitSubgraph(
+    lines,
+    'DetectedLLM',
+    'Detected LLM clients',
+    llms,
+    (llm, safe) => `${safe}["${escapeMermaid(llm.originalName)}"]`
+  )) {
     lines.push('  LLMNode -. "implemented by" .-> DetectedLLM');
   }
 
-  if (tools.length > 0) {
-    lines.push('  subgraph DetectedTools["Agentic tool calls"]');
-    const safeT = mapSafeNames(tools);
-    for (const tool of tools) {
-      const safe = safeT.get(tool);
-      if (safe) lines.push(`    ${safe}["🔧 ${escapeMermaid(tool.originalName)}"]`);
-    }
-    lines.push('  end');
+  if (emitSubgraph(
+    lines,
+    'DetectedTools',
+    'Agentic tool calls',
+    tools,
+    (tool, safe) => `${safe}["🔧 ${escapeMermaid(tool.originalName)}"]`
+  )) {
     lines.push('  LLMNode -->|tool use| DetectedTools');
     lines.push('  DetectedTools -->|result| LLMNode');
   }
 
-  lines.push(`  classDef memNode  fill:${ROLE_COLOURS.memory.fill},color:${ROLE_COLOURS.memory.color}`);
-  lines.push(`  classDef llmNode  fill:${ROLE_COLOURS.llm.fill},color:${ROLE_COLOURS.llm.color}`);
-  lines.push(`  classDef toolNode fill:${ROLE_COLOURS.tool.fill},color:${ROLE_COLOURS.tool.color}`);
-  lines.push('  class VecDB,Retriever memNode');
-  lines.push('  class LLMNode,Embed llmNode');
+  emitClassStyle(lines, 'memNode', ROLE_COLOURS.memory.fill, ROLE_COLOURS.memory.color, ['VecDB', 'Retriever']);
+  emitClassStyle(lines, 'llmNode', ROLE_COLOURS.llm.fill, ROLE_COLOURS.llm.color, ['LLMNode', 'Embed']);
+  emitClassStyle(lines, 'toolNode', ROLE_COLOURS.tool.fill, ROLE_COLOURS.tool.color, []);
 
   return lines.join('\n');
 }

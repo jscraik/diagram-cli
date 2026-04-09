@@ -6,9 +6,13 @@ const {
   mapSafeNames,
   byNameIndex,
   appendDependencyEdges,
-  appendClassAssignment,
 } = require('./analysis-generation-utils');
 const { flowNote, noteNode } = require('./analysis-generation-diagrams-empty');
+const {
+  safeNodeIds,
+  emitClassStyle,
+  emitSubgraph,
+} = require('./analysis-generation-diagrams-role-helpers');
 
 function generateAgent(data) {
   if (!data || !Array.isArray(data.components)) {
@@ -37,41 +41,38 @@ function generateAgent(data) {
   const safeNames = mapSafeNames(all);
   const byName = byNameIndex(all);
 
-  if (agents.length > 0) {
-    lines.push('  subgraph Orchestration["🎯 Orchestration Layer"]');
-    for (const component of agents) {
-      const safe = safeNames.get(component);
-      if (safe) lines.push(`    ${safe}["🤖 ${escapeMermaid(component.originalName)}"]`);
-    }
-    lines.push('  end');
-  }
-
-  if (llms.length > 0) {
-    lines.push('  subgraph LLMLayer["🧠 LLM / Model Layer"]');
-    for (const component of llms) {
-      const safe = safeNames.get(component);
-      if (safe) lines.push(`    ${safe}["💡 ${escapeMermaid(component.originalName)}"]`);
-    }
-    lines.push('  end');
-  }
-
-  if (tools.length > 0) {
-    lines.push('  subgraph ToolLayer["🔧 Tool Layer"]');
-    for (const component of tools) {
-      const safe = safeNames.get(component);
-      if (safe) lines.push(`    ${safe}["🔧 ${escapeMermaid(component.originalName)}"]`);
-    }
-    lines.push('  end');
-  }
-
-  if (memories.length > 0) {
-    lines.push('  subgraph MemoryLayer["📚 Memory / Vector Layer"]');
-    for (const component of memories) {
-      const safe = safeNames.get(component);
-      if (safe) lines.push(`    ${safe}[("📚 ${escapeMermaid(component.originalName)}")]`);
-    }
-    lines.push('  end');
-  }
+  emitSubgraph(
+    lines,
+    'Orchestration',
+    '🎯 Orchestration Layer',
+    agents,
+    (component, safe) => `${safe}["🤖 ${escapeMermaid(component.originalName)}"]`,
+    safeNames
+  );
+  emitSubgraph(
+    lines,
+    'LLMLayer',
+    '🧠 LLM / Model Layer',
+    llms,
+    (component, safe) => `${safe}["💡 ${escapeMermaid(component.originalName)}"]`,
+    safeNames
+  );
+  emitSubgraph(
+    lines,
+    'ToolLayer',
+    '🔧 Tool Layer',
+    tools,
+    (component, safe) => `${safe}["🔧 ${escapeMermaid(component.originalName)}"]`,
+    safeNames
+  );
+  emitSubgraph(
+    lines,
+    'MemoryLayer',
+    '📚 Memory / Vector Layer',
+    memories,
+    (component, safe) => `${safe}[("📚 ${escapeMermaid(component.originalName)}")]`,
+    safeNames
+  );
 
   const edges = new Set();
   appendDependencyEdges(lines, all, byName, safeNames, edges, (_caller, callee) => {
@@ -83,15 +84,10 @@ function generateAgent(data) {
     return 'uses';
   });
 
-  lines.push(`  classDef agentNode fill:${ROLE_COLOURS.agent.fill},color:${ROLE_COLOURS.agent.color}`);
-  lines.push(`  classDef llmNode   fill:${ROLE_COLOURS.llm.fill},color:${ROLE_COLOURS.llm.color}`);
-  lines.push(`  classDef toolNode  fill:${ROLE_COLOURS.tool.fill},color:${ROLE_COLOURS.tool.color}`);
-  lines.push(`  classDef memNode   fill:${ROLE_COLOURS.memory.fill},color:${ROLE_COLOURS.memory.color}`);
-
-  appendClassAssignment(lines, agents.map((component) => safeNames.get(component)).filter(Boolean), 'agentNode');
-  appendClassAssignment(lines, llms.map((component) => safeNames.get(component)).filter(Boolean), 'llmNode');
-  appendClassAssignment(lines, tools.map((component) => safeNames.get(component)).filter(Boolean), 'toolNode');
-  appendClassAssignment(lines, memories.map((component) => safeNames.get(component)).filter(Boolean), 'memNode');
+  emitClassStyle(lines, 'agentNode', ROLE_COLOURS.agent.fill, ROLE_COLOURS.agent.color, safeNodeIds(agents, safeNames));
+  emitClassStyle(lines, 'llmNode', ROLE_COLOURS.llm.fill, ROLE_COLOURS.llm.color, safeNodeIds(llms, safeNames));
+  emitClassStyle(lines, 'toolNode', ROLE_COLOURS.tool.fill, ROLE_COLOURS.tool.color, safeNodeIds(tools, safeNames));
+  emitClassStyle(lines, 'memNode', ROLE_COLOURS.memory.fill, ROLE_COLOURS.memory.color, safeNodeIds(memories, safeNames));
 
   return lines.join('\n');
 }

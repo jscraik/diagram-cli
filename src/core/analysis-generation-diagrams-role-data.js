@@ -3,10 +3,10 @@ const {
   componentsByRole,
   buildRoleDiagramContext,
   appendDependencyEdges,
-  appendClassAssignment,
   inferDbIntent,
 } = require('./analysis-generation-utils');
 const { flowNote, noteNode } = require('./analysis-generation-diagrams-empty');
+const { emitClassStyle } = require('./analysis-generation-diagrams-role-helpers');
 
 function generateDatabase(data) {
   if (!data || !Array.isArray(data.components)) {
@@ -59,9 +59,8 @@ function generateDatabase(data) {
 
   appendDependencyEdges(lines, seeds, byName, safeNames, addedEdges);
 
-  lines.push('  classDef dbNode fill:#0ea5e9,color:#fff');
-  lines.push('  classDef decisionNode fill:#0284c7,color:#fff');
-  appendClassAssignment(lines, dbNodeIds, 'dbNode');
+  emitClassStyle(lines, 'dbNode', '#0ea5e9', '#fff', dbNodeIds);
+  emitClassStyle(lines, 'decisionNode', '#0284c7', '#fff', []);
   lines.push('  class Decision decisionNode');
   return lines.join('\n');
 }
@@ -93,8 +92,7 @@ function generateUserInteractions(data) {
 
   appendDependencyEdges(lines, connected, byName, safeNames, edges);
 
-  lines.push('  classDef userNode fill:#16a34a,color:#fff');
-  appendClassAssignment(lines, userNodeIds, 'userNode');
+  emitClassStyle(lines, 'userNode', '#16a34a', '#fff', userNodeIds);
   return lines.join('\n');
 }
 
@@ -137,8 +135,7 @@ function generateEvents(data) {
     (component) => (seeds.includes(component) ? 'emit' : 'consume')
   );
 
-  lines.push('  classDef eventNode fill:#db2777,color:#fff');
-  appendClassAssignment(lines, eventNodeIds, 'eventNode');
+  emitClassStyle(lines, 'eventNode', '#db2777', '#fff', eventNodeIds);
   return lines.join('\n');
 }
 
