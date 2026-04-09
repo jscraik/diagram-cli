@@ -242,6 +242,8 @@ const ROLE_PATTERNS = {
   ],
 };
 
+const SENSITIVE_RISK_TAGS = new Set(['auth', 'database', 'security']);
+
 // C4 + arc42 aligned colour palette (role → fill/text colours)
 // Reference: https://c4model.com/diagrams/notation  arc42.org
 const ROLE_COLOURS = Object.freeze({
@@ -318,18 +320,30 @@ function collectExternalImports(importEntries) {
   return [...packages];
 }
 
+/**
+ * Infers descriptive role tags for a source file by matching role-specific tokens against its path, original name, imports and content.
+ *
+ * @param {string} filePath - File path used for structural matching (normalised before matching).
+ * @param {string} originalName - Original filename or module name used for structural matching.
+ * @param {string} fileContent - File contents used for full-text matching; may be empty.
+ * @param {Array<string|{path:string}>} importEntries - Import entries used to extract external package names for structural matching.
+ * @param {string} type - Inferred file type (e.g. `'service'`); when `'service'` a `service` tag is added.
+ * @returns {string[]} Array of inferred, lowercase role tag strings (e.g. `['database','auth']`). If no specific tags match, returns `['general']`.
+ */
 function inferRoleTags(filePath, originalName, fileContent, importEntries, type) {
   const content = (fileContent || '').toLowerCase();
   const pathText = normalizePath(filePath || '').toLowerCase();
   const nameText = (originalName || '').toLowerCase();
   const externalImports = collectExternalImports(importEntries).join(' ').toLowerCase();
-  const combined = `${pathText} ${nameText} ${content} ${externalImports}`;
+  const structuralCombined = `${pathText} ${nameText} ${externalImports}`;
+  const fullCombined = `${structuralCombined} ${content}`;
 
   const tags = new Set();
 
   for (const [tag, tokens] of Object.entries(ROLE_PATTERNS)) {
+    const searchTarget = SENSITIVE_RISK_TAGS.has(tag) ? structuralCombined : fullCombined;
     for (const token of tokens) {
-      if (textHasToken(combined, token)) {
+      if (textHasToken(searchTarget, token)) {
         tags.add(tag);
         break;
       }
@@ -494,7 +508,25 @@ function inferDbIntent(component) {
   return { hasLookup, hasWrite };
 }
 
-// Analysis
+/**
+ * Analyze a code repository tree and produce a summary of detected components, entry points and import-based dependencies.
+ *
+ * @param {string} rootPath - Absolute path to the repository root to analyse; relative includePaths in `options.includeFiles` are resolved against this path.
+ * @param {Object} options - Analysis options.
+ * @param {number|string} [options.maxFiles] - Maximum number of files to process; parsed as integer and clamped to the range 1–10000 (defaults to 100 when invalid).
+ * @param {string} [options.patterns] - Comma-separated glob patterns to include when `options.includeFiles` is not provided; must be a string or a TypeError is thrown.
+ * @param {string} [options.exclude] - Comma-separated glob ignore patterns; must be a string or a TypeError is thrown.
+ * @param {string[]} [options.includeFiles] - Optional explicit list of file paths to analyse; when present these are resolved to absolute paths, filtered to files under `rootPath` and deduplicated.
+ * @param {boolean} [options.deterministic] - When true, sorts the discovered file list before applying `maxFiles`.
+ * @returns {Object} Analysis result containing:
+ *   - rootPath: the input rootPath,
+ *   - components: array of component records { name, originalName, filePath, type, imports, roleTags, directory, dependencies },
+ *   - entryPoints: array of detected entry-point file paths (relative to root),
+ *   - languages: map of detected language → file count,
+ *   - directories: sorted array of directories encountered,
+ *   - totalFilesFound: number of files discovered before applying `maxFiles`,
+ *   - maxFilesApplied: the numeric maxFiles value used.
+ */
 async function analyze(rootPath, options) {
   // Validate maxFiles with strict parsing
   let maxFiles = parseInt(options.maxFiles, 10);
@@ -521,18 +553,38 @@ async function analyze(rootPath, options) {
     exclude = options.exclude.split(',');
   }
 
-  const files = [];
-  for (const pattern of patterns) {
-    if (!pattern || pattern.trim() === '') continue;
-    try {
-      const matches = await glob(pattern.trim(), { cwd: rootPath, absolute: true, ignore: exclude });
-      files.push(...matches);
-    } catch (e) {
-      console.warn(chalk.yellow(`⚠️  Invalid pattern: ${pattern}`));
+  const explicitFiles = Array.isArray(options.includeFiles) ? options.includeFiles : [];
+  let allUniqueFiles;
+
+  if (explicitFiles.length > 0) {
+    allUniqueFiles = [...new Set(explicitFiles
+      .map((filePath) => {
+        const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(rootPath, filePath);
+        const relativeToRoot = path.relative(rootPath, absolute);
+        if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+          return null;
+        }
+        return absolute;
+      })
+      .filter((filePath) => filePath && fs.existsSync(filePath) && fs.statSync(filePath).isFile())
+    )];
+  } else {
+    const files = [];
+    for (const pattern of patterns) {
+      if (!pattern || pattern.trim() === '') continue;
+      try {
+        const matches = await glob(pattern.trim(), { cwd: rootPath, absolute: true, ignore: exclude });
+        files.push(...matches);
+      } catch (e) {
+        console.warn(chalk.yellow(`⚠️  Invalid pattern: ${pattern}`));
+      }
     }
+    allUniqueFiles = [...new Set(files)];
   }
 
-  const allUniqueFiles = [...new Set(files)];
+  if (options.deterministic) {
+    allUniqueFiles = allUniqueFiles.sort();
+  }
   const totalFilesFound = allUniqueFiles.length;
   const uniqueFiles = allUniqueFiles.slice(0, maxFiles);
 

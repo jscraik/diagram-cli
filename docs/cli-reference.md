@@ -1,212 +1,260 @@
 # CLI Command Reference
 
-This document is the primary command reference for `diagram-cli`. It covers all available commands, options, and diagram types.
+Primary command reference for `diagram-cli`.
 
 ## Table of Contents
 
-- [Commands](#commands)
-  - [diagram analyze](#diagram-analyze-path)
-  - [diagram generate](#diagram-generate-path)
-  - [diagram generate-all](#diagram-generate-all-path)
-  - [diagram validate](#diagram-validate-path)
-  - [diagram workflow pr](#diagram-workflow-pr-path)
-  - [diagram diff](#diagram-diff-base-head)
-  - [diagram generate-video](#diagram-generate-video-path)
-  - [diagram generate-animated](#diagram-generate-animated-path)
+- [Command Set](#command-set)
+- [Core Commands](#core-commands)
+- [Workflow Commands](#workflow-commands)
+- [Video and Animation Commands](#video-and-animation-commands)
 - [Diagram Types](#diagram-types)
+- [Defaults and Precedence](#defaults-and-precedence)
+- [Machine Output](#machine-output)
+- [Compatibility Aliases](#compatibility-aliases)
 
----
+## Command Set
 
-## Commands
+```bash
+diagram init [path]
+diagram doctor [path]
+diagram analyze [path]
+diagram generate [path]
+diagram generate-all [path]
+diagram changed [path]
+diagram context [path]
+diagram explain <component> [path]
+diagram validate [path]
+diagram workflow pr [path]
+diagram diff <base> <head>
+diagram generate-video [path]
+diagram generate-animated [path]
+```
+
+## Core Commands
+
+### `diagram init [path]`
+
+Bootstrap starter files for architecture workflows.
+
+```bash
+diagram init .
+diagram init . --force
+```
+
+Creates:
+
+- `.architecture.yml`
+- `.diagramrc`
+- `.diagram/ci/github-actions-step.yml`
+
+### `diagram doctor [path]`
+
+Run environment diagnostics for Mermaid, Playwright, ffmpeg, git history depth, write permissions, and npm cache.
+
+```bash
+diagram doctor .
+diagram doctor . --format json
+```
 
 ### `diagram analyze [path]`
 
-Analyze file structure and dependencies without rendering a diagram.
+Analyze repository structure without rendering a diagram.
 
 ```bash
-diagram analyze ./my-project
-diagram analyze . --format json
-diagram analyze . --patterns "**/*.py,**/*.go"
-diagram analyze . --max-files 200
+diagram analyze .
+diagram analyze . --format json --deterministic
 ```
-
-**Options:**
-
-- `-p, --patterns <list>` — file patterns (default: `**/*.ts,**/*.tsx,**/*.js,**/*.jsx,**/*.py,**/*.go,**/*.rs`)
-- `-e, --exclude <list>` — exclude patterns (default: `node_modules/**,.git/**,dist/**`)
-- `-m, --max-files <n>` — max files to analyze (default: `100`)
-- `--analyzer <name>` — analyzer plugin (default: `default`)
-- `--emit-ir` — write typed IR artifact to `.diagram/ir/architecture-ir.json`
-- `--incremental` — use incremental cache at `.diagram/cache` when available
-- `--format <fmt>` — output format: `json` for machine-readable output (default: human-readable text)
-
----
 
 ### `diagram generate [path]`
 
-Generate one Mermaid diagram and print a preview URL.
+Generate one diagram.
 
 ```bash
-diagram generate .
-diagram generate . --type sequence
-diagram generate . --focus src/api
-diagram generate . --theme dark
-diagram generate . --output diagram.svg
-diagram generate . --open
-diagram generate . --validate
+diagram generate . --type architecture
+diagram generate . --type security --format json --deterministic
+diagram generate . --output diagram.svg --validate
 ```
 
-**Options:**
+Key options:
 
-- `-t, --type <type>` — diagram type (default: `architecture`); see [Diagram Types](#diagram-types)
-- `-f, --focus <module>` — focus on one module or directory
-- `-o, --output <file>` — write `.svg` or `.png`
-- `-m, --max-files <n>` — max files to analyze (default: `100`)
-- `--analyzer <name>` — analyzer plugin (default: `default`)
-- `--emit-ir` — write typed IR artifact to `.diagram/ir/architecture-ir.json`
-- `--incremental` — use incremental cache at `.diagram/cache` when available
-- `--theme <theme>` — `default|dark|forest|neutral|light` (default: `default`)
-- `--validate` — validate Mermaid syntax after generation
-- `--fail-on-validation-error` — exit 1 if validation fails (requires `--validate`)
-- `--confidence-report` — write confidence report artifact
-- `--strict-confidence` — exit 1 when confidence degrades
-- `--capability-check-only` — run capability checks only and exit
-- `--open` — open generated preview URL in browser
-
----
+- `--type <type>`
+- `--focus <module>`
+- `--output <file>`
+- `--theme <theme>`
+- `--validate`
+- `--fail-on-validation-error`
+- `--format <type>`
+- `--deterministic`
 
 ### `diagram generate-all [path]`
 
-Generate all supported diagram types in one run.
+Generate all supported diagram types and manifest.
 
 ```bash
 diagram generate-all .
-diagram generate-all . -O ./docs/diagrams
-diagram generate-all . -O ./.diagram --artifact-profile agent
+diagram generate-all . --output-dir .diagram --artifact-profile agent
+diagram generate-all . --format json --deterministic
 ```
 
-**Options:**
+Key options:
 
-- `-O, --output-dir <dir>` — output directory (default: `./diagrams`)
-- `--artifact-profile <profile>` — artifact profile: `full` (default, write all diagrams), `agent` (budgeted compact output), or `ultra-compact` (aggressive token budget)
-- `--analyzer <name>` — analyzer plugin (default: `default`)
-- `--emit-ir` — write typed IR artifact to `.diagram/ir/architecture-ir.json`
-- `--incremental` — use incremental cache at `.diagram/cache` when available
+- `--output-dir <dir>`
+- `--artifact-profile <full|agent|ultra-compact>`
+- `--format <type>`
+- `--deterministic`
 
----
+### `diagram changed [path]`
+
+Analyze only git-changed files (branch delta or working tree).
+
+```bash
+diagram changed . --base origin/main --head HEAD
+diagram changed . --format json --deterministic
+```
+
+### `diagram context [path]`
+
+Refresh AI-focused context pack artifacts under `.diagram/context`.
+
+```bash
+diagram context .
+diagram context . --force
+diagram context . --format json --deterministic
+```
+
+### `diagram explain <component> [path]`
+
+Explain a local dependency neighborhood in text + Mermaid.
+
+```bash
+diagram explain auth-service .
+diagram explain src/api/routes/users.ts . --depth 3 --format json --deterministic
+```
 
 ### `diagram validate [path]`
 
-Validate codebase architecture against declarative rules in `.architecture.yml`.
+Validate architecture rules from `.architecture.yml`.
 
 ```bash
-diagram validate --init   # generate a starter .architecture.yml
-diagram validate .        # run validation checks
+diagram validate --init
+diagram validate .
+diagram validate . --format junit --output architecture-results.xml
 ```
 
-**Options:**
+Key options:
 
-- `-c, --config <file>` — config file path (default: `.architecture.yml`)
+- `--init`
+- `--config <file>`
+- `--dry-run`
+- `--save-baseline`
+- `--format <console|json|junit>`
 
----
+## Workflow Commands
 
 ### `diagram workflow pr [path]`
 
-Analyze the blast-radius of architectural changes for a pull request. Produces `pr-impact.html` and JSON artifacts.
+Compute PR architecture delta, blast radius, and risk.
 
 ```bash
 diagram workflow pr . --base origin/main --head HEAD
 diagram workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
-diagram workflow pr . --base origin/main --head HEAD --format json
+diagram workflow pr . --base origin/main --head HEAD --format json --deterministic
 ```
 
-**Options:**
+Writes artifacts to `.diagram/pr-impact` by default:
 
-- `--base <ref>` — base git ref to compare from
-- `--head <ref>` — head git ref to compare to
-- `--risk-threshold <level>` — risk level that triggers the gate: `none` (default, gate disabled), `low`, `medium`, `high`
-- `--fail-on-risk` — exit 1 when detected risk meets or exceeds `--risk-threshold` (has no effect when `--risk-threshold` is `none`)
-- `--risk-override-reason <string>` — document a reason to suppress the exit 1 (requires `--fail-on-risk`)
-- `--format <fmt>` — output format: `text` (default) or `json`
+- `pr-impact.json`
+- `pr-impact.html` (skipped when `--format json`)
 
----
+Key options:
 
----
+- `--base <ref>`
+- `--head <ref>`
+- `--output-dir <dir>`
+- `--max-depth <n>`
+- `--max-nodes <n>`
+- `--risk-threshold <none|low|medium|high>`
+- `--fail-on-risk`
+- `--risk-override-reason <string>`
+- `--format <text|json>`
+- `--deterministic`
+- `--max-files <n>`
+- `--patterns <list>`
+- `--exclude <list>`
 
 ### `diagram diff <base> <head>`
 
-Compare architecture diagrams between two git refs.
+Compare architecture between two refs.
 
 ```bash
 diagram diff origin/main HEAD
+diagram diff origin/main HEAD --format json --deterministic
 ```
 
-**Options:**
-
-- `--format <fmt>` — output format: `json` for machine-readable output (default: human-readable text)
-- `-m, --max-files <n>` — max files to analyze per ref (default: `100`)
-- `-p, --patterns <list>` — file patterns to include
-- `-e, --exclude <list>` — paths to exclude
-- `--verbose` — show detailed output
-
----
+## Video and Animation Commands
 
 ### `diagram generate-video [path]`
 
-Generate an animated video (`.mp4`, `.webm`, `.mov`) from a Mermaid diagram.
-
-**Prerequisites:**
-
-```bash
-npm install -g @mermaid-js/mermaid-cli
-npx playwright install chromium
-brew install ffmpeg
-```
+Generate animated video output (`.mp4`, `.webm`, `.mov`).
 
 ```bash
 diagram generate-video . --duration 8 --fps 60 --width 1920 --height 1080
 ```
 
-**Options:**
-
-- `-t, --type <type>` — diagram type (default: `architecture`)
-- `-o, --output <file>` — output file (default: `diagram.mp4`)
-- `-d, --duration <sec>` — video duration in seconds (default: `5`)
-- `-f, --fps <n>` — frames per second (default: `30`)
-- `--width <n>` — video width px (default: `1280`)
-- `--height <n>` — video height px (default: `720`)
-- `--theme <theme>` — `default|dark|forest|neutral|light` (default: `dark`)
-- `-m, --max-files <n>` — max files to analyze (default: `100`)
-
----
-
 ### `diagram generate-animated [path]`
 
-Generate an animated SVG with CSS animations.
+Generate animated SVG output.
 
-**Options:**
+```bash
+diagram generate-animated . --type architecture --output diagram-animated.svg
+```
 
-- `-t, --type <type>` — diagram type (default: `architecture`)
-- `-o, --output <file>` — output file (default: `diagram-animated.svg`)
-- `--theme <theme>` — `default|dark|forest|neutral|light` (default: `dark`)
-- `-m, --max-files <n>` — max files to analyze (default: `100`)
-
----
+Use `diagram doctor .` first if runtime dependencies are missing.
 
 ## Diagram Types
 
-| Type | Description | Best for |
-| --- | --- | --- |
-| `architecture` | Component hierarchy by directory | Overall structure |
-| `sequence` | Service or module interactions | API and flow analysis |
-| `dependency` | Internal and external imports | Dependency review |
-| `class` | Class-oriented relationships | OOP-heavy codebases |
-| `flow` | Process/data flow | Control-flow mapping |
-| `database` | Database operations and condition paths | Conditional persistence flows |
-| `user` | User-facing entrypoints and handlers | Interaction flow mapping |
-| `events` | Event streams and async channels | Event-driven architecture |
-| `auth` | Authentication and authorization checks | Credential/identity flow |
-| `security` | Security boundaries and trust paths | Threat/risk analysis |
-| `agent` | Multi-agent orchestration and decision flows | AI workflow orchestration |
-| `c4context` | C4-style context-level diagrams | High-level system context and actors |
-| `rag` | Retrieval-Augmented Generation pipelines | RAG architecture and data retrieval flows |
+| Type | Description |
+| --- | --- |
+| `architecture` | Component hierarchy by directory |
+| `sequence` | Service/module interaction flow |
+| `dependency` | Internal and external import graph |
+| `class` | Class-oriented relationships |
+| `flow` | Process/data flow |
+| `database` | Persistence-related paths |
+| `user` | User interaction entrypaths |
+| `events` | Event-driven architecture paths |
+| `auth` | Authentication and authorization flow |
+| `security` | Security boundary and trust paths |
+| `agent` | Multi-agent orchestration paths |
+| `c4context` | Context-level system map |
+| `rag` | Retrieval-augmented generation flow |
+
+## Defaults and Precedence
+
+For `patterns`, `exclude`, `maxFiles`, and `theme`, defaults resolve as:
+
+1. CLI flags
+2. `.diagramrc`
+3. built-ins
+
+## Machine Output
+
+- Canonical machine mode: `--format json`
+- Stability mode: `--deterministic`
+- JSON payloads include explicit `schemaVersion`
+- PR impact JSON includes `agentSummary`:
+  - `changedComponents`
+  - `riskReasons`
+  - `suggestedReviewerChecks`
+
+## Compatibility Aliases
+
+These aliases are accepted for backward compatibility and normalized at runtime:
+
+- `diagram test` -> `diagram validate`
+- `diagram all` -> `diagram generate-all`
+- `diagram video` -> `diagram generate-video`
+- `diagram animate` -> `diagram generate-animated`
+- `--json` / `-j` -> `--format json`
+

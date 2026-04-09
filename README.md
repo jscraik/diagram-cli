@@ -1,102 +1,115 @@
 # diagram-cli
 
-> Generate codebase architecture diagrams from source files. No AI required.
+Generate architecture diagrams, validation reports, and PR impact artifacts from source code.
 
 ## Table of Contents
 
-- [Overview & TL;DR](#1-overview--tldr)
-- [Quickstart & Installation](#2-quickstart--installation)
-- [Core Workflows](#3-core-workflows)
-- [Configuration & Testing](#4-configuration--testing)
-- [Command Reference & Docs](#5-command-reference--docs)
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Opinionated Starter Path](#opinionated-starter-path)
+- [Human Workflows](#human-workflows)
+- [AI Agent Workflows](#ai-agent-workflows)
+- [Machine Output Contracts](#machine-output-contracts)
+- [Documentation Index](#documentation-index)
+- [Development](#development)
 
-> [!WARNING]
-> `@brainwav/diagram@1.0.0` had a packaging regression. Please install the latest version (`@brainwav/diagram@1.1.0` or later).
+## Overview
 
-## 1. Overview & TL;DR
+`diagram-cli` scans your repository and produces:
 
-This tool reads code and draws a precise map of your architecture. It scans files, finds dependencies, and outputs a clear Mermaid graph. 
+- Mermaid diagrams (`generate`, `generate-all`)
+- Architecture policy validation (`validate`)
+- PR architecture impact reports (`workflow pr`)
+- AI-context artifacts (`context`)
 
-The goal is simple: keep the code map transparent and prevent architectural drift. You can export as `.mmd`, `.svg`, `.png`, or even generate animation sequences.
+Default resolution precedence for scan parameters is explicit:
 
-## 2. Quickstart & Installation
+1. CLI flags
+2. `.diagramrc`
+3. command built-ins
+
+This applies to `patterns`, `exclude`, `maxFiles`, and `theme` where relevant.
+
+## Quick Start
 
 ```bash
-# Clone and link locally
 git clone https://github.com/jscraik/diagram-cli.git
 cd diagram-cli
 npm install
 npm link
 ```
 
-### First-run checklist
-1. Use a small test repo and run from the root.
-2. View repository stats: `diagram analyze .`
-3. Generate image/text diagram: `diagram generate . --output diagram.svg`
-4. Generate all views into `./diagrams`: `diagram generate-all .`
-5. *Deep integration:* Try `diagram validate --init` to setup CI rules.
+Without `npm link`, run commands with `node src/diagram.js ...`.
 
-## 3. Core Workflows
+## Opinionated Starter Path
 
-### Standard Generation
-Focus purely on what matters in the CLI right now:
+Use this path for new repositories:
+
 ```bash
-# Focus on a specific module with dark theme
-diagram generate . --focus src/api --theme dark --open
-```
-
-### PR Architecture Impact Analysis
-Analyze the blast-radius of architectural changes automatically (perfect for GitHub Actions):
-```bash
-diagram workflow pr . --base origin/main --head HEAD --fail-on-risk --risk-threshold high
-```
-This produces `pr-impact.html` and JSON artifacts for structured PR review narratives, flagging risk levels based on files touched.
-
-### AI-Focused Pipeline Outputs
-For AI agents (e.g., Cursor, GitHub Copilot), feeding `.mmd` files is far more efficient than loading the entire source tree into context. Run:
-```bash
+diagram init .
+diagram doctor .
+diagram validate .
 diagram generate-all . --output-dir .diagram --artifact-profile agent
+diagram context .
 ```
-This produces minimal, highly textual context maps (e.g., Databases, User paths, Auth flows).
 
-## 4. Configuration & Testing
+What this gives you:
 
-Validate your codebase architecture against declarative YAML rules (`.architecture.yml`) to prevent directional drift.
+- `.architecture.yml` starter rules
+- `.diagramrc` defaults
+- CI step sample at `.diagram/ci/github-actions-step.yml`
+- toolchain diagnostics before CI rollout
+- compact AI-friendly architecture artifacts
+
+## Human Workflows
 
 ```bash
-diagram validate --init   # Generate starter configuration
-diagram validate          # Run validation checks
+# Analyze repository structure
+diagram analyze .
+
+# Generate one diagram and open preview
+diagram generate . --type architecture --open
+
+# Analyze only changed files in your branch
+diagram changed . --base origin/main --head HEAD
+
+# Explain a local dependency neighborhood
+diagram explain auth-service .
+
+# PR risk/blast-radius report
+diagram workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
 ```
 
-**Example Rule (`.architecture.yml`)**:
-```yaml
-version: "1.0"
-rules:
-  - name: "Domain isolation"
-    layer: "src/domain"
-    must_not_import_from: ["src/ui", "src/components"]
-    inward_only: true
+## AI Agent Workflows
+
+```bash
+# Stable machine outputs
+diagram generate . --type architecture --format json --deterministic
+diagram workflow pr . --base origin/main --head HEAD --format json --deterministic
+
+# Compact context pack for agent token budgets
+diagram generate-all . --output-dir .diagram --artifact-profile agent
+diagram context .
 ```
-> *Pattern note:* Use `inward_only` to enforce Clean Architecture/DDD dependencies.
 
-## 5. Command Reference & Docs
+## Machine Output Contracts
 
-For the full list of arguments, video generation prerequisites, CI setups, and more, refer to our detailed documentation:
+- Use `--format json` for machine output.
+- `--json` is a compatibility alias and is normalized to `--format json`.
+- Command outputs include explicit `schemaVersion` values.
+- Use `--deterministic` for stable ordering/timestamps in machine payloads.
+- PR impact JSON includes `agentSummary` with:
+  - `changedComponents`
+  - `riskReasons`
+  - `suggestedReviewerChecks`
 
-- 📖 **[CLI Command Reference](docs/cli-reference.md)**
-- Setting up architecture tests: [docs/architecture-testing.md](docs/architecture-testing.md)
-- GitHub Actions CI Integration: [docs/getting-started.md](docs/getting-started.md)
-- Contributor guide: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Release history: [CHANGELOG.md](CHANGELOG.md)
+## Documentation Index
 
----
-<div align="center">
-  <img src="brand/brand-mark.webp" alt="brAInwav brand-mark" width="150" />
-  <p><i>from demo to duty</i></p>
-</div>
-## Documentation signature
-
-brAInwav - from demo to duty
+- [CLI reference](docs/cli-reference.md)
+- [Getting started](docs/getting-started.md)
+- [Architecture testing](docs/architecture-testing.md)
+- [Migration from dependency-cruiser](docs/migration-from-dependency-cruiser.md)
+- [Maintainer docs index](docs/README.md)
 
 ## Development
 
@@ -110,3 +123,4 @@ node src/diagram.js --help
 ## License
 
 Apache 2.0 - see [LICENSE](LICENSE).
+

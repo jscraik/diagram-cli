@@ -111,6 +111,7 @@
       "beautiful-mermaid",
       "semgrep",
       "semver",
+      "gitleaks",
       "trivy",
       "rsearch",
       "wsearch"
@@ -140,6 +141,7 @@
       "beautiful-mermaid",
       "semgrep",
       "semver",
+      "gitleaks",
       "trivy",
       "rsearch",
       "wsearch"
@@ -236,6 +238,10 @@
       {
         "tool": "semgrep",
         "version": "1.153.1"
+      },
+      {
+        "tool": "gitleaks",
+        "version": "8.28.0"
       },
       {
         "tool": "trivy",

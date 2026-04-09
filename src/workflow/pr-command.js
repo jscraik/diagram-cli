@@ -1,5 +1,3 @@
-const fs = require('fs');
-const path = require('path');
 const chalk = require('chalk');
 const {
   computeDelta,
@@ -11,6 +9,7 @@ const {
   validateGitRef,
   isShallowClone,
   detectPrRefsFromEnv,
+  runGitCommand,
   getChangedFiles,
   analyzeAtRef,
 } = require('./git-helpers');
@@ -22,12 +21,33 @@ const {
 } = require('../confidence/pipeline');
 
 /**
- * Register workflow command group and PR impact command.
- * @param {import('commander').Command} program
- * @param {{resolveRootPathOrExit: Function, validateOutputPath: Function}} deps
+ * Register the `workflow pr` CLI command group and its action handler for computing
+ * PR architecture impact (base → head), producing analysis artifacts and exit codes.
+ *
+ * The command analyses changed files between two git refs, computes component deltas,
+ * blast radius and risk, optionally emits a confidence report, writes artifacts to disk,
+ * and exits with a risk-gated exit code suitable for CI usage.
+ *
+ * @param {import('commander').Command} program - The root Commander program to attach commands to.
+ * @param {Object} deps - Dependency injection for filesystem, git and config helpers.
+ * @param {Function} deps.resolveRootPathOrExit - Resolve the repository root path or terminate the process on error.
+ * @param {Function} deps.validateOutputPath - Validate and normalise an output directory path relative to the repo root.
+ * @param {Function} [deps.applyDiagramRcDefaults] - Optional function to merge CLI options with .diagramrc defaults.
+ * @param {Function} [deps.getDiagramRc] - Optional function to read .diagramrc configuration; returns an object.
+ * @param {Function} [deps.splitList] - Optional function to split comma-separated CLI lists into arrays.
+ * @returns {import('commander').Command} The registered `workflow` command (parent of `pr`).
  */
 function registerWorkflowCommands(program, deps) {
-  const { resolveRootPathOrExit, validateOutputPath } = deps;
+  const {
+    resolveRootPathOrExit,
+    validateOutputPath,
+    applyDiagramRcDefaults = (options) => options,
+    getDiagramRc = () => ({}),
+    splitList = (value) => String(value || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  } = deps;
 
   const workflowCommand = program
     .command('workflow')
@@ -49,8 +69,19 @@ function registerWorkflowCommands(program, deps) {
     .option('--strict-confidence', 'Fail with exit code 1 when confidence checks degrade', false)
     .option('--capability-check-only', 'Run only capability checks and confidence evaluation', false)
     .option('-f, --format <type>', 'Output format (text, json)', 'text')
+    .option('-m, --max-files <n>', 'Max files to analyze at each ref (CLI > .diagramrc > built-in)')
+    .option('-p, --patterns <list>', 'File patterns (comma-separated)')
+    .option('-e, --exclude <list>', 'Exclude patterns (comma-separated)')
+    .option('--deterministic', 'Use deterministic machine output', false)
     .option('--verbose', 'Show detailed output', false)
-    .action(async (targetPath, options) => {
+    .action(async (targetPath, rawOptions) => {
+      const diagramRc = getDiagramRc() || {};
+      const options = applyDiagramRcDefaults(
+        rawOptions,
+        diagramRc,
+        ['patterns', 'exclude', 'maxFiles'],
+        { maxFiles: '10000' }
+      );
       const formatStr = (options.format || 'text').toLowerCase();
       const isJson = formatStr === 'json';
       const validFormats = ['text', 'json'];
@@ -104,12 +135,28 @@ function registerWorkflowCommands(program, deps) {
             console.log(chalk.gray('Auto-detected base ref from environment:', baseRef));
           }
         } else {
-          // Try to use merge-base with origin/main or main
+          // Prefer remote-tracking default branch refs for CI clones.
           try {
-            const defaultBranch = fs.existsSync(path.join(root, '.git', 'refs', 'heads', 'main'))
-              ? 'main'
-              : 'master';
-            baseRef = `origin/${defaultBranch}`;
+            const remoteCandidates = ['origin/main', 'origin/master'];
+            for (const candidate of remoteCandidates) {
+              try {
+                validateGitRef(candidate, root);
+                baseRef = candidate;
+                break;
+              } catch (_candidateError) {
+                // Try next candidate.
+              }
+            }
+            if (!baseRef) {
+              const originHead = runGitCommand(['rev-parse', '--abbrev-ref', 'origin/HEAD'], root).trim();
+              if (originHead && originHead !== 'origin/HEAD') {
+                validateGitRef(originHead, root);
+                baseRef = originHead;
+              }
+            }
+            if (!baseRef) {
+              throw new Error('No remote base branch available');
+            }
             if (options.verbose) {
               console.log(chalk.gray(`Using default base ref: ${baseRef}`));
             }
@@ -211,11 +258,13 @@ function registerWorkflowCommands(program, deps) {
           changedFiles.deleted.length === 0) {
         const emptyResult = {
           schemaVersion: '1.0',
-          generatedAt: new Date().toISOString(),
+          generatedAt: options.deterministic ? '1970-01-01T00:00:00.000Z' : new Date().toISOString(),
           base: baseSha,
           head: headSha,
           changedFiles: [],
           renamedFiles: [],
+          addedFiles: [],
+          deletedFiles: [],
           unmodeledChanges: [],
           changedComponents: [],
           dependencyEdgeDelta: { added: [], removed: [], count: 0 },
@@ -227,7 +276,7 @@ function registerWorkflowCommands(program, deps) {
           },
           risk: {
             score: 0,
-            level: 'low',
+            level: 'none',
             flags: [],
             factors: {
               authTouch: false,
@@ -245,14 +294,25 @@ function registerWorkflowCommands(program, deps) {
           _meta: {
             status: 'no_changes',
             message: 'No changes detected between base and head refs',
-            durationMs: Date.now() - startTime
-          }
+            durationMs: options.deterministic ? 0 : Date.now() - startTime
+          },
+          agentSummary: {
+            changedComponents: 0,
+            riskReasons: [],
+            suggestedReviewerChecks: [
+              'No architecture-impacting files detected.',
+              'Skip PR risk override unless code changes are introduced.',
+            ],
+          },
         };
 
         if (isJson) {
           console.log(JSON.stringify(emptyResult, null, 2));
         } else {
           console.log(chalk.green('\n✅ No architecture changes detected'));
+          console.log(chalk.cyan('\nNext steps:'));
+          console.log('  1) Skip architecture-risk override for this PR.');
+          console.log('  2) Re-run `diagram workflow pr` after new code changes.');
         }
         process.exit(0);
       }
@@ -264,10 +324,14 @@ function registerWorkflowCommands(program, deps) {
 
       let baseAnalysis, headAnalysis;
       try {
+        const maxFilesAtRef = parseInt(options.maxFiles, 10) || 10000;
+        const patterns = Array.isArray(options.patterns) ? options.patterns : splitList(options.patterns);
+        const exclude = Array.isArray(options.exclude) ? options.exclude : splitList(options.exclude);
         const analysisOptions = {
-          maxFiles: 10000, // Use high limit for accurate delta
-          patterns: options.patterns,
-          exclude: options.exclude
+          maxFiles: maxFilesAtRef,
+          patterns,
+          exclude,
+          deterministic: Boolean(options.deterministic),
         };
 
         baseAnalysis = await analyzeAtRef(baseSha, root, analysisOptions);
@@ -325,7 +389,7 @@ function registerWorkflowCommands(program, deps) {
       // Build final result
       const result = {
         schemaVersion: '1.0',
-        generatedAt: new Date().toISOString(),
+        generatedAt: options.deterministic ? '1970-01-01T00:00:00.000Z' : new Date().toISOString(),
         base: baseSha,
         head: headSha,
         changedFiles: changedFiles.changed,
@@ -356,22 +420,44 @@ function registerWorkflowCommands(program, deps) {
           durationMs: Date.now() - startTime,
           baseComponents: baseAnalysis.components.length,
           headComponents: headAnalysis.components.length
-        }
+        },
+        agentSummary: {
+          changedComponents: delta.changedComponents.length,
+          riskReasons: risk.flags,
+          suggestedReviewerChecks: [
+            'Validate touched auth/security/database paths with domain owners.',
+            'Review blast-radius components for transitive side effects.',
+            'Use risk override only with an explicit mitigation plan.',
+          ],
+        },
       };
 
-      // Output result
-      if (isJson) {
-        console.log(JSON.stringify(result, null, 2));
-      } else {
-        console.log(chalk.green('\n✅ PR Impact Analysis Complete'));
-        console.log(chalk.gray('   Duration:'), `${result._meta.durationMs}ms`);
-        console.log(chalk.gray('   Changed components:'), result.changedComponents.length);
-        console.log(chalk.gray('   Blast radius:'), result.blastRadius.impactedComponents.length);
-        console.log(chalk.gray('   Risk level:'), result.risk.level);
-        console.log(chalk.gray('   Risk score:'), result.risk.score);
-        if (result.risk.flags.length > 0) {
-          console.log(chalk.yellow('   Risk flags:'), result.risk.flags.join(', '));
-        }
+      if (options.deterministic) {
+        result.changedFiles = [...(result.changedFiles || [])].sort();
+        result.renamedFiles = [...(result.renamedFiles || [])].sort((a, b) => {
+          const fromCmp = String(a.from || '').localeCompare(String(b.from || ''));
+          if (fromCmp !== 0) return fromCmp;
+          return String(a.to || '').localeCompare(String(b.to || ''));
+        });
+        result.deletedFiles = [...(result.deletedFiles || [])].sort();
+        result.addedFiles = [...(result.addedFiles || [])].sort();
+        result.unmodeledChanges = [...(result.unmodeledChanges || [])].sort();
+        result.changedComponents = [...(result.changedComponents || [])]
+          .map((component) => ({
+            ...component,
+            dependenciesAdded: [...(component.dependenciesAdded || [])].sort(),
+            dependenciesRemoved: [...(component.dependenciesRemoved || [])].sort(),
+            roleTagsAdded: [...(component.roleTagsAdded || [])].sort(),
+            roleTagsRemoved: [...(component.roleTagsRemoved || [])].sort(),
+            roleTags: [...(component.roleTags || [])].sort(),
+          }))
+          .sort((a, b) => String(a.filePath || '').localeCompare(String(b.filePath || '')));
+        result.dependencyEdgeDelta.added = [...(result.dependencyEdgeDelta.added || [])].sort();
+        result.dependencyEdgeDelta.removed = [...(result.dependencyEdgeDelta.removed || [])].sort();
+        result.blastRadius.impactedComponents = [...(result.blastRadius.impactedComponents || [])].sort();
+        result.risk.flags = [...(result.risk.flags || [])].sort();
+        result.agentSummary.riskReasons = [...(result.agentSummary.riskReasons || [])].sort();
+        result._meta.durationMs = 0;
       }
 
       // Exit code logic
@@ -447,6 +533,23 @@ function registerWorkflowCommands(program, deps) {
       } catch (err) {
         console.error(chalk.red('❌ Failed to write artifacts:'), err.message);
         process.exit(2);
+      }
+
+      if (isJson) {
+        console.log(JSON.stringify(result, null, 2));
+      } else {
+        console.log(chalk.green('\n✅ PR Impact Analysis Complete'));
+        console.log(chalk.gray('   Duration:'), `${result._meta.durationMs}ms`);
+        console.log(chalk.gray('   Changed components:'), result.changedComponents.length);
+        console.log(chalk.gray('   Blast radius:'), result.blastRadius.impactedComponents.length);
+        console.log(chalk.gray('   Risk level:'), result.risk.level);
+        console.log(chalk.gray('   Risk score:'), result.risk.score);
+        if (result.risk.flags.length > 0) {
+          console.log(chalk.yellow('   Risk flags:'), result.risk.flags.join(', '));
+        }
+        console.log(chalk.cyan('\nNext steps:'));
+        console.log('  1) Review `pr-impact.html` with architecture owners for high/medium risk PRs.');
+        console.log('  2) Use `--risk-override-reason` only when mitigations are documented in the PR.');
       }
 
       process.exit(exitCode);

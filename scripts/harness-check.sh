@@ -6,14 +6,15 @@ fail() {
   exit 1
 }
 
-HARNESS_CLI=(node node_modules/@brainwav/coding-harness/dist/cli.js)
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+HARNESS_CLI=("${SCRIPT_DIR}/harness-cli.sh")
 CONTRACT_PATH="${HARNESS_CONTRACT_PATH:-harness.contract.json}"
 BASE_REF="${HARNESS_BASE_REF:-main}"
 BASE_SHA="${BASE_SHA:-}"
 HEAD_SHA="${HEAD_SHA:-$(git rev-parse HEAD)}"
 
 [[ -f "${CONTRACT_PATH}" ]] || fail "Harness contract not found at ${CONTRACT_PATH}."
-[[ -f "${HARNESS_CLI[1]}" ]] || fail "Harness CLI not found at ${HARNESS_CLI[1]}. Run npm install first."
+[[ -x "${HARNESS_CLI[0]}" ]] || fail "Harness CLI wrapper not executable at ${HARNESS_CLI[0]}."
 
 if [[ -z "${BASE_SHA}" ]]; then
   if git rev-parse --verify --quiet "origin/${BASE_REF}" >/dev/null; then

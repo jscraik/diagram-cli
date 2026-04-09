@@ -15,6 +15,7 @@ Use this folder for progressive-disclosure guidance linked from root `AGENTS.md`
 
 ## Route by task
 - Tooling, shell, preflight, or package-manager concerns: [`02-tooling-policy.md`](02-tooling-policy.md)
+- Repo-specific required tooling inventory (generated): [`tooling.md`](tooling.md)
 - Validation and required checks: [`03-validation.md`](03-validation.md)
 - MCP/external authentication and connectivity preflight: [`04-external-integrations.md`](04-external-integrations.md)
 - Git-risk escalation and communication behavior: [`05-git-and-communication.md`](05-git-and-communication.md)

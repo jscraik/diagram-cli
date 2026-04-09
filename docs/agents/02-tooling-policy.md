@@ -2,6 +2,7 @@
 
 ## Table of Contents
 - [Shell and command rules](#shell-and-command-rules)
+- [Project tooling inventory](#project-tooling-inventory)
 - [Command preflight checklist](#command-preflight-checklist)
 - [Package-manager command map](#package-manager-command-map)
 - [Dependency constraints](#dependency-constraints)
@@ -11,7 +12,10 @@
 - Run shell commands with `zsh -lc`.
 - Prefer `rg`, `fd`, and `jq` for search, discovery, and JSON parsing.
 - Check command resolution with `which` before considering installs.
-- Read `/Users/jamiecraik/.codex/instructions/tooling.md` before choosing unfamiliar tools.
+
+## Project tooling inventory
+- Use [`tooling.md`](tooling.md) as the repository-local tooling inventory.
+- Regenerate it from [`tooling.contract.json`](tooling.contract.json) with `bash scripts/render-tooling-doc.sh`.
 
 ## Command preflight checklist
 - Confirm `pwd` is `/Users/jamiecraik/dev/diagram-cli` before repo edits.

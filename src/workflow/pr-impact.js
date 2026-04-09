@@ -2,7 +2,14 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Helper to compare arrays
+ * Compare two arrays for strict element-wise equality.
+ *
+ * Returns `false` if either argument is not an array or their lengths differ.
+ * Elements are compared using strict equality (`===`) at the same indices.
+ *
+ * @param {Array} a - First array to compare.
+ * @param {Array} b - Second array to compare.
+ * @returns {boolean} `true` if both arrays have the same length and every element at each index is strictly equal, `false` otherwise.
  */
 function arraysEqual(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b)) return false;
@@ -11,14 +18,133 @@ function arraysEqual(a, b) {
 }
 
 /**
- * Compute delta between two analysis snapshots
- * @param {object} baseAnalysis - Analysis at base ref
- * @param {object} headAnalysis - Analysis at head ref
- * @param {object} changedFiles - Changed files from getChangedFiles()
- * @returns {object} Delta summary
+ * Convert a dependency reference to a canonical string identity when possible.
+ *
+ * Accepts a string identity or an object-shaped dependency. For object inputs,
+ * the function prefers `filePath`, falls back to `name`, and returns `null` if
+ * neither field is present or the input is not a recognised form.
+ *
+ * @param {*} dep - A dependency reference; either a string identity or an object with `filePath`/`name`.
+ * @returns {string|null} The resolved dependency identity (`filePath` preferred, then `name`), or `null` if not resolvable.
+ */
+function normalizeDependency(dep) {
+  if (typeof dep === 'string') return dep;
+  if (dep && typeof dep === 'object') {
+    return dep.filePath || dep.name || null;
+  }
+  return null;
+}
+
+/**
+ * Extracts a canonical identity string from a component object.
+ *
+ * Prefers `filePath` then `name`; returns `null` when no identity can be derived.
+ * @param {Object|null} component - Component object which may contain `filePath` or `name`.
+ * @returns {string|null} The canonical identity (the `filePath` if present, otherwise the `name`), or `null` if none exists.
+ */
+function componentIdentity(component) {
+  if (!component || typeof component !== 'object') return null;
+  return component.filePath || component.name || null;
+}
+
+/**
+ * Build a map of alias keys (filePath and name) to a canonical component identity.
+ * @param {Array<Object>} components - List of component objects; each may contain `filePath` and/or `name`.
+ * @returns {Map<string,string>} A map where each `filePath` or `name` present on a component is routed to its canonical identity.
+ */
+function buildComponentAliasMap(components) {
+  const aliases = new Map();
+  for (const component of components || []) {
+    const canonical = componentIdentity(component);
+    if (!canonical) continue;
+    if (component.filePath) {
+      aliases.set(component.filePath, canonical);
+    }
+    if (component.name) {
+      aliases.set(component.name, canonical);
+    }
+  }
+  return aliases;
+}
+
+/**
+ * Resolve a component reference to its canonical identity using the provided alias map.
+ * @param {Object} component - Object that may contain `filePath` and/or `name` properties.
+ * @param {Map<string,string>} aliases - Map of alias → canonical identity.
+ * @returns {string|null} The canonical identity if an alias match is found; otherwise the first available candidate (`filePath` or `name`); or `null` if neither exists.
+ */
+function resolveIdentityFromComponent(component, aliases) {
+  const candidates = [component?.filePath, component?.name].filter(Boolean);
+  for (const candidate of candidates) {
+    if (aliases.has(candidate)) {
+      return aliases.get(candidate);
+    }
+  }
+  return candidates[0] || null;
+}
+
+/**
+ * Produce a canonical, sorted list of dependency identities for a component.
+ * 
+ * Normalises each entry in `component.dependencies`, maps aliases to canonical
+ * identities when an `aliases` map is provided, filters out unrecognised
+ * dependencies and returns the final list sorted lexicographically.
+ *
+ * @param {Object} component - Component object that may have a `dependencies` array.
+ * @param {Map<string,string>|null} [aliases=null] - Optional map of alias → canonical identity to resolve dependency names/paths.
+ * @returns {string[]} Sorted array of canonical dependency identities; empty array if there are no normalisable dependencies.
+ */
+function normalizedDependencies(component, aliases = null) {
+  return (component?.dependencies || [])
+    .map((dep) => {
+      const normalized = normalizeDependency(dep);
+      if (!normalized) return null;
+      if (aliases?.has(normalized)) {
+        return aliases.get(normalized);
+      }
+      if (dep && typeof dep === 'object' && dep.name && aliases?.has(dep.name)) {
+        return aliases.get(dep.name);
+      }
+      return normalized;
+    })
+    .filter(Boolean)
+    .sort();
+}
+
+/**
+ * Create a Set of canonical dependency identities for a component.
+ * @param {Object} component - Component object with a `dependencies` field.
+ * @param {Map<string,string>|null} aliases - Optional map of alias → canonical identity used to resolve dependencies.
+ * @returns {Set<string>} A set of each dependency's canonical identity.
+ */
+function normalizedDependencySet(component, aliases = null) {
+  return new Set(normalizedDependencies(component, aliases));
+}
+
+/**
+ * Build a concise delta summary describing file, component and dependency changes between two analysis snapshots.
+ *
+ * Produces a structured summary that lists:
+ * - modelled component changes (dependency and role-tag additions/removals, new components),
+ * - unmodelled file changes,
+ * - renamed, deleted and added files,
+ * - dependency-edge additions and removals with a total count.
+ *
+ * @param {object} baseAnalysis - Snapshot at the base ref; expected to contain a `components` array.
+ * @param {object} headAnalysis - Snapshot at the head ref; expected to contain a `components` array.
+ * @param {object} changedFiles - Output from getChangedFiles(); expected shape `{ changed: string[], renamed: object[], deleted: string[], added: string[] }`.
+ * @returns {object} Delta summary with keys:
+ *   - `changedComponents` {Array} — list of components with `{ filePath, name, type, roleTags, dependenciesAdded, dependenciesRemoved, roleTagsAdded, roleTagsRemoved, isNew? }`.
+ *   - `unmodeledChanges` {Array<string>} — changed file paths that have no modelled component.
+ *   - `renamedFiles` {Array<object>} — as provided by `changedFiles.renamed`.
+ *   - `deletedFiles` {Array<string>} — deleted file paths.
+ *   - `addedFiles` {Array<string>} — added file paths.
+ *   - `dependencyEdgeDelta` {object} — `{ added: string[], removed: string[], count: number }` where edges are represented as `"<filePath>→<dependencyIdentity>"`.
  */
 function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   const { changed, renamed, deleted, added } = changedFiles;
+  const baseAliases = buildComponentAliasMap(baseAnalysis.components || []);
+  const headAliases = buildComponentAliasMap(headAnalysis.components || []);
 
   // Build component indexes by filePath
   const baseByPath = new Map();
@@ -43,23 +169,24 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
       // File exists in head
       if (baseComp) {
         // File exists in both - check if dependencies or roleTags changed
-        const depsChanged = !arraysEqual(
-          (baseComp.dependencies || []).sort(),
-          (headComp.dependencies || []).sort()
-        );
+        const baseDeps = normalizedDependencies(baseComp, baseAliases);
+        const headDeps = normalizedDependencies(headComp, headAliases);
+        const depsChanged = !arraysEqual(baseDeps, headDeps);
         const rolesChanged = !arraysEqual(
           (baseComp.roleTags || []).sort(),
           (headComp.roleTags || []).sort()
         );
 
         if (depsChanged || rolesChanged) {
+          const baseDepSet = new Set(baseDeps);
+          const headDepSet = new Set(headDeps);
           changedComponents.push({
             filePath,
             name: headComp.name,
             type: headComp.type,
             roleTags: headComp.roleTags,
-            dependenciesAdded: (headComp.dependencies || []).filter(d => !(baseComp.dependencies || []).includes(d)),
-            dependenciesRemoved: (baseComp.dependencies || []).filter(d => !(headComp.dependencies || []).includes(d)),
+            dependenciesAdded: [...headDepSet].filter((dep) => !baseDepSet.has(dep)),
+            dependenciesRemoved: [...baseDepSet].filter((dep) => !headDepSet.has(dep)),
             roleTagsAdded: (headComp.roleTags || []).filter(r => !(baseComp.roleTags || []).includes(r)),
             roleTagsRemoved: (baseComp.roleTags || []).filter(r => !(headComp.roleTags || []).includes(r))
           });
@@ -71,7 +198,7 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
           name: headComp.name,
           type: headComp.type,
           roleTags: headComp.roleTags,
-          dependenciesAdded: headComp.dependencies || [],
+          dependenciesAdded: normalizedDependencies(headComp, headAliases),
           dependenciesRemoved: [],
           roleTagsAdded: headComp.roleTags || [],
           roleTagsRemoved: [],
@@ -87,14 +214,14 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   // Compute dependency edge deltas
   const baseEdges = new Set();
   for (const c of baseAnalysis.components || []) {
-    for (const dep of c.dependencies || []) {
+    for (const dep of normalizedDependencies(c, baseAliases)) {
       baseEdges.add(`${c.filePath}→${dep}`);
     }
   }
 
   const headEdges = new Set();
   for (const c of headAnalysis.components || []) {
-    for (const dep of c.dependencies || []) {
+    for (const dep of normalizedDependencies(c, headAliases)) {
       headEdges.add(`${c.filePath}→${dep}`);
     }
   }
@@ -117,52 +244,73 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
 }
 
 /**
- * Compute blast radius from delta
+ * Compute impacted components by traversing reverse dependency links in the head analysis.
+ *
+ * @param {Object} delta - Delta summary produced by `computeDelta`, used for source identities (reads `changedComponents` and `addedFiles`).
+ * @param {Object} headAnalysis - Snapshot containing `components` to build reverse dependency relationships.
+ * @param {number} maxDepth - Maximum traversal depth from each changed/added source (inclusive).
+ * @param {number} maxNodes - Maximum number of impacted components to include in the result.
+ * @returns {Object} An object describing the blast radius:
+ *  - impactedComponents {string[]} Sorted list of impacted component names or identities.
+ *  - truncated {boolean} `true` if traversal discovered more components than `maxNodes`.
+ *  - omittedCount {number} Number of discovered components omitted because of `maxNodes`.
  */
 function computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes) {
+  const components = headAnalysis.components || [];
+  const aliases = buildComponentAliasMap(components);
+  const byId = new Map();
+  const reverseDependents = new Map();
+  for (const component of components) {
+    const canonicalId = componentIdentity(component);
+    if (!canonicalId) continue;
+    byId.set(canonicalId, component);
+    const deps = normalizedDependencySet(component, aliases);
+    for (const depId of deps) {
+      if (!reverseDependents.has(depId)) {
+        reverseDependents.set(depId, []);
+      }
+      reverseDependents.get(depId).push(canonicalId);
+    }
+  }
+
   const impacted = new Set();
   const visited = new Set();
   const queue = [];
 
   // Start from changed components
-  for (const comp of delta.changedComponents) {
-    queue.push({ name: comp.name, depth: 0 });
-    visited.add(comp.name);
+  for (const comp of delta.changedComponents || []) {
+    const identity = resolveIdentityFromComponent(comp, aliases);
+    if (!identity || visited.has(identity)) continue;
+    queue.push({ identity, depth: 0 });
+    visited.add(identity);
   }
 
   // Also include components whose files were added
-  for (const filePath of delta.addedFiles) {
-    const comp = headAnalysis.components.find(c => c.filePath === filePath);
-    if (comp && !visited.has(comp.name)) {
-      queue.push({ name: comp.name, depth: 0 });
-      visited.add(comp.name);
+  for (const filePath of delta.addedFiles || []) {
+    const identity = aliases.get(filePath) || filePath;
+    if (byId.has(identity) && !visited.has(identity)) {
+      queue.push({ identity, depth: 0 });
+      visited.add(identity);
     }
   }
 
-  // BFS traversal to find downstream dependencies
-  const byName = new Map();
-  for (const c of headAnalysis.components) {
-    byName.set(c.name, c);
-  }
-
   while (queue.length > 0 && impacted.size < maxNodes) {
-    const { name, depth } = queue.shift();
+    const { identity, depth } = queue.shift();
 
-    if (depth > maxDepth) break;
+    if (depth > maxDepth) continue;
 
-    const comp = byName.get(name);
+    const comp = byId.get(identity);
     if (!comp) continue;
 
-    // Find components that depend on this one (reverse dependencies)
-    for (const potentialDep of headAnalysis.components) {
-      if (potentialDep.dependencies && potentialDep.dependencies.includes(name)) {
-        if (!visited.has(potentialDep.name)) {
-          visited.add(potentialDep.name);
-          queue.push({ name: potentialDep.name, depth: depth + 1 });
-          if (impacted.size < maxNodes) {
-            impacted.add(potentialDep.name);
-          }
-        }
+    const dependentIds = reverseDependents.get(identity) || [];
+    for (const dependentId of dependentIds) {
+      if (visited.has(dependentId)) {
+        continue;
+      }
+      visited.add(dependentId);
+      queue.push({ identity: dependentId, depth: depth + 1 });
+      if (impacted.size < maxNodes) {
+        impacted.add(byId.get(dependentId)?.name || dependentId);
       }
     }
   }

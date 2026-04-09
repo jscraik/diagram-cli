@@ -11,7 +11,7 @@ Maintainer and contributor documentation for `diagram-cli`.
 
 - [Getting started](getting-started.md) - Local setup, first commands, and
   quick verification.
-- [Architecture testing](architecture-testing.md) - `diagram test` rules,
+- [Architecture testing](architecture-testing.md) - `diagram validate` rules,
   formats, and CI usage.
 - [Confidence pipeline](confidence-pipeline.md) - confidence artifact contract,
   strict confidence mode, and fallback semantics.
