@@ -99,10 +99,18 @@ function checkFfmpeg() {
       // Continue.
     }
   }
+  let installHint = 'install ffmpeg and ensure it is on PATH';
+  if (process.platform === 'darwin') {
+    installHint = 'brew install ffmpeg';
+  } else if (process.platform === 'linux') {
+    installHint = 'sudo apt install ffmpeg';
+  } else if (process.platform === 'win32') {
+    installHint = 'Install ffmpeg (for example with winget: winget install Gyan.FFmpeg)';
+  }
   return {
     status: 'warn',
     message: 'ffmpeg not detected',
-    fix: 'brew install ffmpeg',
+    fix: installHint,
   };
 }
 

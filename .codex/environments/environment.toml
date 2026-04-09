@@ -11,7 +11,24 @@ echo "[codex] setup: $(pwd)"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 
 if command -v mise >/dev/null 2>&1; then
-  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+  mise_activate_error_file="$(mktemp)"
+  mise_activate_cmd=''
+  if mise_activate_cmd="$(mise activate bash 2>"$mise_activate_error_file")"; then
+    if ! eval "$mise_activate_cmd" >/dev/null; then
+      mise_activate_error="$(cat "$mise_activate_error_file")"
+      if [ -z "$mise_activate_error" ]; then
+        mise_activate_error='unknown error while applying mise activation output'
+      fi
+      echo "[codex] warning: mise activation failed: $mise_activate_error" >&2
+    fi
+  else
+    mise_activate_error="$(cat "$mise_activate_error_file")"
+    if [ -z "$mise_activate_error" ]; then
+      mise_activate_error='unknown error from mise activate bash'
+    fi
+    echo "[codex] warning: mise activation failed: $mise_activate_error" >&2
+  fi
+  rm -f "$mise_activate_error_file"
 fi
 
 missing_tools=0

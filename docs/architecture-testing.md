@@ -192,7 +192,7 @@ jobs:
   - Run `diagram validate --init`.
 - Unexpected matches:
   - Run `diagram validate --dry-run --verbose`.
-- Output write errors:
-  - Ensure output paths are inside project root and writable.
+- Output write failures:
+  - Ensure output paths are inside the project root and writable.
 - PR ref resolution failures:
   - Provide explicit `--base` and `--head`, and ensure git history is available (`fetch-depth: 0` in CI).

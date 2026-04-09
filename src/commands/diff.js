@@ -94,7 +94,7 @@ function registerDiffCommand(program) {
             diff,
           },
           agentSummary: {
-            changedComponents: (diff.changedComponents || []).length,
+            changedComponents: Array.isArray(diff?.components?.changed) ? diff.components.changed.length : 0,
             riskReasons: [],
             suggestedReviewerChecks: [
               'Verify added/removed components are expected for this ref comparison.',

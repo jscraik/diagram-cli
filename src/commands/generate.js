@@ -98,7 +98,7 @@ function validateMermaidSyntax(mermaid, theme = 'default', allowAutoInstall = fa
     result.meta.fallbackReasons.push('mmdc_unavailable_or_failed');
     result.meta.cliValidation.error = error.message || String(error);
     if (process.env.DEBUG) {
-      console.log(chalk.gray('Mermaid CLI not available for validation, using basic checks only'));
+      console.error(chalk.gray('Mermaid CLI not available for validation, using basic checks only'));
     }
   } finally {
     if (tempDir && fs.existsSync(tempDir)) {
@@ -140,6 +140,9 @@ function registerGenerateCommand(program) {
     .option('--open', 'Open in browser')
     .action(async (targetPath, rawOptions) => {
       const options = applyDiagramRcDefaults(rawOptions, program._diagramRc, ['patterns', 'exclude', 'maxFiles', 'theme']);
+      const formatStr = (options.format || 'text').toLowerCase();
+      const isJson = formatStr === 'json';
+      const quietOutput = Boolean(options.quiet || isJson);
       if (options.failOnValidationError && !options.validate) {
         console.warn(chalk.yellow('⚠️  --fail-on-validation-error has no effect unless --validate is also provided.'));
       }
@@ -173,20 +176,49 @@ function registerGenerateCommand(program) {
           fallback: { used: false, reasons: [] },
           notes: ['capability_check_only'],
         });
+        let confidencePath = null;
         if (options.confidenceReport || options.strictConfidence) {
-          const confidencePath = writeConfidenceReport(root, quickReport);
-          console.log(chalk.gray('Confidence report:'), confidencePath);
+          confidencePath = writeConfidenceReport(root, quickReport);
+          if (!quietOutput) {
+            console.log(chalk.gray('Confidence report:'), confidencePath);
+          }
         }
-        if (options.strictConfidence && shouldFailStrictConfidence(quickReport)) {
-          console.error(chalk.red('❌ Strict confidence check failed'));
-          process.exit(1);
+        const strictConfidenceFailed = options.strictConfidence && shouldFailStrictConfidence(quickReport);
+        if (isJson) {
+          const machinePayload = buildMachineEnvelope({
+            schemaVersion: '1.0',
+            command: 'generate',
+            rootPath: root,
+            deterministic: Boolean(options.deterministic),
+            status: strictConfidenceFailed ? 'failure' : 'success',
+            data: {
+              capabilityCheckOnly: true,
+              confidence: quickReport,
+              artifacts: {
+                confidenceReportPath: confidencePath,
+              },
+            },
+            errors: strictConfidenceFailed
+              ? [{ message: 'Strict confidence check failed' }]
+              : [],
+            agentSummary: {
+              changedComponents: 0,
+              riskReasons: quickReport?.fallback?.reasons || [],
+              suggestedReviewerChecks: [
+                'Install missing capabilities listed in the confidence report before generation.',
+              ],
+            },
+          });
+          console.log(JSON.stringify(machinePayload, null, 2));
+        } else if (strictConfidenceFailed) {
+          if (!quietOutput) {
+            console.error(chalk.red('❌ Strict confidence check failed'));
+          }
+        } else if (!quietOutput) {
+          console.log(chalk.green('✅ Capability check complete'));
         }
-        console.log(chalk.green('✅ Capability check complete'));
-        process.exit(0);
+        process.exit(strictConfidenceFailed ? 1 : 0);
       }
-
-      const formatStr = (options.format || 'text').toLowerCase();
-      const isJson = formatStr === 'json';
       if (!options.quiet) {
         console.error(chalk.blue('Generating'), options.type, 'diagram for', root);
       }

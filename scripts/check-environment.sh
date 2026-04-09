@@ -36,6 +36,12 @@ if [[ ! -f "$TOOLING_CONTRACT_PATH" ]]; then
 	exit 1
 fi
 
+if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 ]]; then
+	echo "Error: scripts/check-environment.sh requires Bash 4+ (detected ${BASH_VERSION:-unknown})"
+	echo "Fix: run with Bash 4+ (for example via mise) before running scripts/check-environment.sh or scripts/codex-preflight.sh."
+	exit 1
+fi
+
 mapfile -t required_mise_tools < <(jq -r '.required_mise_tools[]' "$TOOLING_CONTRACT_PATH")
 mapfile -t required_bins < <(jq -r '.required_bins[]' "$TOOLING_CONTRACT_PATH")
 mapfile -t required_codex_actions < <(jq -r '.required_codex_actions[] | "\(.name)|\(.icon)"' "$TOOLING_CONTRACT_PATH")
@@ -169,57 +175,57 @@ for action in "${required_codex_actions[@]}"; do
 	fi
 done
 
-	required_make_targets=("help" "install" "setup" "preflight" "worktree-ready" "verify-work" "hooks" "hooks-pre-commit" "hooks-pre-push" "secrets-staged" "docs-style-changed" "related-tests" "semgrep-changed" "diagrams-check" "lint" "docs-lint" "fmt" "typecheck" "test" "check" "audit" "secrets" "security" "clean" "reset" "ci" "diagrams" "env-check")
-	for target in "${required_make_targets[@]}"; do
-		if ! rg -q "^${target}:" "$MAKEFILE_PATH"; then
-			echo "Error: required Makefile target '$target' is missing from $MAKEFILE_PATH"
+required_make_targets=("help" "install" "setup" "preflight" "worktree-ready" "verify-work" "hooks" "hooks-pre-commit" "hooks-pre-push" "secrets-staged" "docs-style-changed" "related-tests" "semgrep-changed" "diagrams-check" "lint" "docs-lint" "fmt" "typecheck" "test" "check" "audit" "secrets" "security" "clean" "reset" "ci" "diagrams" "env-check")
+for target in "${required_make_targets[@]}"; do
+	if ! rg -q "^${target}:" "$MAKEFILE_PATH"; then
+		echo "Error: required Makefile target '$target' is missing from $MAKEFILE_PATH"
+		exit 1
+	fi
+done
+
+required_prek_hooks=("pre-commit|make hooks-pre-commit" "pre-push|make hooks-pre-push")
+for hook_spec in "${required_prek_hooks[@]}"; do
+	hook_name="${hook_spec%%|*}"
+	hook_command="${hook_spec#*|}"
+	if ! rg -q "^[[:space:]]*${hook_name}[[:space:]]*=[[:space:]]*\\[[[:space:]]*\"${hook_command}\"[[:space:]]*\\][[:space:]]*$" "$PREK_CONFIG_PATH"; then
+		echo "Error: required prek hook '$hook_name' is missing or out of date in $PREK_CONFIG_PATH"
+		exit 1
+	fi
+done
+
+if [[ -f "$PACKAGE_JSON_PATH" ]]; then
+	required_package_scripts=("secrets:staged|bash scripts/check-staged-secrets.sh" "docs:style:changed|bash scripts/check-doc-style.sh" "test:related|bash scripts/check-related-tests.sh" "semgrep:changed|bash scripts/check-semgrep-changed.sh")
+	for script_spec in "${required_package_scripts[@]}"; do
+		script_name="${script_spec%%|*}"
+		script_command="${script_spec#*|}"
+		if ! jq -e --arg script_name "$script_name" --arg script_command "$script_command" '
+			(.scripts // {})[$script_name] == $script_command
+		' "$PACKAGE_JSON_PATH" >/dev/null; then
+			echo "Error: package script '$script_name' is missing or out of date in $PACKAGE_JSON_PATH"
+			echo "Fix: run node scripts/setup-git-hooks.js"
 			exit 1
 		fi
 	done
 
-	required_prek_hooks=("pre-commit|make hooks-pre-commit" "pre-push|make hooks-pre-push")
-	for hook_spec in "${required_prek_hooks[@]}"; do
+	required_simple_git_hooks=("pre-commit|make hooks-pre-commit" "commit-msg|node scripts/validate-commit-msg.js \$1" "pre-push|make hooks-pre-push")
+	for hook_spec in "${required_simple_git_hooks[@]}"; do
 		hook_name="${hook_spec%%|*}"
 		hook_command="${hook_spec#*|}"
-		if ! rg -q "^[[:space:]]*${hook_name}[[:space:]]*=[[:space:]]*\\[[[:space:]]*\"${hook_command}\"[[:space:]]*\\][[:space:]]*$" "$PREK_CONFIG_PATH"; then
-			echo "Error: required prek hook '$hook_name' is missing or out of date in $PREK_CONFIG_PATH"
+		if ! jq -e --arg hook_name "$hook_name" --arg hook_command "$hook_command" '
+			.["simple-git-hooks"][$hook_name] == $hook_command
+		' "$PACKAGE_JSON_PATH" >/dev/null; then
+			echo "Error: simple-git-hooks entry '$hook_name' is missing or out of date in $PACKAGE_JSON_PATH"
+			echo "Fix: run node scripts/setup-git-hooks.js"
 			exit 1
 		fi
 	done
 
-	if [[ -f "$PACKAGE_JSON_PATH" ]]; then
-		required_package_scripts=("secrets:staged|bash scripts/check-staged-secrets.sh" "docs:style:changed|bash scripts/check-doc-style.sh" "test:related|bash scripts/check-related-tests.sh" "semgrep:changed|bash scripts/check-semgrep-changed.sh")
-		for script_spec in "${required_package_scripts[@]}"; do
-			script_name="${script_spec%%|*}"
-			script_command="${script_spec#*|}"
-			if ! jq -e --arg script_name "$script_name" --arg script_command "$script_command" '
-				(.scripts // {})[$script_name] == $script_command
-			' "$PACKAGE_JSON_PATH" >/dev/null; then
-				echo "Error: package script '$script_name' is missing or out of date in $PACKAGE_JSON_PATH"
-				echo "Fix: run node scripts/setup-git-hooks.js"
-				exit 1
-			fi
-		done
-
-		required_simple_git_hooks=("pre-commit|make hooks-pre-commit" "commit-msg|node scripts/validate-commit-msg.js \$1" "pre-push|make hooks-pre-push")
-		for hook_spec in "${required_simple_git_hooks[@]}"; do
-			hook_name="${hook_spec%%|*}"
-			hook_command="${hook_spec#*|}"
-			if ! jq -e --arg hook_name "$hook_name" --arg hook_command "$hook_command" '
-				.["simple-git-hooks"][$hook_name] == $hook_command
-			' "$PACKAGE_JSON_PATH" >/dev/null; then
-				echo "Error: simple-git-hooks entry '$hook_name' is missing or out of date in $PACKAGE_JSON_PATH"
-				echo "Fix: run node scripts/setup-git-hooks.js"
-				exit 1
-			fi
-		done
-
-		has_package_marker() {
-			local marker="$1"
-			jq -e --arg marker "$marker" '
-				((.dependencies // {}) + (.devDependencies // {})) | has($marker)
-			' "$PACKAGE_JSON_PATH" >/dev/null
-		}
+	has_package_marker() {
+		local marker="$1"
+		jq -e --arg marker "$marker" '
+			((.dependencies // {}) + (.devDependencies // {})) | has($marker)
+		' "$PACKAGE_JSON_PATH" >/dev/null
+	}
 
 		repo_capabilities=()
 		explicit_capabilities=()
