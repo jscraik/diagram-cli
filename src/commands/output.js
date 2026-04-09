@@ -65,7 +65,7 @@ function buildMachineEnvelope({
 
   if (deterministic) {
     delete envelope.meta.generatedAt;
-    return sortObjectDeep(envelope);
+    return module.exports.sortObjectDeep(envelope);
   }
   return envelope;
 }
