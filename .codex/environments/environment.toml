@@ -41,7 +41,7 @@ if [ "$missing_tools" -ne 0 ]; then
 fi
 
 if [ -f package-lock.json ]; then
-  npm ci || npm install
+  npm ci
 else
   npm install
 fi
@@ -88,6 +88,7 @@ icon = "test"
 command = '''
 set -euo pipefail
 npm test -- "$@"
+npm run test:deep -- "$@"
 '''
 
 [[actions]]
@@ -188,11 +189,7 @@ name = "Vitest"
 icon = "test"
 command = '''
 set -euo pipefail
-if ! command -v vitest >/dev/null 2>&1; then
-  echo "vitest is not installed"
-  exit 1
-fi
-vitest run "$@"
+npm exec -- vitest run "$@"
 '''
 
 [[actions]]
@@ -212,11 +209,7 @@ name = "ESLint"
 icon = "debug"
 command = '''
 set -euo pipefail
-if ! command -v eslint >/dev/null 2>&1; then
-  echo "eslint is not installed"
-  exit 1
-fi
-eslint .
+npm exec -- eslint .
 '''
 
 [[actions]]
@@ -265,11 +258,7 @@ name = "MarkdownLint"
 icon = "debug"
 command = '''
 set -euo pipefail
-if ! command -v markdownlint-cli2 >/dev/null 2>&1; then
-  echo "markdownlint-cli2 is not installed"
-  exit 1
-fi
-markdownlint-cli2 "**/*.md"
+npm exec -- markdownlint-cli2 "**/*.md"
 '''
 
 [[actions]]
@@ -337,11 +326,7 @@ name = "Semver"
 icon = "tool"
 command = '''
 set -euo pipefail
-if ! command -v semver >/dev/null 2>&1; then
-  echo "semver is not installed"
-  exit 1
-fi
-semver "$@"
+npm exec -- semver "$@"
 '''
 
 [[actions]]

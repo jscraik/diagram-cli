@@ -30,7 +30,7 @@ function registerDiffCommand(program) {
 
       const baseCheck = spawnSync('git', ['rev-parse', '--verify', baseRef], {
         cwd: root,
-        stdio: ['ignore', 'ignore', 'pipe'],
+        stdio: ['ignore', 'ignore', 'ignore'],
         encoding: 'utf-8',
       });
       if (baseCheck.status !== 0) {
@@ -40,7 +40,7 @@ function registerDiffCommand(program) {
 
       const headCheck = spawnSync('git', ['rev-parse', '--verify', headRef], {
         cwd: root,
-        stdio: ['ignore', 'ignore', 'pipe'],
+        stdio: ['ignore', 'ignore', 'ignore'],
         encoding: 'utf-8',
       });
       if (headCheck.status !== 0) {

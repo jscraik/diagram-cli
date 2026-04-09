@@ -72,8 +72,8 @@ function registerAnalyzeCommand(program) {
 
       console.log(chalk.green('\n📊 Summary'));
       console.log(`  Files: ${data.components.length}`);
-      console.log(`  Languages: ${Object.entries(data.languages).map(([k, v]) => `${k}(${v})`).join(', ') || 'none'}`);
-      console.log(`  Entry points: ${data.entryPoints.join(', ') || 'none'}`);
+      console.log(`  Languages: ${Object.entries(data.languages || {}).map(([k, v]) => `${k}(${v})`).join(', ') || 'none'}`);
+      console.log(`  Entry points: ${(data.entryPoints || []).join(', ') || 'none'}`);
       console.log(`\n${chalk.yellow('Components:')}`);
       data.components.slice(0, 15).forEach((component) => {
         const deps = component.dependencies.length > 0

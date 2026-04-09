@@ -68,6 +68,11 @@ program.on('command:*', function (operands) {
 });
 
 function findActiveCommand(argv) {
+  // COUPLING WARNING: This Set must be kept in sync with all command option
+  // definitions that expect values. If you add a new option with a value to
+  // any command, add both its short and long forms here. This prevents flag
+  // values from being misclassified as the command name.
+  // Test coverage: test/unit/diagram.test.js should catch regressions.
   const flagsWithValue = new Set([
     '-f', '--format',
     '-o', '--output',
@@ -91,6 +96,7 @@ function findActiveCommand(argv) {
     '--max-nodes',
     '--risk-threshold',
     '--risk-override-reason',
+    '--depth',
   ]);
 
   for (let i = 2; i < argv.length; i += 1) {

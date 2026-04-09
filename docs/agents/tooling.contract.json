@@ -24,6 +24,7 @@
     "npm:wrangler",
     "semgrep",
     "trivy",
+    "gitleaks",
     "vale"
   ],
   "required_bins": [
@@ -52,6 +53,7 @@
     "semgrep",
     "semver",
     "trivy",
+    "gitleaks",
     "rsearch",
     "wsearch"
   ],

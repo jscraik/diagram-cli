@@ -24,7 +24,7 @@ function registerGenerateAllCommand(program) {
   program
     .command('generate-all [path]')
     .description('Generate all diagram types')
-    .option('-O, --output-dir <dir>', 'Output directory', './diagrams')
+    .option('-O, --output-dir <dir>', 'Output directory', '.diagram')
     .option('--artifact-profile <profile>', 'Artifact output profile (full, agent, ultra-compact)', 'full')
     .option('-q, --quiet', 'Suppress non-essential logging', false)
     .option('-p, --patterns <list>', 'File patterns')

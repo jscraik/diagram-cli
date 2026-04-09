@@ -51,10 +51,6 @@ function validateMermaidSyntax(mermaid, theme = 'default') {
       result.errors.push({ line: lineNum, message: 'Unbalanced quotes in label' });
       result.valid = false;
     }
-    if (line.includes('-->') && line.includes('---')) {
-      result.errors.push({ line: lineNum, message: 'Mixed arrow syntax (-->) and comment syntax (---)' });
-      result.valid = false;
-    }
     if (/\[\s*\]/.test(line) && !line.includes('%%')) {
       result.errors.push({ line: lineNum, message: 'Empty node label []' });
       result.valid = false;
@@ -91,7 +87,7 @@ function validateMermaidSyntax(mermaid, theme = 'default') {
     const tempFile = path.join(tempDir, 'validate.mmd');
     const tempOutput = path.join(tempDir, 'validate.svg');
     fs.writeFileSync(tempFile, `%%{init: {'theme': '${theme}'}}%%\n${mermaid}`);
-    runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', tempOutput, '-b', 'transparent']);
+    runMermaidCli(['@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', tempOutput, '-b', 'transparent']);
     result.meta.mode = 'mmdc';
     result.meta.cliValidation.success = true;
   } catch (error) {
@@ -355,7 +351,7 @@ function registerGenerateCommand(program) {
             tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-'));
             const tempFile = path.join(tempDir, 'diagram.mmd');
             fs.writeFileSync(tempFile, `%%{init: {'theme': '${safeTheme}'}}%%\n${mermaid}`);
-            runMermaidCli(['-y', '@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent']);
+            runMermaidCli(['@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent']);
             if (!options.quiet) console.error(chalk.green('✅ Rendered to'), options.output);
           } catch (error) {
             console.error(chalk.red('❌ Could not render output file.'));

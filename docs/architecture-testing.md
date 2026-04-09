@@ -179,7 +179,7 @@ jobs:
       - run: npm test
       - run: npm run test:deep
       - run: npm run ci:artifacts
-      - run: node src/diagram.js workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --risk-threshold high --fail-on-risk
+      - run: diagram workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --risk-threshold high --fail-on-risk
       - uses: actions/upload-artifact@v4
         with:
           name: diagram-artifacts
@@ -196,4 +196,3 @@ jobs:
   - Ensure output paths are inside project root and writable.
 - PR ref resolution failures:
   - Provide explicit `--base` and `--head`, and ensure git history is available (`fetch-depth: 0` in CI).
-

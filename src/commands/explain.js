@@ -6,12 +6,29 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+const idRegistry = new Map();
+let idCounter = 0;
+
 function sanitizeNodeId(name) {
-  return String(name).replace(/[^a-zA-Z0-9_]/g, '_');
+  const base = String(name).replace(/[^a-zA-Z0-9_]/g, '_');
+  if (!idRegistry.has(name)) {
+    idRegistry.set(name, base);
+    return base;
+  }
+  const existing = idRegistry.get(name);
+  if (existing === base) {
+    return existing;
+  }
+  const unique = `${base}_${idCounter++}`;
+  idRegistry.set(name, unique);
+  return unique;
 }
 
 function findComponent(components, query) {
-  const normalizedQuery = String(query || '').toLowerCase();
+  const normalizedQuery = String(query || '').toLowerCase().trim();
+  if (normalizedQuery === '') {
+    return null;
+  }
   return components.find((component) =>
     component.name.toLowerCase() === normalizedQuery
     || component.originalName.toLowerCase() === normalizedQuery
@@ -28,6 +45,17 @@ function buildNeighborhood(components, target, maxDepth) {
   const selected = new Set([target.name]);
   const queue = [{ name: target.name, depth: 0 }];
 
+  // Precompute reverse-dependency index
+  const reverseDeps = new Map();
+  for (const component of components) {
+    for (const depName of component.dependencies || []) {
+      if (!reverseDeps.has(depName)) {
+        reverseDeps.set(depName, []);
+      }
+      reverseDeps.get(depName).push(component.name);
+    }
+  }
+
   while (queue.length > 0) {
     const current = queue.shift();
     if (current.depth >= maxDepth) continue;
@@ -41,10 +69,10 @@ function buildNeighborhood(components, target, maxDepth) {
       }
     }
 
-    for (const candidate of components) {
-      if ((candidate.dependencies || []).includes(component.name) && !selected.has(candidate.name)) {
-        selected.add(candidate.name);
-        queue.push({ name: candidate.name, depth: current.depth + 1 });
+    for (const dependentName of reverseDeps.get(component.name) || []) {
+      if (!selected.has(dependentName)) {
+        selected.add(dependentName);
+        queue.push({ name: dependentName, depth: current.depth + 1 });
       }
     }
   }
@@ -103,7 +131,7 @@ function registerExplainCommand(program) {
     .option('-p, --patterns <list>', 'File patterns (comma-separated)')
     .option('-e, --exclude <list>', 'Exclude patterns')
     .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
-    .option('--format <type>', 'Output format (text, json)', 'text')
+    .option('-f, --format <type>', 'Output format (text, json)', 'text')
     .option('--deterministic', 'Use deterministic machine output', false)
     .option('-q, --quiet', 'Suppress non-essential logging', false)
     .action(async (componentQuery, targetPath, rawOptions) => {

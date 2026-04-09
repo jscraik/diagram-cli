@@ -93,7 +93,15 @@ function registerValidateCommand(program) {
       const quietMachineOutput = options.quiet || (outputsMachineFormat && !options.verbose);
 
       if (options.init) {
-        const configPath = path.join(root, '.architecture.yml');
+        let configPath;
+        if (options.config) {
+          configPath = path.isAbsolute(options.config)
+            ? options.config
+            : path.join(root, options.config);
+        } else {
+          configPath = path.join(root, '.architecture.yml');
+        }
+
         const defaultConfig = getDefaultConfig();
         const yaml = YAML.stringify(defaultConfig, {
           indent: 2,
@@ -128,13 +136,18 @@ function registerValidateCommand(program) {
       }
 
       if (!fs.existsSync(configPath)) {
-        const found = engine.findConfig(root);
-        if (!found) {
-          console.error(chalk.red('❌ No .architecture.yml found.'));
-          console.error(chalk.gray('Fix: run `diagram init .` or `diagram validate --init` to scaffold rules.'));
+        if (!options.config) {
+          const found = engine.findConfig(root);
+          if (!found) {
+            console.error(chalk.red('❌ No .architecture.yml found.'));
+            console.error(chalk.gray('Fix: run `diagram init .` or `diagram validate --init` to scaffold rules.'));
+            process.exit(2);
+          }
+          configPath = found;
+        } else {
+          console.error(chalk.red('❌ Config file not found:'), configPath);
           process.exit(2);
         }
-        configPath = found;
       }
 
       let config;

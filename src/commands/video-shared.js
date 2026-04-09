@@ -15,9 +15,15 @@ function getVideoModule(missingRuntimeMessage) {
   if (!videoModule) {
     try {
       videoModule = require('../video.js');
-    } catch (_error) {
-      console.error(chalk.red(`❌ ${missingRuntimeMessage}`));
-      console.error(chalk.gray('Fix: npm install playwright'));
+    } catch (error) {
+      if (error.code === 'MODULE_NOT_FOUND' &&
+          (error.message.includes('playwright') || error.message.includes('video'))) {
+        console.error(chalk.red(`❌ ${missingRuntimeMessage}`));
+        console.error(chalk.gray('Fix: npm install playwright'));
+        process.exit(2);
+      }
+      console.error(chalk.red('❌ Failed to load video module:'), error.message);
+      console.error(error);
       process.exit(2);
     }
   }

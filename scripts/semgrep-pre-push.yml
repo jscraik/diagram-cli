@@ -17,8 +17,18 @@ rules:
     languages: [javascript, typescript]
     patterns:
       - pattern-either:
-          - pattern: exec(...)
-          - pattern: execSync(...)
+          - pattern: |
+              const { exec } = require('child_process')
+          - pattern: |
+              const { execSync } = require('child_process')
+          - pattern: |
+              import { exec } from 'child_process'
+          - pattern: |
+              import { execSync } from 'child_process'
+          - pattern: |
+              require('child_process').exec(...)
+          - pattern: |
+              require('child_process').execSync(...)
 
   - id: ts-no-shell-true
     message: Avoid shell:true in child process options in src/** code.

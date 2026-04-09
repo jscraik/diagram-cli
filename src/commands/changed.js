@@ -59,7 +59,11 @@ function registerChangedCommand(program) {
         const baseSha = validateGitRef(options.base, root);
         const headSha = validateGitRef(options.head || 'HEAD', root);
         const delta = getChangedFiles(baseSha, headSha, root);
-        changedFiles = delta.changed;
+        changedFiles = [
+          ...(delta.changed || []),
+          ...(delta.added || []),
+          ...(delta.renamed || []).map(r => r.to)
+        ];
       } else {
         changedFiles = listWorkingTreeChangedFiles(root);
       }

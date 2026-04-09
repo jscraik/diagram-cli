@@ -128,9 +128,11 @@ for action in "${required_codex_actions[@]}"; do
 		exit 1
 	fi
 	if ! awk -v name="$name" -v icon="$icon" '
-		prev == "name = \"" name "\"" && $0 == "icon = \"" icon "\"" { found = 1 }
-		{ prev = $0 }
-		END { exit found ? 0 : 1 }
+		/^\[\[actions\]\]/ { in_block = 1; found_name = 0; found_icon = 0; next }
+		in_block && /^\[\[/ { if (found_name && found_icon) { exit 0 }; in_block = 0; found_name = 0; found_icon = 0 }
+		in_block && /^name =/ && $0 == "name = \"" name "\"" { found_name = 1 }
+		in_block && /^icon =/ && $0 == "icon = \"" icon "\"" { found_icon = 1 }
+		END { exit (found_name && found_icon) ? 0 : 1 }
 	' "$CODEX_ENVIRONMENT_PATH"; then
 		echo "Error: Codex environment action '$name' is missing or mapped to the wrong icon in $CODEX_ENVIRONMENT_PATH"
 		exit 1

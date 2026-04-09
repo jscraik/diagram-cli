@@ -530,7 +530,11 @@ async function analyze(rootPath, options) {
         const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(rootPath, filePath);
         return absolute;
       })
-      .filter((filePath) => fs.existsSync(filePath) && fs.statSync(filePath).isFile())
+      .filter((filePath) => {
+        const relative = path.relative(rootPath, filePath);
+        const isInsideRoot = !relative.startsWith('..') && !path.isAbsolute(relative);
+        return isInsideRoot && fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+      })
     )];
   } else {
     const files = [];

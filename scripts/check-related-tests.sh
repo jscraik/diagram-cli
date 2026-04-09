@@ -24,10 +24,5 @@ if command -v vitest >/dev/null 2>&1; then
 	exit 0
 fi
 
-if npm exec --yes -- vitest --version >/dev/null 2>&1; then
-	npm exec --yes -- vitest related --run --passWithNoTests "${related_sources[@]}"
-	exit 0
-fi
-
 echo "Error: vitest is required for related-tests checks"
 exit 1

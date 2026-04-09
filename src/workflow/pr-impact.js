@@ -13,7 +13,7 @@ function arraysEqual(a, b) {
 function normalizeDependency(dep) {
   if (typeof dep === 'string') return dep;
   if (dep && typeof dep === 'object') {
-    return dep.name || dep.filePath || null;
+    return dep.filePath || dep.name || null;
   }
   return null;
 }
@@ -163,6 +163,27 @@ function computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes) {
   const byName = new Map();
   for (const c of headAnalysis.components) {
     byName.set(c.name, c);
+    if (c.filePath) byName.set(c.filePath, c);
+  }
+
+  // Precompute reverse-dependency index: canonical id -> dependents
+  // A dependency entry { name, filePath } may be matched by either filePath or name
+  const reverseDeps = new Map();
+  for (const c of headAnalysis.components) {
+    for (const dep of (c.dependencies || [])) {
+      // Register under both possible canonical forms so BFS always finds a match
+      const keys = [];
+      if (dep && typeof dep === 'object') {
+        if (dep.filePath) keys.push(dep.filePath);
+        if (dep.name) keys.push(dep.name);
+      } else if (typeof dep === 'string') {
+        keys.push(dep);
+      }
+      for (const key of keys) {
+        if (!reverseDeps.has(key)) reverseDeps.set(key, []);
+        reverseDeps.get(key).push(c);
+      }
+    }
   }
 
   while (queue.length > 0 && impacted.size < maxNodes) {
@@ -173,16 +194,21 @@ function computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes) {
     const comp = byName.get(name);
     if (!comp) continue;
 
+    // Look up dependents by both name and filePath to handle mixed canonical forms
+    const dependentSet = new Map();
+    for (const key of [comp.name, comp.filePath].filter(Boolean)) {
+      for (const dep of (reverseDeps.get(key) || [])) {
+        dependentSet.set(dep.name, dep);
+      }
+    }
+
     // Find components that depend on this one (reverse dependencies)
-    for (const potentialDep of headAnalysis.components) {
-      const potentialDeps = normalizedDependencySet(potentialDep);
-      if (potentialDeps.has(name)) {
-        if (!visited.has(potentialDep.name)) {
-          visited.add(potentialDep.name);
-          queue.push({ name: potentialDep.name, depth: depth + 1 });
-          if (impacted.size < maxNodes) {
-            impacted.add(potentialDep.name);
-          }
+    for (const potentialDep of dependentSet.values()) {
+      if (!visited.has(potentialDep.name)) {
+        visited.add(potentialDep.name);
+        queue.push({ name: potentialDep.name, depth: depth + 1 });
+        if (impacted.size < maxNodes) {
+          impacted.add(potentialDep.name);
         }
       }
     }

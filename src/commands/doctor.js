@@ -31,7 +31,25 @@ function checkMermaidCli() {
 function checkPlaywright() {
   try {
     const pkg = require.resolve('playwright');
-    return { status: 'pass', message: `playwright module found at ${pkg}` };
+    // After resolving module, verify Chromium binary is available
+    const candidates = getNpxCommandCandidates(process.platform);
+    for (const candidate of candidates) {
+      try {
+        const output = execFileSync(candidate, ['playwright', '--version'], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf8',
+          timeout: 10000,
+        }).trim();
+        return { status: 'pass', message: output || `playwright module found at ${pkg}` };
+      } catch (_playwrightError) {
+        // Try next npx candidate.
+      }
+    }
+    return {
+      status: 'warn',
+      message: 'Playwright module found but Chromium binary not available',
+      fix: 'npx playwright install chromium',
+    };
   } catch (_error) {
     const candidates = getNpxCommandCandidates(process.platform);
     for (const candidate of candidates) {
@@ -79,13 +97,18 @@ function checkFfmpeg() {
 
 function checkWritePermissions(root) {
   const diagramDir = path.join(root, '.diagram');
+  let existedBefore = false;
   try {
-    if (!fs.existsSync(diagramDir)) {
+    existedBefore = fs.existsSync(diagramDir);
+    if (!existedBefore) {
       fs.mkdirSync(diagramDir, { recursive: true });
     }
     const probePath = path.join(diagramDir, '.doctor-write-probe');
     fs.writeFileSync(probePath, 'ok');
     fs.rmSync(probePath, { force: true });
+    if (!existedBefore) {
+      fs.rmSync(diagramDir, { recursive: false, force: true });
+    }
     return { status: 'pass', message: `write access confirmed for ${diagramDir}` };
   } catch (error) {
     return {

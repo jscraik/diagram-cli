@@ -12,11 +12,15 @@ if [[ ! -f "$CONTRACT_PATH" ]]; then
   exit 1
 fi
 
-jq -e '
+if ! jq -e '
   (.required_mise_tools | type == "array" and length > 0) and
   (.required_bins | type == "array" and length > 0) and
   (.required_codex_actions | type == "array" and length > 0)
-' "$CONTRACT_PATH" >/dev/null
+' "$CONTRACT_PATH" >/dev/null; then
+  echo "Error: Contract validation failed: required arrays missing or empty in $CONTRACT_PATH"
+  echo "Expected: .required_mise_tools, .required_bins, .required_codex_actions (all non-empty arrays)"
+  exit 1
+fi
 
 {
   cat <<'EOF'

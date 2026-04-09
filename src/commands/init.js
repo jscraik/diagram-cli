@@ -16,14 +16,17 @@ const DEFAULT_CI_STEP = `# Sample GitHub Actions steps for diagram-cli
 - name: Install dependencies
   run: npm ci
 
+- name: Install diagram CLI
+  run: npm install --no-save @brainwav/diagram
+
 - name: Validate architecture rules
-  run: node src/diagram.js validate .
+  run: npx diagram validate .
 
 - name: Generate compact architecture artifacts
-  run: node src/diagram.js generate-all . --output-dir .diagram --artifact-profile agent
+  run: npx diagram generate-all . --output-dir .diagram --artifact-profile agent
 
 - name: Refresh AI context pack
-  run: node src/diagram.js context .
+  run: npx diagram context .
 
 - name: Upload diagram artifacts
   uses: actions/upload-artifact@v4
@@ -47,6 +50,21 @@ function registerInitCommand(program) {
       const architecturePath = path.join(root, '.architecture.yml');
       const diagramRcPath = path.join(root, '.diagramrc');
       const ciSamplePath = path.join(root, '.diagram', 'ci', 'github-actions-step.yml');
+
+      // Preflight: check all targets if force is not set
+      if (!options.force) {
+        const existingFiles = [];
+        if (fs.existsSync(architecturePath)) existingFiles.push(architecturePath);
+        if (fs.existsSync(diagramRcPath)) existingFiles.push(diagramRcPath);
+        if (fs.existsSync(ciSamplePath)) existingFiles.push(ciSamplePath);
+
+        if (existingFiles.length > 0) {
+          console.error(chalk.red('❌ Initialization blocked: one or more files already exist.'));
+          existingFiles.forEach(file => console.error(chalk.gray(`   - ${file}`)));
+          console.error(chalk.gray('Fix: rerun with `diagram init . --force` to overwrite generated starter files.'));
+          process.exit(2);
+        }
+      }
 
       try {
         writeFileSafely(
