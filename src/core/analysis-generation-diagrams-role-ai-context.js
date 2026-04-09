@@ -90,35 +90,38 @@ function generateRag(data) {
   lines.push('  Retriever -->|context + query| LLMNode');
   lines.push('  LLMNode -->|generated answer| Output');
 
-  if (emitSubgraph(
-    lines,
-    'DetectedMemory',
-    'Detected memory stores',
-    memories,
-    (memory, safe) => `${safe}[("${escapeMermaid(memory.originalName)}")]`
-  )) {
-    lines.push('  VecDB -. "implemented by" .-> DetectedMemory');
-  }
+  const detectedSpecs = [
+    {
+      id: 'DetectedMemory',
+      title: 'Detected memory stores',
+      components: memories,
+      renderNode: (memory, safe) => `${safe}[("${escapeMermaid(memory.originalName)}")]`,
+      extraEdges: ['  VecDB -. "implemented by" .-> DetectedMemory'],
+    },
+    {
+      id: 'DetectedLLM',
+      title: 'Detected LLM clients',
+      components: llms,
+      renderNode: (llm, safe) => `${safe}["${escapeMermaid(llm.originalName)}"]`,
+      extraEdges: ['  LLMNode -. "implemented by" .-> DetectedLLM'],
+    },
+    {
+      id: 'DetectedTools',
+      title: 'Agentic tool calls',
+      components: tools,
+      renderNode: (tool, safe) => `${safe}["🔧 ${escapeMermaid(tool.originalName)}"]`,
+      extraEdges: [
+        '  LLMNode -->|tool use| DetectedTools',
+        '  DetectedTools -->|result| LLMNode',
+      ],
+    },
+  ];
 
-  if (emitSubgraph(
-    lines,
-    'DetectedLLM',
-    'Detected LLM clients',
-    llms,
-    (llm, safe) => `${safe}["${escapeMermaid(llm.originalName)}"]`
-  )) {
-    lines.push('  LLMNode -. "implemented by" .-> DetectedLLM');
-  }
-
-  if (emitSubgraph(
-    lines,
-    'DetectedTools',
-    'Agentic tool calls',
-    tools,
-    (tool, safe) => `${safe}["🔧 ${escapeMermaid(tool.originalName)}"]`
-  )) {
-    lines.push('  LLMNode -->|tool use| DetectedTools');
-    lines.push('  DetectedTools -->|result| LLMNode');
+  for (const spec of detectedSpecs) {
+    if (!emitSubgraph(lines, spec.id, spec.title, spec.components, spec.renderNode)) continue;
+    for (const edge of spec.extraEdges) {
+      lines.push(edge);
+    }
   }
 
   emitClassStyle(lines, 'memNode', ROLE_COLOURS.memory.fill, ROLE_COLOURS.memory.color, ['VecDB', 'Retriever']);

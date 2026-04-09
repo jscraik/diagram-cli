@@ -41,38 +41,35 @@ function generateAgent(data) {
   const safeNames = mapSafeNames(all);
   const byName = byNameIndex(all);
 
-  emitSubgraph(
-    lines,
-    'Orchestration',
-    '🎯 Orchestration Layer',
-    agents,
-    (component, safe) => `${safe}["🤖 ${escapeMermaid(component.originalName)}"]`,
-    safeNames
-  );
-  emitSubgraph(
-    lines,
-    'LLMLayer',
-    '🧠 LLM / Model Layer',
-    llms,
-    (component, safe) => `${safe}["💡 ${escapeMermaid(component.originalName)}"]`,
-    safeNames
-  );
-  emitSubgraph(
-    lines,
-    'ToolLayer',
-    '🔧 Tool Layer',
-    tools,
-    (component, safe) => `${safe}["🔧 ${escapeMermaid(component.originalName)}"]`,
-    safeNames
-  );
-  emitSubgraph(
-    lines,
-    'MemoryLayer',
-    '📚 Memory / Vector Layer',
-    memories,
-    (component, safe) => `${safe}[("📚 ${escapeMermaid(component.originalName)}")]`,
-    safeNames
-  );
+  const layerSpecs = [
+    {
+      id: 'Orchestration',
+      title: '🎯 Orchestration Layer',
+      components: agents,
+      renderNode: (component, safe) => `${safe}["🤖 ${escapeMermaid(component.originalName)}"]`,
+    },
+    {
+      id: 'LLMLayer',
+      title: '🧠 LLM / Model Layer',
+      components: llms,
+      renderNode: (component, safe) => `${safe}["💡 ${escapeMermaid(component.originalName)}"]`,
+    },
+    {
+      id: 'ToolLayer',
+      title: '🔧 Tool Layer',
+      components: tools,
+      renderNode: (component, safe) => `${safe}["🔧 ${escapeMermaid(component.originalName)}"]`,
+    },
+    {
+      id: 'MemoryLayer',
+      title: '📚 Memory / Vector Layer',
+      components: memories,
+      renderNode: (component, safe) => `${safe}[("📚 ${escapeMermaid(component.originalName)}")]`,
+    },
+  ];
+  for (const spec of layerSpecs) {
+    emitSubgraph(lines, spec.id, spec.title, spec.components, spec.renderNode, safeNames);
+  }
 
   const edges = new Set();
   appendDependencyEdges(lines, all, byName, safeNames, edges, (_caller, callee) => {
@@ -84,10 +81,22 @@ function generateAgent(data) {
     return 'uses';
   });
 
-  emitClassStyle(lines, 'agentNode', ROLE_COLOURS.agent.fill, ROLE_COLOURS.agent.color, safeNodeIds(agents, safeNames));
-  emitClassStyle(lines, 'llmNode', ROLE_COLOURS.llm.fill, ROLE_COLOURS.llm.color, safeNodeIds(llms, safeNames));
-  emitClassStyle(lines, 'toolNode', ROLE_COLOURS.tool.fill, ROLE_COLOURS.tool.color, safeNodeIds(tools, safeNames));
-  emitClassStyle(lines, 'memNode', ROLE_COLOURS.memory.fill, ROLE_COLOURS.memory.color, safeNodeIds(memories, safeNames));
+  const classSpecs = [
+    { className: 'agentNode', colourKey: 'agent', components: agents },
+    { className: 'llmNode', colourKey: 'llm', components: llms },
+    { className: 'toolNode', colourKey: 'tool', components: tools },
+    { className: 'memNode', colourKey: 'memory', components: memories },
+  ];
+  for (const spec of classSpecs) {
+    const roleColour = ROLE_COLOURS[spec.colourKey];
+    emitClassStyle(
+      lines,
+      spec.className,
+      roleColour.fill,
+      roleColour.color,
+      safeNodeIds(spec.components, safeNames)
+    );
+  }
 
   return lines.join('\n');
 }
