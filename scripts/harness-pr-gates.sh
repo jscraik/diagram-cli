@@ -6,7 +6,8 @@ fail() {
   exit 1
 }
 
-HARNESS_CLI=(node node_modules/@brainwav/coding-harness/dist/cli.js)
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+HARNESS_CLI=("${SCRIPT_DIR}/harness-cli.sh")
 CONTRACT_PATH="${HARNESS_CONTRACT_PATH:-harness.contract.json}"
 BASE_SHA="${BASE_SHA:-}"
 HEAD_SHA="${HEAD_SHA:-}"
