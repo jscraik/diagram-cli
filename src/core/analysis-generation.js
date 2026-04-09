@@ -242,6 +242,8 @@ const ROLE_PATTERNS = {
   ],
 };
 
+const SENSITIVE_RISK_TAGS = new Set(['auth', 'database', 'security']);
+
 // C4 + arc42 aligned colour palette (role → fill/text colours)
 // Reference: https://c4model.com/diagrams/notation  arc42.org
 const ROLE_COLOURS = Object.freeze({
@@ -323,13 +325,15 @@ function inferRoleTags(filePath, originalName, fileContent, importEntries, type)
   const pathText = normalizePath(filePath || '').toLowerCase();
   const nameText = (originalName || '').toLowerCase();
   const externalImports = collectExternalImports(importEntries).join(' ').toLowerCase();
-  const combined = `${pathText} ${nameText} ${content} ${externalImports}`;
+  const structuralCombined = `${pathText} ${nameText} ${externalImports}`;
+  const fullCombined = `${structuralCombined} ${content}`;
 
   const tags = new Set();
 
   for (const [tag, tokens] of Object.entries(ROLE_PATTERNS)) {
+    const searchTarget = SENSITIVE_RISK_TAGS.has(tag) ? structuralCombined : fullCombined;
     for (const token of tokens) {
-      if (textHasToken(combined, token)) {
+      if (textHasToken(searchTarget, token)) {
         tags.add(tag);
         break;
       }
