@@ -7,6 +7,7 @@
  *
  * @param {*} value - The input to transform: plain objects will have their keys sorted recursively; arrays will be processed element-wise; primitives and other non-object values are returned as-is.
  * @returns {*} The transformed value with object keys sorted lexicographically.
+ */
 function sortObjectDeep(value) {
   if (Array.isArray(value)) {
     return value.map(sortObjectDeep);
