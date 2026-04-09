@@ -111,6 +111,7 @@
       "beautiful-mermaid",
       "semgrep",
       "semver",
+      "gitleaks",
       "trivy",
       "rsearch",
       "wsearch"
@@ -140,6 +141,7 @@
       "beautiful-mermaid",
       "semgrep",
       "semver",
+      "gitleaks",
       "trivy",
       "rsearch",
       "wsearch"

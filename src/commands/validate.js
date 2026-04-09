@@ -93,16 +93,40 @@ function applyBaseline(results, config, saveBaseline, configPath, root, quiet = 
  */
 function resolveConfigPathOrExit(root, configPathInput) {
   const absoluteRoot = path.resolve(root);
+  let realRoot;
+  try {
+    realRoot = fs.realpathSync(absoluteRoot);
+  } catch (_error) {
+    console.error(chalk.red('❌ Invalid project path:'), absoluteRoot);
+    process.exit(2);
+  }
   const requestedPath = configPathInput || '.architecture.yml';
   const resolvedPath = path.isAbsolute(requestedPath)
     ? path.resolve(requestedPath)
     : path.resolve(absoluteRoot, requestedPath);
-  const relativeConfigPath = path.relative(absoluteRoot, resolvedPath);
+
+  const resolveViaExistingAncestor = (targetPath) => {
+    const pending = [];
+    let probe = targetPath;
+    while (!fs.existsSync(probe)) {
+      pending.unshift(path.basename(probe));
+      const parent = path.dirname(probe);
+      if (parent === probe) {
+        break;
+      }
+      probe = parent;
+    }
+    const canonicalBase = fs.realpathSync(probe);
+    return path.join(canonicalBase, ...pending);
+  };
+
+  const canonicalConfigPath = resolveViaExistingAncestor(resolvedPath);
+  const relativeConfigPath = path.relative(realRoot, canonicalConfigPath);
   if (relativeConfigPath.startsWith('..') || path.isAbsolute(relativeConfigPath)) {
     console.error(chalk.red('❌ Invalid config path: directory traversal detected'));
     process.exit(2);
   }
-  return resolvedPath;
+  return canonicalConfigPath;
 }
 
 /**
@@ -139,7 +163,8 @@ function registerValidateCommand(program) {
       const root = resolveRootPathOrExit(targetPath);
       const engine = new RulesEngine();
       const startTime = Date.now();
-      const outputsMachineFormat = !options.output && (options.format === 'json' || options.format === 'junit');
+      const format = String(options.format || 'console').toLowerCase();
+      const outputsMachineFormat = !options.output && (format === 'json' || format === 'junit');
       const quietMachineOutput = options.quiet || (outputsMachineFormat && !options.verbose);
 
       if (options.init) {
@@ -250,7 +275,7 @@ function registerValidateCommand(program) {
         }
       }
 
-      const exitCode = formatResults(results, options.format, {
+      const exitCode = formatResults(results, format, {
         output: safeOutput,
         verbose: options.verbose,
       }, startTime);

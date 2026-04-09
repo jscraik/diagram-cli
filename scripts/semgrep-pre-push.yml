@@ -9,7 +9,9 @@ rules:
     message: Avoid Function constructor usage in src/** code.
     severity: ERROR
     languages: [javascript, typescript]
-    pattern: new Function(...)
+    pattern-either:
+      - pattern: new Function(...)
+      - pattern: Function(...)
 
   - id: ts-no-child-process-exec
     message: Avoid child_process exec/execSync in src/** code.
@@ -232,6 +234,104 @@ rules:
               const $OPTS = { ..., shell: true, ... };
               ...
           - pattern: "spawn(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              const { ..., spawnSync, ... } = require('child_process');
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "spawnSync(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              import { ..., spawnSync, ... } from 'child_process';
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "spawnSync(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              const { ..., execFile, ... } = require('child_process');
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "execFile(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              import { ..., execFile, ... } from 'child_process';
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "execFile(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              const { ..., execFileSync, ... } = require('child_process');
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "execFileSync(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              import { ..., execFileSync, ... } from 'child_process';
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "execFileSync(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              const { ..., spawn, ... } = require('node:child_process');
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "spawn(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              import { ..., spawn, ... } from 'node:child_process';
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "spawn(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              const { ..., spawnSync, ... } = require('node:child_process');
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "spawnSync(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              import { ..., spawnSync, ... } from 'node:child_process';
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "spawnSync(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              const { ..., execFile, ... } = require('node:child_process');
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "execFile(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              import { ..., execFile, ... } from 'node:child_process';
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "execFile(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              const { ..., execFileSync, ... } = require('node:child_process');
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "execFileSync(..., $OPTS)"
+      - patterns:
+          - pattern-inside: |
+              import { ..., execFileSync, ... } from 'node:child_process';
+              ...
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern: "execFileSync(..., $OPTS)"
       - patterns:
           - pattern-inside: |
               const $CP = require('child_process');

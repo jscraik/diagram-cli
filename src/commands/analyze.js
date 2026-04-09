@@ -35,7 +35,13 @@ function registerAnalyzeCommand(program) {
     .action(async (targetPath, rawOptions) => {
       const options = applyDiagramRcDefaults(rawOptions, getDiagramRcFromProgram(program), ['patterns', 'exclude', 'maxFiles']);
       const root = resolveRootPathOrExit(targetPath);
-      const formatStr = (options.format || 'text').toLowerCase();
+      const formatStr = String(options.format || 'text').toLowerCase().trim();
+      const allowedFormats = new Set(['text', 'json']);
+      if (!allowedFormats.has(formatStr)) {
+        console.error(chalk.red('❌ Invalid format:'), options.format);
+        console.error(chalk.gray('Fix: use --format text or --format json.'));
+        process.exit(2);
+      }
       const isJson = formatStr === 'json';
       if (!options.quiet) {
         console.error(chalk.blue('Analyzing'), root);
@@ -106,9 +112,11 @@ function registerAnalyzeCommand(program) {
         console.log(chalk.gray(`  Incremental: ${message}`));
       }
 
-      console.log(chalk.cyan('\nNext steps:'));
-      console.log('  1) Run `diagram generate . --type architecture` to visualize structure.');
-      console.log('  2) Run `diagram validate .` to enforce architecture policy.');
+      if (!options.quiet) {
+        console.log(chalk.cyan('\nNext steps:'));
+        console.log('  1) Run `diagram generate . --type architecture` to visualize structure.');
+        console.log('  2) Run `diagram validate .` to enforce architecture policy.');
+      }
     });
 }
 

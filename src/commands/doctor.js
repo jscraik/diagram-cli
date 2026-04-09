@@ -10,7 +10,7 @@ const { buildMachineEnvelope } = require('./output');
 /**
  * Checks whether the Mermaid CLI can be invoked via npx from the specified project root.
  *
- * Attempts platform-specific npx command candidates to run `@mermaid-js/mermaid-cli mmdc --version`.
+ * Attempts platform-specific npx command candidates to run `@mermaid-js/mermaid-cli --version`.
  * @param {string} root - Filesystem path used as the child process working directory when probing.
  * @returns {{status: 'pass'|'warn', message: string, fix?: string}} An object describing the probe result.
  * - `status: 'pass'` when a candidate successfully returns version output; `message` contains the trimmed output or `'mermaid-cli available'`.
@@ -20,7 +20,7 @@ function checkMermaidCli(root) {
   const candidates = getNpxCommandCandidates(process.platform);
   for (const candidate of candidates) {
     try {
-      const output = execFileSync(candidate, ['-y', '@mermaid-js/mermaid-cli', 'mmdc', '--version'], {
+      const output = execFileSync(candidate, ['-y', '@mermaid-js/mermaid-cli', '--version'], {
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd: root,
         encoding: 'utf8',

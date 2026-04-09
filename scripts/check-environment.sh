@@ -119,6 +119,18 @@ for tool in "${required_mise_tools[@]}"; do
 done
 
 for bin in "${required_bins[@]}"; do
+	if [[ "$bin" == "fd" ]]; then
+		if ! rg -Eq -- "\`fd\`|\`fdfind\`" "$TOOLING_DOC_PATH"; then
+			echo "Error: tooling doc missing required binary '$bin' (or 'fdfind'): $TOOLING_DOC_PATH"
+			echo "Fix: run 'bash scripts/render-tooling-doc.sh' to regenerate the document."
+			exit 1
+		fi
+		if ! command -v fd >/dev/null 2>&1 && ! command -v fdfind >/dev/null 2>&1; then
+			echo "Error: required binary '$bin' (or 'fdfind') is not installed or not on PATH"
+			exit 1
+		fi
+		continue
+	fi
 	if ! rg -Fq -- "\`$bin\`" "$TOOLING_DOC_PATH"; then
 		echo "Error: tooling doc missing required binary '$bin': $TOOLING_DOC_PATH"
 		echo "Fix: run 'bash scripts/render-tooling-doc.sh' to regenerate the document."

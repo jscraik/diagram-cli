@@ -42,13 +42,13 @@ describe('pr-impact dependency normalization', () => {
 
   it('traverses blast radius when dependencies are object-shaped', () => {
     const delta = {
-      changedComponents: [{ name: 'serviceA' }],
+      changedComponents: [{ name: 'serviceA', filePath: 'src/serviceA.js' }],
       addedFiles: [],
     };
     const headAnalysis = {
       components: [
-        { name: 'serviceA', dependencies: [] },
-        { name: 'serviceB', dependencies: [{ name: 'serviceA', filePath: 'src/serviceA.js' }] },
+        { name: 'serviceA', filePath: 'src/serviceA.js', dependencies: [] },
+        { name: 'serviceB', filePath: 'src/serviceB.js', dependencies: [{ name: 'serviceA', filePath: 'src/serviceA.js' }] },
       ],
     };
 
