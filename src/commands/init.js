@@ -20,13 +20,13 @@ const DEFAULT_CI_STEP = `# Sample GitHub Actions steps for diagram-cli
   run: npm install --no-save @brainwav/diagram
 
 - name: Validate architecture rules
-  run: npx diagram validate .
+  run: npx --no-install diagram validate .
 
 - name: Generate compact architecture artifacts
-  run: npx diagram generate-all . --output-dir .diagram --artifact-profile agent
+  run: npx --no-install diagram generate-all . --output-dir .diagram --artifact-profile agent
 
 - name: Refresh AI context pack
-  run: npx diagram context .
+  run: npx --no-install diagram context .
 
 - name: Upload diagram artifacts
   uses: actions/upload-artifact@v4
@@ -50,6 +50,16 @@ function registerInitCommand(program) {
       const architecturePath = path.join(root, '.architecture.yml');
       const diagramRcPath = path.join(root, '.diagramrc');
       const ciSamplePath = path.join(root, '.diagram', 'ci', 'github-actions-step.yml');
+      const targets = [architecturePath, diagramRcPath, ciSamplePath];
+
+      if (!options.force) {
+        const existingTargets = targets.filter((target) => fs.existsSync(target));
+        if (existingTargets.length > 0) {
+          console.error(chalk.red('❌ Initialization blocked: one or more files already exist.'));
+          console.error(chalk.gray('Fix: rerun with `diagram init . --force` to overwrite generated starter files.'));
+          process.exit(2);
+        }
+      }
 
       // Preflight: check all targets if force is not set
       if (!options.force) {

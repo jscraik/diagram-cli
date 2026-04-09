@@ -128,11 +128,41 @@ for action in "${required_codex_actions[@]}"; do
 		exit 1
 	fi
 	if ! awk -v name="$name" -v icon="$icon" '
-		/^\[\[actions\]\]/ { in_block = 1; found_name = 0; found_icon = 0; next }
-		in_block && /^\[\[/ { if (found_name && found_icon) { exit 0 }; in_block = 0; found_name = 0; found_icon = 0 }
-		in_block && /^name =/ && $0 == "name = \"" name "\"" { found_name = 1 }
-		in_block && /^icon =/ && $0 == "icon = \"" icon "\"" { found_icon = 1 }
-		END { exit (found_name && found_icon) ? 0 : 1 }
+		function trim(value) {
+			sub(/^[[:space:]]+/, "", value);
+			sub(/[[:space:]]+$/, "", value);
+			return value;
+		}
+		{
+			line = trim($0);
+			if (line == "[[actions]]") {
+				if (in_block && found_name && found_icon) {
+					matched = 1;
+					exit 0;
+				}
+				in_block = 1;
+				found_name = 0;
+				found_icon = 0;
+				next;
+			}
+			if (!in_block) {
+				next;
+			}
+			if (line == ("name = \"" name "\"")) {
+				found_name = 1;
+				next;
+			}
+			if (line == ("icon = \"" icon "\"")) {
+				found_icon = 1;
+				next;
+			}
+		}
+		END {
+			if (in_block && found_name && found_icon) {
+				matched = 1;
+			}
+			exit matched ? 0 : 1;
+		}
 	' "$CODEX_ENVIRONMENT_PATH"; then
 		echo "Error: Codex environment action '$name' is missing or mapped to the wrong icon in $CODEX_ENVIRONMENT_PATH"
 		exit 1

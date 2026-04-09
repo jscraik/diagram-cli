@@ -85,6 +85,10 @@ function registerValidateCommand(program) {
     .option('--force', 'Overwrite existing configuration with --init', false)
     .option('--save-baseline', 'Save current violation counts as baseline', false)
     .action(async (targetPath, rawOptions) => {
+      const configValueSource = typeof rawOptions?.getOptionValueSource === 'function'
+        ? rawOptions.getOptionValueSource('config')
+        : null;
+      const configProvidedByCli = configValueSource === 'cli';
       const options = applyDiagramRcDefaults(rawOptions, program._diagramRc, ['patterns', 'exclude', 'maxFiles']);
       const root = resolveRootPathOrExit(targetPath);
       const engine = new RulesEngine();
@@ -93,15 +97,15 @@ function registerValidateCommand(program) {
       const quietMachineOutput = options.quiet || (outputsMachineFormat && !options.verbose);
 
       if (options.init) {
-        let configPath;
-        if (options.config) {
-          configPath = path.isAbsolute(options.config)
-            ? options.config
-            : path.join(root, options.config);
-        } else {
-          configPath = path.join(root, '.architecture.yml');
+        let configPath = options.config || '.architecture.yml';
+        if (!path.isAbsolute(configPath)) {
+          configPath = path.join(root, configPath);
         }
-
+        const relativeConfigPath = path.relative(root, configPath);
+        if (relativeConfigPath.startsWith('..') || path.isAbsolute(relativeConfigPath)) {
+          console.error(chalk.red('❌ Invalid config path: directory traversal detected'));
+          process.exit(2);
+        }
         const defaultConfig = getDefaultConfig();
         const yaml = YAML.stringify(defaultConfig, {
           indent: 2,
@@ -136,16 +140,10 @@ function registerValidateCommand(program) {
       }
 
       if (!fs.existsSync(configPath)) {
-        if (!options.config) {
-          const found = engine.findConfig(root);
-          if (!found) {
-            console.error(chalk.red('❌ No .architecture.yml found.'));
-            console.error(chalk.gray('Fix: run `diagram init .` or `diagram validate --init` to scaffold rules.'));
-            process.exit(2);
-          }
-          configPath = found;
-        } else {
-          console.error(chalk.red('❌ Config file not found:'), configPath);
+        const found = configProvidedByCli ? null : engine.findConfig(root);
+        if (!found) {
+          console.error(chalk.red('❌ No .architecture.yml found.'));
+          console.error(chalk.gray('Fix: run `diagram init .` or `diagram validate --init` to scaffold rules.'));
           process.exit(2);
         }
       }

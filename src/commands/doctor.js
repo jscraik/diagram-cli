@@ -29,47 +29,58 @@ function checkMermaidCli() {
 }
 
 function checkPlaywright() {
+  const quickLaunchScript = [
+    'const { chromium } = require("playwright");',
+    '(async () => {',
+    '  const browser = await chromium.launch({ headless: true });',
+    '  await browser.close();',
+    '})().catch((error) => {',
+    '  console.error(error.message || String(error));',
+    '  process.exit(1);',
+    '});',
+  ].join('\n');
+  let pkg = null;
   try {
-    const pkg = require.resolve('playwright');
-    // After resolving module, verify Chromium binary is available
-    const candidates = getNpxCommandCandidates(process.platform);
-    for (const candidate of candidates) {
-      try {
-        const output = execFileSync(candidate, ['playwright', '--version'], {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          encoding: 'utf8',
-          timeout: 10000,
-        }).trim();
-        return { status: 'pass', message: output || `playwright module found at ${pkg}` };
-      } catch (_playwrightError) {
-        // Try next npx candidate.
-      }
-    }
-    return {
-      status: 'warn',
-      message: 'Playwright module found but Chromium binary not available',
-      fix: 'npx playwright install chromium',
-    };
-  } catch (_error) {
-    const candidates = getNpxCommandCandidates(process.platform);
-    for (const candidate of candidates) {
-      try {
-        const output = execFileSync(candidate, ['playwright', '--version'], {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          encoding: 'utf8',
-          timeout: 10000,
-        }).trim();
-        return { status: 'pass', message: output || 'playwright CLI available' };
-      } catch (_playwrightError) {
-        // Try next npx candidate.
-      }
-    }
-    return {
-      status: 'warn',
-      message: 'Playwright runtime not detected',
-      fix: 'npx playwright install chromium',
-    };
+    pkg = require.resolve('playwright');
+  } catch (_resolveError) {
+    pkg = null;
   }
+
+  if (pkg) {
+    try {
+      execFileSync('node', ['-e', quickLaunchScript], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        timeout: 15000,
+      });
+      return { status: 'pass', message: `playwright runtime verified (${pkg})` };
+    } catch (_launchError) {
+      return {
+        status: 'warn',
+        message: 'Playwright package found but Chromium runtime is unavailable',
+        fix: 'npx playwright install chromium',
+      };
+    }
+  }
+
+  const candidates = getNpxCommandCandidates(process.platform);
+  for (const candidate of candidates) {
+    try {
+      const output = execFileSync(candidate, ['playwright', '--version'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf8',
+        timeout: 10000,
+      }).trim();
+      return { status: 'pass', message: output || 'playwright CLI available' };
+    } catch (_playwrightError) {
+      // Try next npx candidate.
+    }
+  }
+  return {
+    status: 'warn',
+    message: 'Playwright runtime not detected',
+    fix: 'npx playwright install chromium',
+  };
 }
 
 function checkFfmpeg() {
@@ -95,22 +106,31 @@ function checkFfmpeg() {
   };
 }
 
+function removeDoctorProbeDirIfCreated(diagramDir, existedBefore) {
+  if (existedBefore) {
+    return;
+  }
+  try {
+    fs.rmdirSync(diagramDir);
+  } catch (_cleanupError) {
+    // Keep directory if not empty or not removable.
+  }
+}
+
 function checkWritePermissions(root) {
   const diagramDir = path.join(root, '.diagram');
-  let existedBefore = false;
+  const existedBefore = fs.existsSync(diagramDir);
   try {
-    existedBefore = fs.existsSync(diagramDir);
     if (!existedBefore) {
       fs.mkdirSync(diagramDir, { recursive: true });
     }
     const probePath = path.join(diagramDir, '.doctor-write-probe');
     fs.writeFileSync(probePath, 'ok');
     fs.rmSync(probePath, { force: true });
-    if (!existedBefore) {
-      fs.rmSync(diagramDir, { recursive: false, force: true });
-    }
+    removeDoctorProbeDirIfCreated(diagramDir, existedBefore);
     return { status: 'pass', message: `write access confirmed for ${diagramDir}` };
   } catch (error) {
+    removeDoctorProbeDirIfCreated(diagramDir, existedBefore);
     return {
       status: 'fail',
       message: `write access failed for ${diagramDir}: ${error.message}`,

@@ -62,13 +62,13 @@ function registerChangedCommand(program) {
         changedFiles = [
           ...(delta.changed || []),
           ...(delta.added || []),
-          ...(delta.renamed || []).map(r => r.to)
+          ...((delta.renamed || []).map((entry) => entry?.to).filter(Boolean)),
         ];
       } else {
         changedFiles = listWorkingTreeChangedFiles(root);
       }
 
-      const includeFiles = changedFiles.filter((filePath) => filePath && !filePath.endsWith('/'));
+      const includeFiles = [...new Set(changedFiles.filter((filePath) => filePath && !filePath.endsWith('/')))];
       if (includeFiles.length === 0) {
         if (isJson) {
           const payload = buildMachineEnvelope({
@@ -135,10 +135,12 @@ function registerChangedCommand(program) {
         return;
       }
 
+      const components = analysis.components || [];
+      const languages = analysis.languages || {};
       console.log(chalk.green('\n📊 Changed-file Analysis'));
       console.log(`  Changed files: ${includeFiles.length}`);
-      console.log(`  Modeled components: ${analysis.components?.length ?? 0}`);
-      console.log(`  Languages: ${Object.entries(analysis.languages ?? {}).map(([key, value]) => `${key}(${value})`).join(', ') || 'none'}`);
+      console.log(`  Modeled components: ${components.length}`);
+      console.log(`  Languages: ${Object.entries(languages).map(([key, value]) => `${key}(${value})`).join(', ') || 'none'}`);
       console.log(chalk.yellow('\nChanged files:'));
       includeFiles.slice(0, 20).forEach((filePath) => console.log(`  - ${filePath}`));
       if (includeFiles.length > 20) {

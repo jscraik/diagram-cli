@@ -6,27 +6,19 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
-const idRegistry = new Map();
-let idCounter = 0;
-
-function sanitizeNodeId(name) {
+function sanitizeNodeId(name, registry) {
   const base = String(name).replace(/[^a-zA-Z0-9_]/g, '_');
-  if (!idRegistry.has(name)) {
-    idRegistry.set(name, base);
+  if (!registry) {
     return base;
   }
-  const existing = idRegistry.get(name);
-  if (existing === base) {
-    return existing;
-  }
-  const unique = `${base}_${idCounter++}`;
-  idRegistry.set(name, unique);
-  return unique;
+  const seen = registry.get(base) || 0;
+  registry.set(base, seen + 1);
+  return seen === 0 ? base : `${base}_${seen}`;
 }
 
 function findComponent(components, query) {
   const normalizedQuery = String(query || '').toLowerCase().trim();
-  if (normalizedQuery === '') {
+  if (!normalizedQuery) {
     return null;
   }
   return components.find((component) =>
@@ -69,7 +61,8 @@ function buildNeighborhood(components, target, maxDepth) {
       }
     }
 
-    for (const dependentName of reverseDeps.get(component.name) || []) {
+    const dependents = reverseDeps.get(component.name) || [];
+    for (const dependentName of dependents) {
       if (!selected.has(dependentName)) {
         selected.add(dependentName);
         queue.push({ name: dependentName, depth: current.depth + 1 });
@@ -88,12 +81,15 @@ function buildNeighborhood(components, target, maxDepth) {
 
 function buildNeighborhoodDiagram(neighborhood, targetName) {
   const byName = new Map(neighborhood.map((component) => [component.name, component]));
+  const idRegistry = new Map();
+  const idByName = new Map();
   const lines = ['graph TD'];
   const classTarget = [];
   const classNeighbor = [];
 
   for (const component of neighborhood) {
-    const id = sanitizeNodeId(component.name);
+    const id = sanitizeNodeId(component.name, idRegistry);
+    idByName.set(component.name, id);
     lines.push(`  ${id}["${component.originalName}"]`);
     if (component.name === targetName) {
       classTarget.push(id);
@@ -103,10 +99,10 @@ function buildNeighborhoodDiagram(neighborhood, targetName) {
   }
 
   for (const component of neighborhood) {
-    const from = sanitizeNodeId(component.name);
+    const from = idByName.get(component.name);
     for (const depName of component.dependencies || []) {
       if (!byName.has(depName)) continue;
-      const to = sanitizeNodeId(depName);
+      const to = idByName.get(depName);
       lines.push(`  ${from} --> ${to}`);
     }
   }

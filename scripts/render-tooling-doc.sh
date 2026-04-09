@@ -12,13 +12,22 @@ if [[ ! -f "$CONTRACT_PATH" ]]; then
   exit 1
 fi
 
-if ! jq -e '
-  (.required_mise_tools | type == "array" and length > 0) and
-  (.required_bins | type == "array" and length > 0) and
-  (.required_codex_actions | type == "array" and length > 0)
-' "$CONTRACT_PATH" >/dev/null; then
-  echo "Error: Contract validation failed: required arrays missing or empty in $CONTRACT_PATH"
-  echo "Expected: .required_mise_tools, .required_bins, .required_codex_actions (all non-empty arrays)"
+if ! missing_keys="$(
+  jq -r '
+    [
+      (if (.required_mise_tools | type != "array" or length == 0) then "required_mise_tools" else empty end),
+      (if (.required_bins | type != "array" or length == 0) then "required_bins" else empty end),
+      (if (.required_codex_actions | type != "array" or length == 0) then "required_codex_actions" else empty end)
+    ] | join(", ")
+  ' "$CONTRACT_PATH"
+)"; then
+  echo "Contract validation failed: could not parse tooling contract at $CONTRACT_PATH"
+  exit 1
+fi
+
+if [[ -n "$missing_keys" ]]; then
+  echo "Contract validation failed: required arrays missing or empty in $CONTRACT_PATH"
+  echo "Missing/empty keys: $missing_keys"
   exit 1
 fi
 

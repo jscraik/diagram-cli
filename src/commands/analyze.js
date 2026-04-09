@@ -70,19 +70,22 @@ function registerAnalyzeCommand(program) {
         console.error(chalk.gray('  IR:'), irPath);
       }
 
+      const components = data.components || [];
+      const languages = data.languages || {};
+      const entryPoints = data.entryPoints || [];
       console.log(chalk.green('\n📊 Summary'));
-      console.log(`  Files: ${data.components.length}`);
-      console.log(`  Languages: ${Object.entries(data.languages || {}).map(([k, v]) => `${k}(${v})`).join(', ') || 'none'}`);
-      console.log(`  Entry points: ${(data.entryPoints || []).join(', ') || 'none'}`);
+      console.log(`  Files: ${components.length}`);
+      console.log(`  Languages: ${Object.entries(languages).map(([k, v]) => `${k}(${v})`).join(', ') || 'none'}`);
+      console.log(`  Entry points: ${entryPoints.join(', ') || 'none'}`);
       console.log(`\n${chalk.yellow('Components:')}`);
-      data.components.slice(0, 15).forEach((component) => {
+      components.slice(0, 15).forEach((component) => {
         const deps = component.dependencies.length > 0
           ? ` → ${component.dependencies.slice(0, 3).join(', ')}`
           : '';
         console.log(`  ${component.originalName} (${component.type})${deps}`);
       });
-      if (data.components.length > 15) {
-        console.log(chalk.gray(`  ... and ${data.components.length - 15} more`));
+      if (components.length > 15) {
+        console.log(chalk.gray(`  ... and ${components.length - 15} more`));
       }
       if (pipeline.incremental.requested) {
         const message = pipeline.incremental.used

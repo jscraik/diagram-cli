@@ -156,12 +156,13 @@ function openPreviewUrl(url) {
   }
 }
 
-function runMermaidCli(args) {
+function runMermaidCli(args, options = {}) {
+  const mermaidArgs = options.allowAutoInstall ? ['-y', ...args] : args;
   const candidates = getNpxCommandCandidates(process.platform);
   let lastError = null;
   for (const candidate of candidates) {
     try {
-      execFileSync(candidate, args, { stdio: 'pipe', windowsHide: true });
+      execFileSync(candidate, mermaidArgs, { stdio: 'pipe', windowsHide: true });
       return;
     } catch (error) {
       lastError = error;

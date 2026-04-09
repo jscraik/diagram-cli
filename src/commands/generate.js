@@ -25,7 +25,7 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
-function validateMermaidSyntax(mermaid, theme = 'default') {
+function validateMermaidSyntax(mermaid, theme = 'default', allowAutoInstall = false) {
   const result = {
     valid: true,
     errors: [],
@@ -87,7 +87,10 @@ function validateMermaidSyntax(mermaid, theme = 'default') {
     const tempFile = path.join(tempDir, 'validate.mmd');
     const tempOutput = path.join(tempDir, 'validate.svg');
     fs.writeFileSync(tempFile, `%%{init: {'theme': '${theme}'}}%%\n${mermaid}`);
-    runMermaidCli(['@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', tempOutput, '-b', 'transparent']);
+    runMermaidCli(
+      ['@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', tempOutput, '-b', 'transparent'],
+      { allowAutoInstall }
+    );
     result.meta.mode = 'mmdc';
     result.meta.cliValidation.success = true;
   } catch (error) {
@@ -129,6 +132,7 @@ function registerGenerateCommand(program) {
     .option('--theme <theme>', 'Theme: default, dark, forest, neutral, light')
     .option('--validate', 'Validate Mermaid syntax', false)
     .option('--fail-on-validation-error', 'Exit with error if validation fails (requires --validate)', false)
+    .option('--allow-auto-install', 'Allow npx to auto-install missing Mermaid CLI dependencies', false)
     .option('--confidence-report', 'Write confidence report artifact', false)
     .option('--strict-confidence', 'Fail with exit code 1 when confidence checks degrade', false)
     .option('--capability-check-only', 'Run only capability checks and confidence evaluation', false)
@@ -202,7 +206,7 @@ function registerGenerateCommand(program) {
 
       if (options.validate) {
         if (!options.quiet) console.error(chalk.blue('\n🔍 Validating Mermaid syntax...'));
-        validationResult = validateMermaidSyntax(mermaid, safeTheme);
+        validationResult = validateMermaidSyntax(mermaid, safeTheme, options.allowAutoInstall);
         validationResult.enabled = true;
 
         if (validationResult.valid) {
@@ -351,7 +355,10 @@ function registerGenerateCommand(program) {
             tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-'));
             const tempFile = path.join(tempDir, 'diagram.mmd');
             fs.writeFileSync(tempFile, `%%{init: {'theme': '${safeTheme}'}}%%\n${mermaid}`);
-            runMermaidCli(['@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent']);
+            runMermaidCli(
+              ['@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent'],
+              { allowAutoInstall: options.allowAutoInstall }
+            );
             if (!options.quiet) console.error(chalk.green('✅ Rendered to'), options.output);
           } catch (error) {
             console.error(chalk.red('❌ Could not render output file.'));

@@ -68,36 +68,20 @@ program.on('command:*', function (operands) {
 });
 
 function findActiveCommand(argv) {
-  // COUPLING WARNING: This Set must be kept in sync with all command option
-  // definitions that expect values. If you add a new option with a value to
-  // any command, add both its short and long forms here. This prevents flag
-  // values from being misclassified as the command name.
-  // Test coverage: test/unit/diagram.test.js should catch regressions.
-  const flagsWithValue = new Set([
-    '-f', '--format',
-    '-o', '--output',
-    '-t', '--type',
-    '-m', '--max-files',
-    '-p', '--patterns',
-    '-e', '--exclude',
-    '-c', '--config',
-    '--theme',
-    '--duration',
-    '--fps',
-    '--width',
-    '--height',
-    '--focus',
-    '--analyzer',
-    '-O', '--output-dir',
-    '--artifact-profile',
-    '--base',
-    '--head',
-    '--max-depth',
-    '--max-nodes',
-    '--risk-threshold',
-    '--risk-override-reason',
-    '--depth',
-  ]);
+  const flagsWithValue = new Set();
+  const stack = [program];
+  while (stack.length > 0) {
+    const command = stack.pop();
+    for (const option of command.options || []) {
+      const expectsValue = Boolean(option.required || option.optional || option.variadic);
+      if (!expectsValue) continue;
+      if (option.short) flagsWithValue.add(option.short);
+      if (option.long) flagsWithValue.add(option.long);
+    }
+    for (const subcommand of command.commands || []) {
+      stack.push(subcommand);
+    }
+  }
 
   for (let i = 2; i < argv.length; i += 1) {
     const current = argv[i];

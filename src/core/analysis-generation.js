@@ -528,13 +528,13 @@ async function analyze(rootPath, options) {
     allUniqueFiles = [...new Set(explicitFiles
       .map((filePath) => {
         const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(rootPath, filePath);
+        const relativeToRoot = path.relative(rootPath, absolute);
+        if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+          return null;
+        }
         return absolute;
       })
-      .filter((filePath) => {
-        const relative = path.relative(rootPath, filePath);
-        const isInsideRoot = !relative.startsWith('..') && !path.isAbsolute(relative);
-        return isInsideRoot && fs.existsSync(filePath) && fs.statSync(filePath).isFile();
-      })
+      .filter((filePath) => filePath && fs.existsSync(filePath) && fs.statSync(filePath).isFile())
     )];
   } else {
     const files = [];

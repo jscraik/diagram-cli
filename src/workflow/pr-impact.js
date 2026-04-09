@@ -18,11 +18,55 @@ function normalizeDependency(dep) {
   return null;
 }
 
-function normalizedDependencies(component) {
+function componentIdentity(component) {
+  if (!component || typeof component !== 'object') return null;
+  return component.filePath || component.name || null;
+}
+
+function buildComponentAliasMap(components) {
+  const aliases = new Map();
+  for (const component of components || []) {
+    const canonical = componentIdentity(component);
+    if (!canonical) continue;
+    if (component.filePath) {
+      aliases.set(component.filePath, canonical);
+    }
+    if (component.name) {
+      aliases.set(component.name, canonical);
+    }
+  }
+  return aliases;
+}
+
+function resolveIdentityFromComponent(component, aliases) {
+  const candidates = [component?.filePath, component?.name].filter(Boolean);
+  for (const candidate of candidates) {
+    if (aliases.has(candidate)) {
+      return aliases.get(candidate);
+    }
+  }
+  return candidates[0] || null;
+}
+
+function normalizedDependencies(component, aliases = null) {
   return (component?.dependencies || [])
-    .map(normalizeDependency)
+    .map((dep) => {
+      const normalized = normalizeDependency(dep);
+      if (!normalized) return null;
+      if (aliases?.has(normalized)) {
+        return aliases.get(normalized);
+      }
+      if (dep && typeof dep === 'object' && dep.name && aliases?.has(dep.name)) {
+        return aliases.get(dep.name);
+      }
+      return normalized;
+    })
     .filter(Boolean)
     .sort();
+}
+
+function normalizedDependencySet(component, aliases = null) {
+  return new Set(normalizedDependencies(component, aliases));
 }
 
 /**
@@ -34,6 +78,8 @@ function normalizedDependencies(component) {
  */
 function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   const { changed, renamed, deleted, added } = changedFiles;
+  const baseAliases = buildComponentAliasMap(baseAnalysis.components || []);
+  const headAliases = buildComponentAliasMap(headAnalysis.components || []);
 
   // Build component indexes by filePath
   const baseByPath = new Map();
@@ -58,8 +104,8 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
       // File exists in head
       if (baseComp) {
         // File exists in both - check if dependencies or roleTags changed
-        const baseDeps = normalizedDependencies(baseComp);
-        const headDeps = normalizedDependencies(headComp);
+        const baseDeps = normalizedDependencies(baseComp, baseAliases);
+        const headDeps = normalizedDependencies(headComp, headAliases);
         const depsChanged = !arraysEqual(baseDeps, headDeps);
         const rolesChanged = !arraysEqual(
           (baseComp.roleTags || []).sort(),
@@ -87,7 +133,7 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
           name: headComp.name,
           type: headComp.type,
           roleTags: headComp.roleTags,
-          dependenciesAdded: normalizedDependencies(headComp),
+          dependenciesAdded: normalizedDependencies(headComp, headAliases),
           dependenciesRemoved: [],
           roleTagsAdded: headComp.roleTags || [],
           roleTagsRemoved: [],
@@ -103,14 +149,14 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   // Compute dependency edge deltas
   const baseEdges = new Set();
   for (const c of baseAnalysis.components || []) {
-    for (const dep of normalizedDependencies(c)) {
+    for (const dep of normalizedDependencies(c, baseAliases)) {
       baseEdges.add(`${c.filePath}→${dep}`);
     }
   }
 
   const headEdges = new Set();
   for (const c of headAnalysis.components || []) {
-    for (const dep of normalizedDependencies(c)) {
+    for (const dep of normalizedDependencies(c, headAliases)) {
       headEdges.add(`${c.filePath}→${dep}`);
     }
   }
@@ -136,76 +182,61 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
  * Compute blast radius from delta
  */
 function computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes) {
+  const components = headAnalysis.components || [];
+  const aliases = buildComponentAliasMap(components);
+  const byId = new Map();
+  const reverseDependents = new Map();
+  for (const component of components) {
+    const canonicalId = componentIdentity(component);
+    if (!canonicalId) continue;
+    byId.set(canonicalId, component);
+    const deps = normalizedDependencySet(component, aliases);
+    for (const depId of deps) {
+      if (!reverseDependents.has(depId)) {
+        reverseDependents.set(depId, []);
+      }
+      reverseDependents.get(depId).push(canonicalId);
+    }
+  }
+
   const impacted = new Set();
   const visited = new Set();
   const queue = [];
 
   // Start from changed components
-  for (const comp of delta.changedComponents) {
-    queue.push({ name: comp.name, depth: 0 });
-    visited.add(comp.name);
+  for (const comp of delta.changedComponents || []) {
+    const identity = resolveIdentityFromComponent(comp, aliases);
+    if (!identity || visited.has(identity)) continue;
+    queue.push({ identity, depth: 0 });
+    visited.add(identity);
   }
 
   // Also include components whose files were added
-  for (const filePath of delta.addedFiles) {
-    const comp = headAnalysis.components.find(c => c.filePath === filePath);
-    if (comp && !visited.has(comp.name)) {
-      queue.push({ name: comp.name, depth: 0 });
-      visited.add(comp.name);
-    }
-  }
-
-  // BFS traversal to find downstream dependencies
-  const byName = new Map();
-  for (const c of headAnalysis.components) {
-    byName.set(c.name, c);
-    if (c.filePath) byName.set(c.filePath, c);
-  }
-
-  // Precompute reverse-dependency index: canonical id -> dependents
-  // A dependency entry { name, filePath } may be matched by either filePath or name
-  const reverseDeps = new Map();
-  for (const c of headAnalysis.components) {
-    for (const dep of (c.dependencies || [])) {
-      // Register under both possible canonical forms so BFS always finds a match
-      const keys = [];
-      if (dep && typeof dep === 'object') {
-        if (dep.filePath) keys.push(dep.filePath);
-        if (dep.name) keys.push(dep.name);
-      } else if (typeof dep === 'string') {
-        keys.push(dep);
-      }
-      for (const key of keys) {
-        if (!reverseDeps.has(key)) reverseDeps.set(key, []);
-        reverseDeps.get(key).push(c);
-      }
+  for (const filePath of delta.addedFiles || []) {
+    const identity = aliases.get(filePath) || filePath;
+    if (byId.has(identity) && !visited.has(identity)) {
+      queue.push({ identity, depth: 0 });
+      visited.add(identity);
     }
   }
 
   while (queue.length > 0 && impacted.size < maxNodes) {
-    const { name, depth } = queue.shift();
+    const { identity, depth } = queue.shift();
 
-    if (depth > maxDepth) break;
+    if (depth > maxDepth) continue;
 
-    const comp = byName.get(name);
+    const comp = byId.get(identity);
     if (!comp) continue;
 
-    // Look up dependents by both name and filePath to handle mixed canonical forms
-    const dependentSet = new Map();
-    for (const key of [comp.name, comp.filePath].filter(Boolean)) {
-      for (const dep of (reverseDeps.get(key) || [])) {
-        dependentSet.set(dep.name, dep);
+    const dependentIds = reverseDependents.get(identity) || [];
+    for (const dependentId of dependentIds) {
+      if (visited.has(dependentId)) {
+        continue;
       }
-    }
-
-    // Find components that depend on this one (reverse dependencies)
-    for (const potentialDep of dependentSet.values()) {
-      if (!visited.has(potentialDep.name)) {
-        visited.add(potentialDep.name);
-        queue.push({ name: potentialDep.name, depth: depth + 1 });
-        if (impacted.size < maxNodes) {
-          impacted.add(potentialDep.name);
-        }
+      visited.add(dependentId);
+      queue.push({ identity: dependentId, depth: depth + 1 });
+      if (impacted.size < maxNodes) {
+        impacted.add(byId.get(dependentId)?.name || dependentId);
       }
     }
   }

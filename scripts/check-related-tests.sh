@@ -4,6 +4,10 @@ set -euo pipefail
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+if command -v mise >/dev/null 2>&1; then
+	eval "$(mise activate bash)"
+fi
+
 related_sources=()
 while IFS= read -r path; do
 	[[ -n "$path" ]] || continue

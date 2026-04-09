@@ -1,5 +1,3 @@
-const fs = require('fs');
-const path = require('path');
 const chalk = require('chalk');
 const {
   computeDelta,
@@ -11,6 +9,7 @@ const {
   validateGitRef,
   isShallowClone,
   detectPrRefsFromEnv,
+  runGitCommand,
   getChangedFiles,
   analyzeAtRef,
 } = require('./git-helpers');
@@ -124,12 +123,28 @@ function registerWorkflowCommands(program, deps) {
             console.log(chalk.gray('Auto-detected base ref from environment:', baseRef));
           }
         } else {
-          // Try to use merge-base with origin/main or main
+          // Prefer remote-tracking default branch refs for CI clones.
           try {
-            const defaultBranch = fs.existsSync(path.join(root, '.git', 'refs', 'heads', 'main'))
-              ? 'main'
-              : 'master';
-            baseRef = `origin/${defaultBranch}`;
+            const remoteCandidates = ['origin/main', 'origin/master'];
+            for (const candidate of remoteCandidates) {
+              try {
+                validateGitRef(candidate, root);
+                baseRef = candidate;
+                break;
+              } catch (_candidateError) {
+                // Try next candidate.
+              }
+            }
+            if (!baseRef) {
+              const originHead = runGitCommand(['rev-parse', '--abbrev-ref', 'origin/HEAD'], root).trim();
+              if (originHead && originHead !== 'origin/HEAD') {
+                validateGitRef(originHead, root);
+                baseRef = originHead;
+              }
+            }
+            if (!baseRef) {
+              throw new Error('No remote base branch available');
+            }
             if (options.verbose) {
               console.log(chalk.gray(`Using default base ref: ${baseRef}`));
             }

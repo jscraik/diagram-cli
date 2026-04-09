@@ -23,6 +23,7 @@
     "npm:semver",
     "npm:wrangler",
     "semgrep",
+    "gitleaks",
     "trivy",
     "gitleaks",
     "vale"
