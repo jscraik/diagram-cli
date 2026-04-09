@@ -9,10 +9,20 @@ const {
 const { buildMachineEnvelope } = require('./output');
 
 function listWorkingTreeChangedFiles(root) {
-  const tracked = runGitCommand(['diff', '--name-only', '--diff-filter=ACMR', 'HEAD'], root)
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
+  let tracked = [];
+  try {
+    tracked = runGitCommand(['diff', '--name-only', '--diff-filter=ACMR', 'HEAD'], root)
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch (error) {
+    // Repos with no commits will fail on HEAD reference
+    if (error.message && (error.message.includes('HEAD') || error.message.includes('bad revision'))) {
+      tracked = [];
+    } else {
+      throw error;
+    }
+  }
   const staged = runGitCommand(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], root)
     .split('\n')
     .map((line) => line.trim())
@@ -123,8 +133,8 @@ function registerChangedCommand(program) {
 
       console.log(chalk.green('\n📊 Changed-file Analysis'));
       console.log(`  Changed files: ${includeFiles.length}`);
-      console.log(`  Modeled components: ${analysis.components.length}`);
-      console.log(`  Languages: ${Object.entries(analysis.languages).map(([key, value]) => `${key}(${value})`).join(', ') || 'none'}`);
+      console.log(`  Modeled components: ${analysis.components?.length ?? 0}`);
+      console.log(`  Languages: ${Object.entries(analysis.languages ?? {}).map(([key, value]) => `${key}(${value})`).join(', ') || 'none'}`);
       console.log(chalk.yellow('\nChanged files:'));
       includeFiles.slice(0, 20).forEach((filePath) => console.log(`  - ${filePath}`));
       if (includeFiles.length > 20) {
