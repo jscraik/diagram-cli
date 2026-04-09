@@ -10,12 +10,14 @@ SEMGREP_BIN="$SEMGREP_VENV_DIR/bin/semgrep"
 SEMGREP_PYTHON="$SEMGREP_VENV_DIR/bin/python"
 cd "$REPO_ROOT"
 
+# install_semgrep creates the cache directory, sets up a Python virtual environment for the pinned Semgrep version and installs that Semgrep release into the venv.
 install_semgrep() {
 	mkdir -p "$SEMGREP_CACHE_ROOT"
 	python3 -m venv "$SEMGREP_VENV_DIR"
 	"$SEMGREP_PYTHON" -m pip install --quiet --upgrade pip "semgrep==$SEMGREP_VERSION"
 }
 
+# ensure_semgrep_version ensures the configured Semgrep version is present in the per-version virtual environment, installing it if the binary is missing or reinstalling when the detected version differs.
 ensure_semgrep_version() {
 	if [[ ! -x "$SEMGREP_BIN" ]]; then
 		install_semgrep

@@ -21,6 +21,13 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+/**
+ * Register the `generate-all [path]` CLI command which generates Mermaid diagram files for all supported diagram types and writes a manifest describing outputs and compaction decisions.
+ *
+ * The command analyses the target path, applies RC defaults, validates and resolves output and artifact profile, runs the analysis pipeline, optionally emits a typed architecture IR, generates diagrams for every supported type, applies an artifact budget to decide which diagrams to include/truncate/omit, writes `.mmd` files and a `manifest.json`, and emits either a machine-readable JSON envelope or human-friendly text output depending on the `--format` option.
+ *
+ * @param {import('commander').Command} program - Commander program instance to register the command on.
+ */
 function registerGenerateAllCommand(program) {
   program
     .command('generate-all [path]')

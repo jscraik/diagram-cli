@@ -5,6 +5,13 @@ const {
   resolveMediaCommandContext,
 } = require('./video-shared');
 
+/**
+ * Register the `generate-animated` CLI command on the provided program.
+ *
+ * The command generates an animated SVG from media files under a target path, accepting options
+ * for diagram type, output file, theme, include/exclude patterns and analysis limits; it resolves
+ * the command context, builds Mermaid content and writes the animated SVG.
+ */
 function registerGenerateAnimatedCommand(program) {
   program
     .command('generate-animated [path]')

@@ -15,6 +15,21 @@ const {
   validateOutputPath,
 } = require('./shared');
 
+/**
+ * Apply configured baselines to validation results and optionally persist updated baselines to the config file.
+ *
+ * Updates each result rule with baseline-related fields (`baseline`, `baselineWarning`, `baselineExceeded`, `status`)
+ * based on the matching rule in `config`. When `saveBaseline` is enabled, updates `config.rules[*].baseline` to the
+ * observed violation counts and writes the YAML back to `configPath` provided that `configPath` is inside `root`.
+ *
+ * @param {Object} results - Validation results object containing a `rules` array of rule result objects.
+ * @param {Object} config - Loaded configuration object containing a `rules` array of configured rules.
+ * @param {boolean} saveBaseline - If `true`, update and persist observed baseline values into the config file.
+ * @param {string} configPath - Absolute path to the configuration file to write when saving baselines.
+ * @param {string} root - Project root directory; `configPath` must reside inside this directory to be written.
+ * @param {boolean} [quiet=false] - If `true`, suppress console informational and error messages.
+ * @returns {{ updated: boolean, counts: Object }} `updated` is `true` if the config file was modified and written, `false` otherwise; `counts` maps rule names to observed violation counts.
+ */
 function applyBaseline(results, config, saveBaseline, configPath, root, quiet = false) {
   const baselineCounts = {};
   let configModified = false;
@@ -68,6 +83,14 @@ function applyBaseline(results, config, saveBaseline, configPath, root, quiet = 
   return { updated: configModified, counts: baselineCounts };
 }
 
+/**
+ * Resolve a configuration file path inside the given project root, exiting the process if the resolved path lies outside the root.
+ *
+ * Resolves `configPathInput` (or `.architecture.yml` when omitted) to an absolute path relative to `root`. If the resolved path would traverse outside `root` or otherwise be invalid, an error is printed and the process exits with code `2`.
+ * @param {string} root - Project root directory used as the base for relative resolution.
+ * @param {string|undefined} configPathInput - Optional user-supplied config path; may be absolute or relative to `root`.
+ * @returns {string} The resolved absolute path to the configuration file.
+ */
 function resolveConfigPathOrExit(root, configPathInput) {
   const absoluteRoot = path.resolve(root);
   const requestedPath = configPathInput || '.architecture.yml';
@@ -82,6 +105,12 @@ function resolveConfigPathOrExit(root, configPathInput) {
   return resolvedPath;
 }
 
+/**
+ * Attach the `validate [path]` command to the given Commander program, enabling architecture validation driven by `.architecture.yml`.
+ *
+ * The command supports config discovery/initialisation, analysis, dry-run previews, baseline management, formatted output, and exit codes for CI integration.
+ * @param {import('commander').Command} program - Commander program instance to augment with the `validate` command.
+ */
 function registerValidateCommand(program) {
   program
     .command('validate [path]')

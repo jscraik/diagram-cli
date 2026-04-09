@@ -26,6 +26,25 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+/**
+ * Validate Mermaid diagram text for common syntax issues and, when possible, via the Mermaid CLI.
+ *
+ * Performs line-level basic checks (unbalanced double quotes and empty `[]` node labels),
+ * verifies that the first non-comment line declares a recognised diagram type, and — if available —
+ * attempts full rendering validation using the Mermaid CLI (`mmdc`).
+ *
+ * @param {string} mermaid - The Mermaid diagram source to validate.
+ * @param {string} [theme='default'] - Theme to inject when invoking the Mermaid CLI for validation.
+ * @param {boolean} [allowAutoInstall=false] - If `true`, allow the helper that runs `mmdc` to attempt automatic installation of required CLI packages.
+ * @returns {{ valid: boolean, errors: Array<{line:number,message:string}>, meta: { mode: string, fallbackUsed: boolean, fallbackReasons: string[], cliValidation: { attempted: boolean, success: boolean, error: string|null } } }}
+ *   An object describing validation outcome:
+ *   - `valid`: `true` when no validation errors were found.
+ *   - `errors`: list of detected issues with `line` and `message`.
+ *   - `meta.mode`: validation mode used (`'basic'` or `'mmdc'`).
+ *   - `meta.fallbackUsed`: `true` when CLI validation was attempted and failed, causing a fallback to basic checks.
+ *   - `meta.fallbackReasons`: list of fallback reason identifiers.
+ *   - `meta.cliValidation`: details about the CLI validation attempt.
+ */
 function validateMermaidSyntax(mermaid, theme = 'default', allowAutoInstall = false) {
   const result = {
     valid: true,
@@ -114,6 +133,14 @@ function validateMermaidSyntax(mermaid, theme = 'default', allowAutoInstall = fa
   return result;
 }
 
+/**
+ * Register the `generate [path]` CLI command and its options on the provided Commander program.
+ *
+ * The command handles analysis, Mermaid generation, optional validation, confidence/capability
+ * checks, rendering to files (or printing as Mermaid source), and related output behaviours.
+ *
+ * @param {import('commander').Command} program - Commander `Command` instance to extend with the `generate` command; the function mutates this instance.
+ */
 function registerGenerateCommand(program) {
   program
     .command('generate [path]')

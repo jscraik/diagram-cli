@@ -13,6 +13,21 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+/**
+ * Register the `diff <base> <head>` CLI command to compare architecture diagrams between two git refs.
+ *
+ * The command validates both git refs, analyses repository snapshots at each ref, computes an architectural diff,
+ * and emits results either as a human-readable text summary or as a JSON machine envelope.
+ *
+ * Behaviour highlights:
+ * - Accepts options for output format (`text` or `json`), verbosity, quiet mode, file patterns/exclusions,
+ *   maximum files to analyse and deterministic machine output.
+ * - Exits with code 2 and prints an error when a git ref is invalid or when analysis fails.
+ * - When `--format json` is used, prints a structured envelope containing `baseRef`, `headRef` and the `diff`.
+ * - When `--format text` is used, prints a textual diff and optional next-step guidance unless `--quiet` is set.
+ *
+ * @param {object} program - The CLI program object (e.g. commander) to which the command will be attached.
+ */
 function registerDiffCommand(program) {
   program
     .command('diff <base> <head>')

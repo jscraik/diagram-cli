@@ -9,6 +9,13 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+/**
+ * Collects file paths changed in the working tree for the repository at `root`.
+ *
+ * Gathers tracked unstaged changes, staged changes and untracked files, then returns a deduplicated, alphabetically sorted list of file paths. If the repository has no commits (invalid `HEAD` / bad revision), tracked changes are treated as empty rather than causing an error.
+ * @param {string} root - Path to the git repository root.
+ * @returns {string[]} Deduplicated, alphabetically sorted file paths that are added, modified, renamed or untracked.
+ */
 function listWorkingTreeChangedFiles(root) {
   let tracked = [];
   try {
@@ -35,6 +42,18 @@ function listWorkingTreeChangedFiles(root) {
   return [...new Set([...tracked, ...staged, ...untracked])].sort();
 }
 
+/**
+ * Register the `changed` CLI subcommand to analyse git-changed files.
+ *
+ * The command computes the set of changed files (either from a base..head git delta
+ * when `--base` is provided, or from the working tree otherwise), runs the analysis
+ * pipeline restricted to those files, and prints a summary in either text or JSON.
+ * When a diagram type is requested via `--type` a preview diagram may be included
+ * in the output. The command also supports common options for patterns, excludes,
+ * max files, analyzer selection, deterministic output and quiet mode.
+ *
+ * @param {Object} program - Commander `program` instance to attach the `changed` subcommand to.
+ */
 function registerChangedCommand(program) {
   program
     .command('changed [path]')

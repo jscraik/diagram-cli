@@ -5,6 +5,17 @@ const {
   resolveMediaCommandContext,
 } = require('./video-shared');
 
+/**
+ * Register the CLI subcommand `generate-video [path]` for producing an animated video from a diagram.
+ *
+ * The command accepts options for diagram type, output file, overwrite, verbosity, duration, FPS,
+ * dimensions, theme and analysis file patterns. When executed it resolves and validates the command
+ * context, builds a Mermaid representation of the diagram, loads the video generator (requires
+ * Playwright) and writes the resulting video to the specified output path using parsed numeric
+ * options for duration, fps, width and height.
+ *
+ * @param {import('commander').Command} program - Commander program instance to register the subcommand on.
+ */
 function registerGenerateVideoCommand(program) {
   program
     .command('generate-video [path]')

@@ -8,6 +8,17 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+/**
+ * Register the `analyze [path]` CLI subcommand on the provided commander program.
+ *
+ * The subcommand analyzes a codebase root, runs the analysis pipeline, and emits
+ * either a human-readable summary or a machine-friendly JSON envelope. It also
+ * supports options for file patterns, exclusions, max files, analyzer selection,
+ * emitting a typed architecture IR, incremental analysis, output format,
+ * deterministic output and quiet mode.
+ *
+ * @param {import('commander').Command} program - Commander program instance to attach the subcommand to.
+ */
 function registerAnalyzeCommand(program) {
   program
     .command('analyze [path]')

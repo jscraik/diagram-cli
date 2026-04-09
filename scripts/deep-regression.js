@@ -111,6 +111,14 @@ function parseJsonFromOutput(rawOutput, commandLabel) {
   }
 }
 
+/**
+ * Run the deep-regression test suite that exercises the CLI end-to-end and validates expected outputs, artifacts and behaviours.
+ *
+ * This function performs a sequence of cross-platform command selection checks, verifies packaged runtime files, creates
+ * a temporary workspace (including files with special characters and spaces in paths), invokes the CLI for analysis,
+ * validation, diagram generation and capability checks, and asserts the presence and contents of produced artifacts.
+ * The temporary workspace is removed before completion. Test failures surface via assertions.
+ */
 function run() {
   // Cross-platform command selection tests
   assert.deepStrictEqual(getOpenCommand('https://example.com', 'darwin'), {

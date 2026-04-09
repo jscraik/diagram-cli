@@ -289,6 +289,7 @@ if [[ -f "$PACKAGE_JSON_PATH" ]]; then
 		fi
 	done
 
+	# has_package_marker checks whether PACKAGE_JSON_PATH contains the given package marker in either `dependencies` or `devDependencies`.
 	has_package_marker() {
 		local marker="$1"
 		jq -e --arg marker "$marker" '
@@ -373,6 +374,7 @@ if [[ -f "$PACKAGE_JSON_PATH" ]]; then
 
 echo "Running harness environment preflight..."
 
+# run_check_environment_with_runner runs a harness runner command to perform an environment check, captures and echoes its output, writes or extracts the generated attestation to $ATTESTATION_PATH, and returns non-zero if the runner fails or no attestation is produced.
 run_check_environment_with_runner() {
 	local label="$1"
 	shift

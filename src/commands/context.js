@@ -5,6 +5,18 @@ const chalk = require('chalk');
 const { resolveRootPathOrExit } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+/**
+ * Register the `context [path]` CLI subcommand that refreshes AI-focused context pack artifacts under `.diagram/context`.
+ *
+ * The command accepts flags `--force`, `--dry-run`, `--quiet`, `--format <type>` (text|json, default `text`) and
+ * `--deterministic`. In `text` mode it streams script output and prints a success or failure message; in `json` mode
+ * it emits a structured machine envelope containing execution results and parsed `.diagram/context/diagram-context.meta.json`.
+ *
+ * The process exits with the executed script's status code on completion. If the refresh script is missing it exits
+ * with code `2`; on other failures it exits with the script's exit code or `1` as a fallback.
+ *
+ * @param {import('commander').Command} program - Commander program instance to register the command on.
+ */
 function registerContextCommand(program) {
   program
     .command('context [path]')

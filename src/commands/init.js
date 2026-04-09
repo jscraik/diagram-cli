@@ -35,11 +35,31 @@ const DEFAULT_CI_STEP = `# Sample GitHub Actions steps for diagram-cli
     path: .diagram
 `;
 
+/**
+ * Create parent directories and write content to a file, failing if the file exists unless forced.
+ *
+ * Ensures the file's parent directory exists, then writes `content` to `filePath`. When `force` is
+ * false the write will fail if the target file already exists; when `force` is true the file is
+ * overwritten. Filesystem errors are not caught and will propagate to the caller.
+ *
+ * @param {string} filePath - Path of the file to write.
+ * @param {string|Buffer} content - Data to write to the file.
+ * @param {boolean} force - If `true`, overwrite an existing file; if `false`, fail when the file exists.
+ */
 function writeFileSafely(filePath, content, force) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, content, { flag: force ? 'w' : 'wx' });
 }
 
+/**
+ * Register the `init [path]` CLI command which bootstraps repository starter files for the diagram tooling.
+ *
+ * The command creates `.architecture.yml`, `.diagramrc` and `.diagram/ci/github-actions-step.yml` in the resolved project root,
+ * and accepts `--force` to overwrite existing generated files. If one or more target files already exist and `--force` is not used,
+ * the command prints an error and exits the process with code `2`.
+ *
+ * @param {import('commander').Command} program - The CLI program instance to attach the `init` command to.
+ */
 function registerInitCommand(program) {
   program
     .command('init [path]')

@@ -21,9 +21,21 @@ const {
 } = require('../confidence/pipeline');
 
 /**
- * Register workflow command group and PR impact command.
- * @param {import('commander').Command} program
- * @param {{resolveRootPathOrExit: Function, validateOutputPath: Function}} deps
+ * Register the `workflow pr` CLI command group and its action handler for computing
+ * PR architecture impact (base → head), producing analysis artifacts and exit codes.
+ *
+ * The command analyses changed files between two git refs, computes component deltas,
+ * blast radius and risk, optionally emits a confidence report, writes artifacts to disk,
+ * and exits with a risk-gated exit code suitable for CI usage.
+ *
+ * @param {import('commander').Command} program - The root Commander program to attach commands to.
+ * @param {Object} deps - Dependency injection for filesystem, git and config helpers.
+ * @param {Function} deps.resolveRootPathOrExit - Resolve the repository root path or terminate the process on error.
+ * @param {Function} deps.validateOutputPath - Validate and normalise an output directory path relative to the repo root.
+ * @param {Function} [deps.applyDiagramRcDefaults] - Optional function to merge CLI options with .diagramrc defaults.
+ * @param {Function} [deps.getDiagramRc] - Optional function to read .diagramrc configuration; returns an object.
+ * @param {Function} [deps.splitList] - Optional function to split comma-separated CLI lists into arrays.
+ * @returns {import('commander').Command} The registered `workflow` command (parent of `pr`).
  */
 function registerWorkflowCommands(program, deps) {
   const {

@@ -67,6 +67,16 @@ program.on('command:*', function (operands) {
   process.exit(1);
 });
 
+/**
+ * Determine which top-level subcommand name is active from a CLI argument list.
+ *
+ * Scans the provided `argv` (typically `process.argv`) and returns the first token
+ * that represents a top-level command — i.e. the first non-flag token that is not
+ * the value for an option that expects a value. Returns `null` if no such token is found.
+ *
+ * @param {string[]} argv - The complete argument vector (e.g. `process.argv`).
+ * @returns {string|null} The active top-level subcommand name, or `null` if none is present.
+ */
 function findActiveCommand(argv) {
   const flagsWithValue = new Set();
   const stack = [program];
@@ -94,6 +104,14 @@ function findActiveCommand(argv) {
   return null;
 }
 
+/**
+ * Rewrite deprecated flags and command aliases in a CLI argument vector to their current canonical forms.
+ *
+ * Logs short deprecation notes to stderr for any rewritten tokens and returns a new argv array with replacements applied.
+ *
+ * @param {string[]} argv - The original process-style argument array (e.g. process.argv).
+ * @returns {string[]} The rewritten argument array with deprecated flags and command aliases replaced.
+ */
 function resolveAliasArgs(argv) {
   const resolvedArgs = [];
   let commandFound = false;

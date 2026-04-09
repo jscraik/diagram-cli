@@ -7,6 +7,16 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+/**
+ * Produce a sanitized node identifier suitable for Mermaid by replacing any character
+ * that is not a letter, digit or underscore with an underscore; optionally ensure uniqueness.
+ *
+ * @param {any} name - Value to convert into an identifier; will be stringified.
+ * @param {Map<string,number>} [registry] - Optional map that tracks occurrences of generated bases;
+ *   when provided, the first occurrence returns the base, subsequent occurrences return `base_<N>` where
+ *   `N` is the zero-based occurrence index.
+ * @returns {string} The sanitised identifier, uniquified with a `_<N>` suffix when `registry` indicates a duplicate.
+ */
 function sanitizeNodeId(name, registry) {
   const base = String(name).replace(/[^a-zA-Z0-9_]/g, '_');
   if (!registry) {
@@ -17,6 +27,12 @@ function sanitizeNodeId(name, registry) {
   return seen === 0 ? base : `${base}_${seen}`;
 }
 
+/**
+ * Locate a component whose `name`, `originalName` or `filePath` matches a query, preferring exact matches.
+ * @param {Array<Object>} components - Array of component objects; each should have `name`, `originalName` and `filePath` properties.
+ * @param {string} query - Search term; compared case-insensitively. An empty or missing query returns `null`.
+ * @returns {Object|null} The first component with an exact case-insensitive match on `name`, `originalName` or `filePath`, or if none, the first component where any of those fields contains the query as a substring; `null` if no match.
+ */
 function findComponent(components, query) {
   const normalizedQuery = String(query || '').toLowerCase().trim();
   if (!normalizedQuery) {
@@ -33,6 +49,17 @@ function findComponent(components, query) {
   ) || null;
 }
 
+/**
+ * Build the dependency neighbourhood around a target component up to a specified depth.
+ *
+ * @param {Array<Object>} components - All analysed components; each object is expected to include `name` and may include `originalName`, `filePath`, `roleTags`, `type` and `dependencies` (array of component names).
+ * @param {Object} target - The component to centre the neighbourhood on; its `name` is used as the seed and its `dependencies` are treated as outgoing edges.
+ * @param {number} maxDepth - Maximum traversal depth from the target (direct neighbours are at depth 1).
+ * @returns {Object} An object containing:
+ *  - `neighborhood` {Array<Object>} — components included in the neighbourhood set,
+ *  - `incoming` {Array<string>} — sorted names of components whose dependencies include the target,
+ *  - `outgoing` {Array<string>} — sorted names of the target's direct dependencies.
+ */
 function buildNeighborhood(components, target, maxDepth) {
   const byName = new Map(components.map((component) => [component.name, component]));
   const selected = new Set([target.name]);
@@ -80,6 +107,17 @@ function buildNeighborhood(components, target, maxDepth) {
   return { neighborhood, incoming, outgoing };
 }
 
+/**
+ * Build a Mermaid graph describing the dependency neighbourhood around a target component.
+ *
+ * Produces a `graph TD` Mermaid string that declares nodes for each component in `neighborhood`,
+ * adds edges for dependencies that exist within the neighbourhood, and applies distinct classes
+ * to highlight the target component versus other neighbours.
+ *
+ * @param {Array<Object>} neighborhood - Array of component objects; each should include `name`, `originalName`, and `dependencies`.
+ * @param {string} targetName - The `name` of the target component to be highlighted.
+ * @returns {string} A Mermaid diagram string representing the neighbourhood graph with styling for the target and neighbour nodes.
+ */
 function buildNeighborhoodDiagram(neighborhood, targetName) {
   const byName = new Map(neighborhood.map((component) => [component.name, component]));
   const idRegistry = new Map();
@@ -119,6 +157,13 @@ function buildNeighborhoodDiagram(neighborhood, targetName) {
   return lines.join('\n');
 }
 
+/**
+ * Register the `explain` CLI command which reports a component's dependency neighbourhood as human-readable text or JSON and includes a Mermaid diagram.
+ *
+ * The command is mounted on the provided `program` and accepts a component query and optional path, plus options such as `--depth`, `--format=json`, `--deterministic` and filtering patterns. When `--format json` is used the command emits a structured machine envelope including target details, sorted neighborhood entries, incoming/outgoing lists and the Mermaid diagram. If the queried component cannot be found the process exits with code `2`.
+ *
+ * @param {import('commander').Command} program - Commander program instance to register the command on.
+ */
 function registerExplainCommand(program) {
   program
     .command('explain <component> [path]')

@@ -12,6 +12,16 @@ const {
 
 let videoModule;
 
+/**
+ * Lazily requires and caches the project's video module.
+ *
+ * If requiring the module fails because the Playwright runtime is missing, logs the provided message
+ * and a "Fix: npm install playwright" hint, then exits the process with code 2. Any other require
+ * errors are rethrown.
+ *
+ * @param {string} missingRuntimeMessage - Message to display when Playwright is not installed.
+ * @returns {*} The loaded video module.
+ */
 function getVideoModule(missingRuntimeMessage) {
   if (!videoModule) {
     try {
@@ -31,6 +41,18 @@ function getVideoModule(missingRuntimeMessage) {
   return videoModule;
 }
 
+/**
+ * Constructs and validates the command execution context for media-to-diagram operations.
+ *
+ * @param {Object} program - CLI program instance from which diagram RC may be read.
+ * @param {string} targetPath - Path used to resolve the project root.
+ * @param {Object} rawOptions - CLI options to merge with diagram RC defaults; keys considered: `patterns`, `exclude`, `maxFiles`, `theme` (default theme is `dark`).
+ * @returns {{options: Object, root: string, safeTheme: string, safeOutput: string}} An object containing:
+ *  - `options`: the merged and finalised options,
+ *  - `root`: the resolved project root path,
+ *  - `safeTheme`: the normalised theme value,
+ *  - `safeOutput`: the validated output file path.
+ */
 function resolveMediaCommandContext(program, targetPath, rawOptions) {
   const options = applyDiagramRcDefaults(
     rawOptions,
@@ -65,6 +87,12 @@ function resolveMediaCommandContext(program, targetPath, rawOptions) {
   };
 }
 
+/**
+ * Generate Mermaid content from media files located under the given root.
+ * @param {string} root - Filesystem path used as the analysis root.
+ * @param {Object} options - Options that control analysis and generation. `options.type` selects the generation output type.
+ * @returns {string} The generated Mermaid output.
+ */
 async function buildMermaidForMedia(root, options) {
   const analysis = await analyze(root, options);
   return generate(analysis, options.type);
