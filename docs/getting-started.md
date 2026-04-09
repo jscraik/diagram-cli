@@ -6,14 +6,16 @@ Install and run `diagram-cli` locally from this repository.
 
 - [Prerequisites](#prerequisites)
 - [Install](#install)
-- [Run the CLI](#run-the-cli)
-- [Verify your setup](#verify-your-setup)
+- [First Run](#first-run)
+- [Machine Output Mode](#machine-output-mode)
+- [Verify Setup](#verify-setup)
 - [Troubleshooting](#troubleshooting)
 
 ## Prerequisites
 
 - Node.js 18+
 - npm
+- Git
 
 ## Install
 
@@ -29,23 +31,39 @@ Optional local command link:
 npm link
 ```
 
-## Run the CLI
+## First Run
 
 ```bash
+diagram init .
+diagram doctor .
 diagram analyze .
-diagram generate .
-diagram generate-all .
+diagram generate-all . --output-dir .diagram --artifact-profile agent
+diagram context .
+diagram validate .
 ```
 
 Without linking:
 
 ```bash
-node src/diagram.js analyze .
-node src/diagram.js generate .
-node src/diagram.js generate-all .
+node src/diagram.js init .
+node src/diagram.js doctor .
+node src/diagram.js validate .
 ```
 
-## Verify your setup
+## Machine Output Mode
+
+Prefer `--format json` for automation:
+
+```bash
+diagram generate . --type architecture --format json --deterministic
+diagram workflow pr . --base origin/main --head HEAD --format json --deterministic
+```
+
+Compatibility note:
+
+- `--json` is supported as an alias, but canonical usage is `--format json`.
+
+## Verify Setup
 
 ```bash
 node src/diagram.js --help
@@ -63,9 +81,11 @@ Expected results:
 - Command not found (`diagram`):
   - Run `npm link` from the repo root.
 - SVG/PNG export fails:
-  - Install Mermaid CLI: `npm install -g @mermaid-js/mermaid-cli`.
-- `diagram video` or `diagram animate` fails:
-  - Install Playwright browser runtime: `npx playwright install chromium`.
-  - Install ffmpeg for video export.
-- Large repos produce huge preview URLs:
-  - Save output with `--output diagram.mmd`.
+  - Run `diagram doctor .`.
+  - Install Mermaid CLI if needed: `npm install -g @mermaid-js/mermaid-cli`.
+- `diagram generate-video` or `diagram generate-animated` fails:
+  - Install Playwright runtime: `npx playwright install chromium`.
+  - Install ffmpeg: `brew install ffmpeg` (macOS).
+- Large repositories produce oversized preview URLs:
+  - Save output to file with `--output` and use artifact workflows instead.
+

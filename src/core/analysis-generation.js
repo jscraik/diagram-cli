@@ -521,18 +521,34 @@ async function analyze(rootPath, options) {
     exclude = options.exclude.split(',');
   }
 
-  const files = [];
-  for (const pattern of patterns) {
-    if (!pattern || pattern.trim() === '') continue;
-    try {
-      const matches = await glob(pattern.trim(), { cwd: rootPath, absolute: true, ignore: exclude });
-      files.push(...matches);
-    } catch (e) {
-      console.warn(chalk.yellow(`⚠️  Invalid pattern: ${pattern}`));
+  const explicitFiles = Array.isArray(options.includeFiles) ? options.includeFiles : [];
+  let allUniqueFiles;
+
+  if (explicitFiles.length > 0) {
+    allUniqueFiles = [...new Set(explicitFiles
+      .map((filePath) => {
+        const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(rootPath, filePath);
+        return absolute;
+      })
+      .filter((filePath) => fs.existsSync(filePath) && fs.statSync(filePath).isFile())
+    )];
+  } else {
+    const files = [];
+    for (const pattern of patterns) {
+      if (!pattern || pattern.trim() === '') continue;
+      try {
+        const matches = await glob(pattern.trim(), { cwd: rootPath, absolute: true, ignore: exclude });
+        files.push(...matches);
+      } catch (e) {
+        console.warn(chalk.yellow(`⚠️  Invalid pattern: ${pattern}`));
+      }
     }
+    allUniqueFiles = [...new Set(files)];
   }
 
-  const allUniqueFiles = [...new Set(files)];
+  if (options.deterministic) {
+    allUniqueFiles = allUniqueFiles.sort();
+  }
   const totalFilesFound = allUniqueFiles.length;
   const uniqueFiles = allUniqueFiles.slice(0, maxFiles);
 

@@ -23,7 +23,11 @@
     "lint": "echo 'No linter configured (plain JS project)' && exit 0",
     "typecheck": "echo 'No TypeScript configured (plain JS project)' && exit 0",
     "audit": "npm audit --audit-level=high",
-    "check": "npm test"
+    "check": "npm test",
+    "secrets:staged": "bash scripts/check-staged-secrets.sh",
+    "docs:style:changed": "bash scripts/check-doc-style.sh",
+    "test:related": "bash scripts/check-related-tests.sh",
+    "semgrep:changed": "bash scripts/check-semgrep-changed.sh"
   },
   "keywords": [
     "diagrams",
@@ -80,8 +84,8 @@
     "diff": "^8.0.3"
   },
   "simple-git-hooks": {
-    "pre-commit": "npm test",
+    "pre-commit": "make hooks-pre-commit",
     "commit-msg": "node scripts/validate-commit-msg.js $1",
-    "pre-push": "npm run test:deep"
+    "pre-push": "make hooks-pre-push"
   }
 }

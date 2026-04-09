@@ -13,6 +13,8 @@ const DiagramRcSchema = z.object({
   ignore: z.array(z.string()).optional(),
   /** Comma-separated file glob patterns (same as --patterns CLI flag) */
   patterns: z.string().optional(),
+  /** Comma-separated file globs to exclude (same as --exclude CLI flag) */
+  exclude: z.string().optional(),
   /** Maximum files to analyze (1–10000, same as --max-files CLI flag) */
   maxFiles: z.number().int().positive().max(10000).optional(),
   /** Default theme for diagram output */

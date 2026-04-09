@@ -1,0 +1,102 @@
+const chalk = require('chalk');
+const {
+  applyDiagramRcDefaults,
+  maybeWriteArchitectureIR,
+  resolveRootPathOrExit,
+  runAnalysisPipeline,
+} = require('./shared');
+const { buildMachineEnvelope } = require('./output');
+
+function registerAnalyzeCommand(program) {
+  program
+    .command('analyze [path]')
+    .description('Analyze codebase structure')
+    .option('-p, --patterns <list>', 'File patterns (comma-separated)')
+    .option('-e, --exclude <list>', 'Exclude patterns')
+    .option('-m, --max-files <n>', 'Max files to analyze')
+    .option('--analyzer <name>', 'Analyzer plugin to use', 'default')
+    .option('--emit-ir', 'Write typed architecture IR artifact', false)
+    .option('--incremental', 'Use incremental cache when available', false)
+    .option('-f, --format <type>', 'Output format (text, json)', 'text')
+    .option('--deterministic', 'Use deterministic machine output', false)
+    .option('-q, --quiet', 'Suppress non-essential logging', false)
+    .action(async (targetPath, rawOptions) => {
+      const options = applyDiagramRcDefaults(rawOptions, program._diagramRc, ['patterns', 'exclude', 'maxFiles']);
+      const root = resolveRootPathOrExit(targetPath);
+      const formatStr = (options.format || 'text').toLowerCase();
+      const isJson = formatStr === 'json';
+      if (!options.quiet) {
+        console.error(chalk.blue('Analyzing'), root);
+      }
+
+      const pipeline = await runAnalysisPipeline(root, options, 'analyze');
+      const data = pipeline.analysis;
+      const irPath = options.emitIr
+        ? maybeWriteArchitectureIR(root, data, pipeline.analyzer, true)
+        : null;
+
+      if (isJson) {
+        const payload = buildMachineEnvelope({
+          schemaVersion: '1.0',
+          command: 'analyze',
+          rootPath: root,
+          deterministic: Boolean(options.deterministic),
+          data: {
+            analysis: data,
+            analyzer: pipeline.analyzer,
+            incremental: pipeline.incremental,
+            artifacts: {
+              architectureIrPath: irPath || null,
+            },
+          },
+          agentSummary: {
+            componentCount: data.components?.length || 0,
+            entryPoints: data.entryPoints || [],
+            dominantLanguages: Object.entries(data.languages || {})
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 3)
+              .map(([language]) => language),
+            suggestedReviewerChecks: [
+              'Inspect top dependency hubs for unwanted coupling.',
+              'Confirm entry points align with intended service boundaries.',
+            ],
+          },
+        });
+        console.log(JSON.stringify(payload, null, 2));
+        return;
+      }
+
+      if (irPath && !options.quiet) {
+        console.error(chalk.gray('  IR:'), irPath);
+      }
+
+      console.log(chalk.green('\n📊 Summary'));
+      console.log(`  Files: ${data.components.length}`);
+      console.log(`  Languages: ${Object.entries(data.languages).map(([k, v]) => `${k}(${v})`).join(', ') || 'none'}`);
+      console.log(`  Entry points: ${data.entryPoints.join(', ') || 'none'}`);
+      console.log(`\n${chalk.yellow('Components:')}`);
+      data.components.slice(0, 15).forEach((component) => {
+        const deps = component.dependencies.length > 0
+          ? ` → ${component.dependencies.slice(0, 3).join(', ')}`
+          : '';
+        console.log(`  ${component.originalName} (${component.type})${deps}`);
+      });
+      if (data.components.length > 15) {
+        console.log(chalk.gray(`  ... and ${data.components.length - 15} more`));
+      }
+      if (pipeline.incremental.requested) {
+        const message = pipeline.incremental.used
+          ? `cache hit (${pipeline.incremental.reason})`
+          : `fallback full scan (${pipeline.incremental.reason})`;
+        console.log(chalk.gray(`  Incremental: ${message}`));
+      }
+
+      console.log(chalk.cyan('\nNext steps:'));
+      console.log('  1) Run `diagram generate . --type architecture` to visualize structure.');
+      console.log('  2) Run `diagram validate .` to enforce architecture policy.');
+    });
+}
+
+module.exports = {
+  registerAnalyzeCommand,
+};

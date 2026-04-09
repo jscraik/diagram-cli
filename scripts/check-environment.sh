@@ -7,21 +7,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 CONTRACT_PATH="$REPO_ROOT/harness.contract.json"
-	ATTESTATION_PATH="$REPO_ROOT/artifacts/policy/environment-attestation.json"
-	MISE_PATH="$REPO_ROOT/.mise.toml"
-	CODEX_ENVIRONMENT_PATH="$REPO_ROOT/.codex/environments/environment.toml"
-	MAKEFILE_PATH="$REPO_ROOT/Makefile"
-	PREK_CONFIG_PATH="$REPO_ROOT/prek.toml"
-	PACKAGE_JSON_PATH="$REPO_ROOT/package.json"
-	TOOLING_DOC_PATH="${TOOLING_DOC_PATH:-}"
-
-if [[ -z "$TOOLING_DOC_PATH" ]]; then
-	if [[ -f "$HOME/dev/configs/codex/instructions/tooling.md" ]]; then
-		TOOLING_DOC_PATH="$HOME/dev/configs/codex/instructions/tooling.md"
-	else
-		TOOLING_DOC_PATH="$HOME/dev/config/codex/instructions/tooling.md"
-	fi
-fi
+ATTESTATION_PATH="$REPO_ROOT/artifacts/policy/environment-attestation.json"
+MISE_PATH="$REPO_ROOT/.mise.toml"
+CODEX_ENVIRONMENT_PATH="$REPO_ROOT/.codex/environments/environment.toml"
+MAKEFILE_PATH="$REPO_ROOT/Makefile"
+PREK_CONFIG_PATH="$REPO_ROOT/prek.toml"
+PACKAGE_JSON_PATH="$REPO_ROOT/package.json"
+TOOLING_CONTRACT_PATH="${TOOLING_CONTRACT_PATH:-$REPO_ROOT/docs/agents/tooling.contract.json}"
+TOOLING_DOC_PATH="${TOOLING_DOC_PATH:-$REPO_ROOT/docs/agents/tooling.md}"
 
 if [[ ! -f "$CONTRACT_PATH" ]]; then
 	echo "Error: missing contract file at $CONTRACT_PATH"
@@ -33,33 +26,52 @@ if ! command -v rg >/dev/null 2>&1; then
 	exit 1
 fi
 
-	if [[ ! -f "$MISE_PATH" ]]; then
-		echo "Error: missing mise config at $MISE_PATH"
+if ! command -v jq >/dev/null 2>&1; then
+	echo "Error: required binary 'jq' is not installed or not on PATH"
+	exit 1
+fi
+
+if [[ ! -f "$TOOLING_CONTRACT_PATH" ]]; then
+	echo "Error: missing tooling contract at $TOOLING_CONTRACT_PATH"
+	exit 1
+fi
+
+mapfile -t required_mise_tools < <(jq -r '.required_mise_tools[]' "$TOOLING_CONTRACT_PATH")
+mapfile -t required_bins < <(jq -r '.required_bins[]' "$TOOLING_CONTRACT_PATH")
+mapfile -t required_codex_actions < <(jq -r '.required_codex_actions[] | "\(.name)|\(.icon)"' "$TOOLING_CONTRACT_PATH")
+
+if [[ "${#required_mise_tools[@]}" -eq 0 || "${#required_bins[@]}" -eq 0 || "${#required_codex_actions[@]}" -eq 0 ]]; then
+	echo "Error: tooling contract is missing required list entries in $TOOLING_CONTRACT_PATH"
+	exit 1
+fi
+
+if [[ ! -f "$MISE_PATH" ]]; then
+	echo "Error: missing mise config at $MISE_PATH"
+	exit 1
+fi
+
+if [[ ! -f "$CODEX_ENVIRONMENT_PATH" ]]; then
+	echo "Error: missing Codex environment file at $CODEX_ENVIRONMENT_PATH"
+	exit 1
+fi
+
+if [[ ! -f "$MAKEFILE_PATH" ]]; then
+	echo "Error: missing required Makefile at $MAKEFILE_PATH"
+	exit 1
+fi
+
+if [[ ! -f "$PREK_CONFIG_PATH" ]]; then
+	echo "Error: missing required prek config at $PREK_CONFIG_PATH"
+	exit 1
+fi
+
+required_support_files=("scripts/codex-preflight.sh" "scripts/codex-learn" "scripts/codex-enforced" "scripts/verify-work.sh" "scripts/prepare-worktree.sh" "scripts/check-staged-secrets.sh" "scripts/check-doc-style.sh" "scripts/check-related-tests.sh" "scripts/check-semgrep-changed.sh" "scripts/semgrep-pre-push.yml")
+for support_file in "${required_support_files[@]}"; do
+	if [[ ! -f "$REPO_ROOT/${support_file}" ]]; then
+		echo "Error: missing required hook support file at $REPO_ROOT/${support_file}"
 		exit 1
 	fi
-
-	if [[ ! -f "$CODEX_ENVIRONMENT_PATH" ]]; then
-		echo "Error: missing Codex environment file at $CODEX_ENVIRONMENT_PATH"
-		exit 1
-	fi
-
-	if [[ ! -f "$MAKEFILE_PATH" ]]; then
-		echo "Error: missing required Makefile at $MAKEFILE_PATH"
-		exit 1
-	fi
-
-	if [[ ! -f "$PREK_CONFIG_PATH" ]]; then
-		echo "Error: missing required prek config at $PREK_CONFIG_PATH"
-		exit 1
-	fi
-
-	required_support_files=("scripts/codex-preflight.sh" "scripts/codex-learn" "scripts/codex-enforced" "scripts/verify-work.sh" "scripts/prepare-worktree.sh" "scripts/check-staged-secrets.sh" "scripts/check-doc-style.sh" "scripts/check-related-tests.sh" "scripts/check-semgrep-changed.sh" "scripts/semgrep-pre-push.yml")
-	for support_file in "${required_support_files[@]}"; do
-		if [[ ! -f "$REPO_ROOT/${support_file}" ]]; then
-			echo "Error: missing required hook support file at $REPO_ROOT/${support_file}"
-			exit 1
-		fi
-	done
+done
 
 if ! command -v mise >/dev/null 2>&1; then
 	echo "Error: required binary 'mise' is not installed or not on PATH"
@@ -72,7 +84,6 @@ fi
 eval "$(mise activate bash)"
 export CLAUDE_APPROVAL_POSTURE="${CLAUDE_APPROVAL_POSTURE:-require}"
 
-required_mise_tools=("node" "pnpm" "python" "uv" "cargo:prek" "npm:@brainwav/diagram" "npm:@argos-ci/cli" "cosign" "cloudflared" "npm:vitest" "ruff" "npm:eslint" "npm:agent-browser" "npm:agentation" "npm:agentation-mcp" "npm:@mermaid-js/mermaid-cli" "npm:@brainwav/rsearch" "npm:@brainwav/wsearch-cli" "npm:beautiful-mermaid" "npm:markdownlint-cli2" "npm:semver" "npm:wrangler" "semgrep" "trivy" "vale")
 for tool in "${required_mise_tools[@]}"; do
 	tool_pattern="$(printf '%s' "$tool" | sed 's/[][(){}.^$*+?|\\]/\\&/g')"
 	if ! rg -q "^[[:space:]]*(\"${tool_pattern}\"|${tool_pattern})[[:space:]]*=" "$MISE_PATH"; then
@@ -82,41 +93,49 @@ for tool in "${required_mise_tools[@]}"; do
 	fi
 done
 
-if [[ -f "$TOOLING_DOC_PATH" ]]; then
-	required_tooling_doc_terms=("node" "pnpm" "python" "uv" "make" "rg" "fd" "jq" "prek" "diagram" "mise" "vale" "argos" "cosign" "cloudflared" "vitest" "ruff" "eslint" "agent-browser" "agentation" "mermaid-cli" "markdownlint-cli2" "wrangler" "beautiful-mermaid" "semgrep" "semver" "trivy" "rsearch" "wsearch")
-	for term in "${required_tooling_doc_terms[@]}"; do
-		if ! rg -qi "(^|[^A-Za-z0-9_-])${term}([^A-Za-z0-9_-]|$)" "$TOOLING_DOC_PATH"; then
-			echo "Error: tooling doc missing expected term '$term': $TOOLING_DOC_PATH"
-			echo "Fix: update tooling inventory and keep it aligned with $MISE_PATH."
-			echo "Interactive flow: run a Codex AskQuestion/request_user_input prompt before applying installs."
-			exit 1
-		fi
-	done
-else
-	echo "Warning: tooling doc not found at $TOOLING_DOC_PATH; skipping doc sync check."
+if [[ ! -f "$TOOLING_DOC_PATH" ]]; then
+	echo "Error: tooling doc not found at $TOOLING_DOC_PATH"
+	echo "Fix: run 'bash scripts/render-tooling-doc.sh' to generate it from $TOOLING_CONTRACT_PATH."
+	exit 1
 fi
 
-	required_bins=("pnpm" "node" "jq" "make" "rg" "fd" "prek" "diagram" "mise" "vale" "argos" "cosign" "cloudflared" "vitest" "ruff" "eslint" "agent-browser" "agentation-mcp" "mmdc" "markdownlint-cli2" "wrangler" "beautiful-mermaid" "semgrep" "semver" "trivy" "rsearch" "wsearch")
-	for bin in "${required_bins[@]}"; do
-		if ! command -v "$bin" >/dev/null 2>&1; then
-			echo "Error: required binary '$bin' is not installed or not on PATH"
-			exit 1
-		fi
-	done
+for tool in "${required_mise_tools[@]}"; do
+	if ! rg -Fq -- "\`$tool\`" "$TOOLING_DOC_PATH"; then
+		echo "Error: tooling doc missing required mise tool '$tool': $TOOLING_DOC_PATH"
+		echo "Fix: run 'bash scripts/render-tooling-doc.sh' to regenerate the document."
+		exit 1
+	fi
+done
 
-	required_codex_actions=("Tools|tool" "Run|run" "Debug|debug" "Test|test" "Prek|test" "Diagram|tool" "Ralph|debug" "Mise|tool" "Vale|debug" "Argos|test" "Cosign|debug" "Cloudflared|run" "Vitest|test" "Ruff|debug" "ESLint|debug" "Agent Browser|tool" "Agentation|tool" "Mermaid CLI|tool" "MarkdownLint|debug" "Wrangler|run" "1Password|tool" "Beautiful Mermaid|tool" "Auth0|tool" "Semgrep|debug" "Semver|tool" "Trivy|debug" "Gitleaks|debug" "Research|tool" "WSearch|tool")
-	for action in "${required_codex_actions[@]}"; do
-		name="${action%%|*}"
-		icon="${action##*|}"
-		if ! awk -v name="$name" -v icon="$icon" '
-			prev == "name = \"" name "\"" && $0 == "icon = \"" icon "\"" { found = 1 }
-			{ prev = $0 }
-			END { exit found ? 0 : 1 }
-		' "$CODEX_ENVIRONMENT_PATH"; then
-			echo "Error: Codex environment action '$name' is missing or mapped to the wrong icon in $CODEX_ENVIRONMENT_PATH"
-			exit 1
-		fi
-	done
+for bin in "${required_bins[@]}"; do
+	if ! rg -Fq -- "\`$bin\`" "$TOOLING_DOC_PATH"; then
+		echo "Error: tooling doc missing required binary '$bin': $TOOLING_DOC_PATH"
+		echo "Fix: run 'bash scripts/render-tooling-doc.sh' to regenerate the document."
+		exit 1
+	fi
+	if ! command -v "$bin" >/dev/null 2>&1; then
+		echo "Error: required binary '$bin' is not installed or not on PATH"
+		exit 1
+	fi
+done
+
+for action in "${required_codex_actions[@]}"; do
+	name="${action%%|*}"
+	icon="${action##*|}"
+	if ! rg -Fq -- "- \`$name\` (\`$icon\`)" "$TOOLING_DOC_PATH"; then
+		echo "Error: tooling doc missing required Codex action '$name' (icon '$icon'): $TOOLING_DOC_PATH"
+		echo "Fix: run 'bash scripts/render-tooling-doc.sh' to regenerate the document."
+		exit 1
+	fi
+	if ! awk -v name="$name" -v icon="$icon" '
+		prev == "name = \"" name "\"" && $0 == "icon = \"" icon "\"" { found = 1 }
+		{ prev = $0 }
+		END { exit found ? 0 : 1 }
+	' "$CODEX_ENVIRONMENT_PATH"; then
+		echo "Error: Codex environment action '$name' is missing or mapped to the wrong icon in $CODEX_ENVIRONMENT_PATH"
+		exit 1
+	fi
+done
 
 	required_make_targets=("help" "install" "setup" "preflight" "worktree-ready" "verify-work" "hooks" "hooks-pre-commit" "hooks-pre-push" "secrets-staged" "docs-style-changed" "related-tests" "semgrep-changed" "diagrams-check" "lint" "docs-lint" "fmt" "typecheck" "test" "check" "audit" "secrets" "security" "clean" "reset" "ci" "diagrams" "env-check")
 	for target in "${required_make_targets[@]}"; do

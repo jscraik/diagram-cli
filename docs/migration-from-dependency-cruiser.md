@@ -1,7 +1,7 @@
 # Migration from dependency-cruiser
 
 Move architecture validation rules from dependency-cruiser config to
-`diagram test` YAML rules.
+`diagram validate` YAML rules.
 
 ## Table of Contents
 
@@ -57,7 +57,7 @@ npm install --save-dev @brainwav/diagram
 1. Generate starter config.
 
 ```bash
-npx diagram test --init
+npx diagram validate --init
 ```
 
 1. Translate each dependency-cruiser rule:
@@ -73,7 +73,7 @@ npx diagram test --init
 npx depcruise --validate .dependency-cruiser.js src
 
 # New
-npx diagram test
+npx diagram validate
 ```
 
 1. Update CI commands.
@@ -83,7 +83,7 @@ npx diagram test
 - run: npx depcruise --validate .dependency-cruiser.js src
 
 # After
-- run: npx diagram test --format junit --output architecture-results.xml
+- run: npx diagram validate --format junit --output architecture-results.xml
 ```
 
 1. Remove dependency-cruiser when parity is confirmed.

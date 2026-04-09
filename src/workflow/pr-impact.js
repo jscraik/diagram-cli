@@ -10,6 +10,25 @@ function arraysEqual(a, b) {
   return a.every((val, idx) => val === b[idx]);
 }
 
+function normalizeDependency(dep) {
+  if (typeof dep === 'string') return dep;
+  if (dep && typeof dep === 'object') {
+    return dep.name || dep.filePath || null;
+  }
+  return null;
+}
+
+function normalizedDependencies(component) {
+  return (component?.dependencies || [])
+    .map(normalizeDependency)
+    .filter(Boolean)
+    .sort();
+}
+
+function normalizedDependencySet(component) {
+  return new Set(normalizedDependencies(component));
+}
+
 /**
  * Compute delta between two analysis snapshots
  * @param {object} baseAnalysis - Analysis at base ref
@@ -43,23 +62,24 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
       // File exists in head
       if (baseComp) {
         // File exists in both - check if dependencies or roleTags changed
-        const depsChanged = !arraysEqual(
-          (baseComp.dependencies || []).sort(),
-          (headComp.dependencies || []).sort()
-        );
+        const baseDeps = normalizedDependencies(baseComp);
+        const headDeps = normalizedDependencies(headComp);
+        const depsChanged = !arraysEqual(baseDeps, headDeps);
         const rolesChanged = !arraysEqual(
           (baseComp.roleTags || []).sort(),
           (headComp.roleTags || []).sort()
         );
 
         if (depsChanged || rolesChanged) {
+          const baseDepSet = new Set(baseDeps);
+          const headDepSet = new Set(headDeps);
           changedComponents.push({
             filePath,
             name: headComp.name,
             type: headComp.type,
             roleTags: headComp.roleTags,
-            dependenciesAdded: (headComp.dependencies || []).filter(d => !(baseComp.dependencies || []).includes(d)),
-            dependenciesRemoved: (baseComp.dependencies || []).filter(d => !(headComp.dependencies || []).includes(d)),
+            dependenciesAdded: [...headDepSet].filter((dep) => !baseDepSet.has(dep)),
+            dependenciesRemoved: [...baseDepSet].filter((dep) => !headDepSet.has(dep)),
             roleTagsAdded: (headComp.roleTags || []).filter(r => !(baseComp.roleTags || []).includes(r)),
             roleTagsRemoved: (baseComp.roleTags || []).filter(r => !(headComp.roleTags || []).includes(r))
           });
@@ -71,7 +91,7 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
           name: headComp.name,
           type: headComp.type,
           roleTags: headComp.roleTags,
-          dependenciesAdded: headComp.dependencies || [],
+          dependenciesAdded: normalizedDependencies(headComp),
           dependenciesRemoved: [],
           roleTagsAdded: headComp.roleTags || [],
           roleTagsRemoved: [],
@@ -87,14 +107,14 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   // Compute dependency edge deltas
   const baseEdges = new Set();
   for (const c of baseAnalysis.components || []) {
-    for (const dep of c.dependencies || []) {
+    for (const dep of normalizedDependencies(c)) {
       baseEdges.add(`${c.filePath}→${dep}`);
     }
   }
 
   const headEdges = new Set();
   for (const c of headAnalysis.components || []) {
-    for (const dep of c.dependencies || []) {
+    for (const dep of normalizedDependencies(c)) {
       headEdges.add(`${c.filePath}→${dep}`);
     }
   }
@@ -155,7 +175,8 @@ function computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes) {
 
     // Find components that depend on this one (reverse dependencies)
     for (const potentialDep of headAnalysis.components) {
-      if (potentialDep.dependencies && potentialDep.dependencies.includes(name)) {
+      const potentialDeps = normalizedDependencySet(potentialDep);
+      if (potentialDeps.has(name)) {
         if (!visited.has(potentialDep.name)) {
           visited.add(potentialDep.name);
           queue.push({ name: potentialDep.name, depth: depth + 1 });

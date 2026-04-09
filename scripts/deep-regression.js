@@ -167,6 +167,21 @@ function run() {
     'src/context/build-context-pack.js',
     'src/analyzers/default-analyzer.js',
     'src/analyzers/index.js',
+    'src/commands/analyze.js',
+    'src/commands/generate.js',
+    'src/commands/generate-all.js',
+    'src/commands/validate.js',
+    'src/commands/workflow-pr.js',
+    'src/commands/diff.js',
+    'src/commands/generate-video.js',
+    'src/commands/generate-animated.js',
+    'src/commands/doctor.js',
+    'src/commands/changed.js',
+    'src/commands/context.js',
+    'src/commands/explain.js',
+    'src/commands/init.js',
+    'src/commands/output.js',
+    'src/commands/shared.js',
   ];
   for (const requiredFile of requiredRuntimeFiles) {
     assert.ok(
@@ -220,7 +235,8 @@ function run() {
   console.log('\n--- 🧪 TEST 1: Analysis ---');
   const analysis = runCLI(['analyze', '.', '--format', 'json'], workspace);
   const parsed = parseJsonFromOutput(analysis.stdout, 'diagram analyze --format json');
-  assert.ok(Array.isArray(parsed.components), 'analyze --format json should return components');
+  const analysisPayload = parsed?.data?.analysis || parsed;
+  assert.ok(Array.isArray(analysisPayload.components), 'analyze --format json should return components');
 
   const jsonOutput = path.join(workspace, 'reports', 'result file.json');
   const testJson = runCLI(['validate', '.', '--format', 'json', '--output', jsonOutput], workspace);
