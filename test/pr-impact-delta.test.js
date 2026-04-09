@@ -55,4 +55,84 @@ describe('pr-impact dependency normalization', () => {
     const blastRadius = computeBlastRadiusFromDelta(delta, headAnalysis, 2, 20);
     expect(blastRadius.impactedComponents).to.deep.equal(['serviceB']);
   });
+
+  it('normalizes mixed string and object dependency representations to one canonical id', () => {
+    const baseAnalysis = {
+      components: [
+        {
+          filePath: 'src/serviceA.js',
+          name: 'serviceA',
+          dependencies: ['serviceB'],
+        },
+        {
+          filePath: 'src/serviceB.js',
+          name: 'serviceB',
+          dependencies: [],
+        },
+      ],
+    };
+    const headAnalysis = {
+      components: [
+        {
+          filePath: 'src/serviceA.js',
+          name: 'serviceA',
+          dependencies: [{ name: 'serviceB', filePath: 'src/serviceB.js' }],
+        },
+        {
+          filePath: 'src/serviceB.js',
+          name: 'serviceB',
+          dependencies: [],
+        },
+      ],
+    };
+    const changedFiles = {
+      changed: ['src/serviceA.js'],
+      renamed: [],
+      deleted: [],
+      added: [],
+    };
+
+    const delta = computeDelta(baseAnalysis, headAnalysis, changedFiles);
+    expect(delta.changedComponents).to.have.length(0);
+    expect(delta.dependencyEdgeDelta).to.deep.equal({
+      added: [],
+      removed: [],
+      count: 0,
+    });
+  });
+
+  it('keeps unresolved external dependencies stable across mixed forms', () => {
+    const baseAnalysis = {
+      components: [
+        {
+          filePath: 'src/serviceA.js',
+          name: 'serviceA',
+          dependencies: ['external-package'],
+        },
+      ],
+    };
+    const headAnalysis = {
+      components: [
+        {
+          filePath: 'src/serviceA.js',
+          name: 'serviceA',
+          dependencies: [{ name: 'external-package' }],
+        },
+      ],
+    };
+    const changedFiles = {
+      changed: ['src/serviceA.js'],
+      renamed: [],
+      deleted: [],
+      added: [],
+    };
+
+    const delta = computeDelta(baseAnalysis, headAnalysis, changedFiles);
+    expect(delta.changedComponents).to.have.length(0);
+    expect(delta.dependencyEdgeDelta).to.deep.equal({
+      added: [],
+      removed: [],
+      count: 0,
+    });
+  });
 });

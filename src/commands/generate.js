@@ -15,6 +15,7 @@ const {
   createMermaidUrl,
   findClosestMatch,
   formatSuggestion,
+  getDiagramRcFromProgram,
   maybeWriteArchitectureIR,
   normalizeThemeOption,
   openPreviewUrl,
@@ -139,7 +140,7 @@ function registerGenerateCommand(program) {
     .option('--deterministic', 'Use deterministic machine output', false)
     .option('--open', 'Open in browser')
     .action(async (targetPath, rawOptions) => {
-      const options = applyDiagramRcDefaults(rawOptions, program._diagramRc, ['patterns', 'exclude', 'maxFiles', 'theme']);
+      const options = applyDiagramRcDefaults(rawOptions, getDiagramRcFromProgram(program), ['patterns', 'exclude', 'maxFiles', 'theme']);
       const formatStr = (options.format || 'text').toLowerCase();
       const isJson = formatStr === 'json';
       const quietOutput = Boolean(options.quiet || isJson);
@@ -180,7 +181,7 @@ function registerGenerateCommand(program) {
         if (options.confidenceReport || options.strictConfidence) {
           confidencePath = writeConfidenceReport(root, quickReport);
           if (!quietOutput) {
-            console.log(chalk.gray('Confidence report:'), confidencePath);
+            console.error(chalk.gray('Confidence report:'), confidencePath);
           }
         }
         const strictConfidenceFailed = options.strictConfidence && shouldFailStrictConfidence(quickReport);
@@ -219,7 +220,7 @@ function registerGenerateCommand(program) {
         }
         process.exit(strictConfidenceFailed ? 1 : 0);
       }
-      if (!options.quiet) {
+      if (!quietOutput) {
         console.error(chalk.blue('Generating'), options.type, 'diagram for', root);
       }
 
@@ -236,22 +237,27 @@ function registerGenerateCommand(program) {
         meta: { fallbackUsed: false, fallbackReasons: [], mode: 'not_requested' },
       };
 
+      let failOnValidationErrorTriggered = false;
       if (options.validate) {
-        if (!options.quiet) console.error(chalk.blue('\n🔍 Validating Mermaid syntax...'));
+        if (!quietOutput) console.error(chalk.blue('\n🔍 Validating Mermaid syntax...'));
         validationResult = validateMermaidSyntax(mermaid, safeTheme, options.allowAutoInstall);
         validationResult.enabled = true;
 
         if (validationResult.valid) {
-          if (!options.quiet) console.error(chalk.green('✅ Mermaid syntax is valid'));
+          if (!quietOutput) console.error(chalk.green('✅ Mermaid syntax is valid'));
         } else {
-          console.error(chalk.yellow('⚠️  Mermaid syntax issues detected:'));
-          for (const error of validationResult.errors) {
-            console.error(chalk.yellow(`   Line ${error.line || '?'}: ${error.message}`));
+          if (!quietOutput) {
+            console.error(chalk.yellow('⚠️  Mermaid syntax issues detected:'));
+            for (const error of validationResult.errors) {
+              console.error(chalk.yellow(`   Line ${error.line || '?'}: ${error.message}`));
+            }
           }
           if (options.failOnValidationError) {
-            console.error(chalk.red('❌ Validation failed (exit 1)'));
-            console.error(chalk.gray('Fix: run `diagram generate . --type architecture --validate` and address listed lines.'));
-            process.exit(1);
+            if (!isJson) {
+              console.error(chalk.red('❌ Validation failed (exit 1)'));
+              console.error(chalk.gray('Fix: run `diagram generate . --type architecture --validate` and address listed lines.'));
+            }
+            failOnValidationErrorTriggered = true;
           }
         }
       }
@@ -272,6 +278,7 @@ function registerGenerateCommand(program) {
         reasons: fallbackReasons,
       };
 
+      let strictConfidenceFailed = false;
       let confidencePath = null;
       if (confidenceEnabled) {
         const report = buildConfidenceReport({
@@ -294,22 +301,33 @@ function registerGenerateCommand(program) {
 
         if (options.confidenceReport || options.strictConfidence) {
           confidencePath = writeConfidenceReport(root, report);
-          if (!isJson) console.log(chalk.gray('Confidence report:'), confidencePath);
+          if (!quietOutput) console.error(chalk.gray('Confidence report:'), confidencePath);
         }
 
         if (options.strictConfidence && shouldFailStrictConfidence(report)) {
-          console.error(chalk.red('❌ Strict confidence check failed'));
-          process.exit(1);
+          strictConfidenceFailed = true;
+          if (!isJson && !quietOutput) {
+            console.error(chalk.red('❌ Strict confidence check failed'));
+          }
         }
       }
 
       const { url, large } = createMermaidUrl(mermaid);
+      const envelopeErrors = [...(validationResult.errors || [])];
+      if (strictConfidenceFailed) {
+        envelopeErrors.push({ message: 'Strict confidence check failed' });
+      }
+      if (failOnValidationErrorTriggered && envelopeErrors.length === 0) {
+        envelopeErrors.push({ message: 'Validation failed with --fail-on-validation-error' });
+      }
+      const failed = failOnValidationErrorTriggered || strictConfidenceFailed || !validationResult.valid;
+      let resolvedOutputPath = null;
       const machinePayload = buildMachineEnvelope({
         schemaVersion: '1.0',
         command: 'generate',
         rootPath: root,
         deterministic: Boolean(options.deterministic),
-        status: validationResult.valid ? 'success' : 'failure',
+        status: failed ? 'failure' : 'success',
         data: {
           diagramType: options.type,
           mermaid,
@@ -326,9 +344,10 @@ function registerGenerateCommand(program) {
           artifacts: {
             architectureIrPath: irPath,
             confidenceReportPath: confidencePath,
+            outputPath: null,
           },
         },
-        errors: validationResult.errors || [],
+        errors: envelopeErrors,
         agentSummary: {
           changedComponents: data.components?.length || 0,
           riskReasons: fallbackReasons,
@@ -339,7 +358,16 @@ function registerGenerateCommand(program) {
         },
       });
 
+      if (failOnValidationErrorTriggered || strictConfidenceFailed) {
+        machinePayload.data.artifacts.outputPath = resolvedOutputPath;
+        if (isJson) {
+          console.log(JSON.stringify(machinePayload, null, 2));
+        }
+        process.exit(1);
+      }
+
       if (!options.output) {
+        machinePayload.data.artifacts.outputPath = resolvedOutputPath;
         if (isJson) {
           console.log(JSON.stringify(machinePayload, null, 2));
         } else {
@@ -372,7 +400,8 @@ function registerGenerateCommand(program) {
         if (ext === '.md' || ext === '.mmd') {
           try {
             fs.writeFileSync(safeOutput, mermaid, { flag: options.force ? 'w' : 'wx' });
-            if (!options.quiet) console.error(chalk.green('✅ Saved to'), options.output);
+            resolvedOutputPath = safeOutput;
+            if (!quietOutput) console.error(chalk.green('✅ Saved to'), options.output);
           } catch (error) {
             if (error.code === 'EEXIST') {
               console.error(chalk.red(`❌ Target file exists: ${safeOutput}`));
@@ -391,7 +420,8 @@ function registerGenerateCommand(program) {
               ['@mermaid-js/mermaid-cli', 'mmdc', '-i', tempFile, '-o', safeOutput, '-b', 'transparent'],
               { allowAutoInstall: options.allowAutoInstall }
             );
-            if (!options.quiet) console.error(chalk.green('✅ Rendered to'), options.output);
+            resolvedOutputPath = safeOutput;
+            if (!quietOutput) console.error(chalk.green('✅ Rendered to'), options.output);
           } catch (error) {
             console.error(chalk.red('❌ Could not render output file.'));
             console.error(chalk.gray('Fix: npm install -g @mermaid-js/mermaid-cli'));
@@ -407,6 +437,11 @@ function registerGenerateCommand(program) {
             }
           }
         }
+      }
+
+      machinePayload.data.artifacts.outputPath = resolvedOutputPath;
+      if (isJson && options.output) {
+        console.log(JSON.stringify(machinePayload, null, 2));
       }
 
       if (options.open && url) {

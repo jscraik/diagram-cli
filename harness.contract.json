@@ -238,6 +238,10 @@
         "version": "1.153.1"
       },
       {
+        "tool": "gitleaks",
+        "version": "8.28.0"
+      },
+      {
         "tool": "trivy",
         "version": "0.69.3"
       },

@@ -1,6 +1,7 @@
 const chalk = require('chalk');
 const {
   applyDiagramRcDefaults,
+  getDiagramRcFromProgram,
   resolveRootPathOrExit,
   runAnalysisPipeline,
 } = require('./shared');
@@ -131,7 +132,7 @@ function registerExplainCommand(program) {
     .option('--deterministic', 'Use deterministic machine output', false)
     .option('-q, --quiet', 'Suppress non-essential logging', false)
     .action(async (componentQuery, targetPath, rawOptions) => {
-      const options = applyDiagramRcDefaults(rawOptions, program._diagramRc, ['patterns', 'exclude', 'maxFiles']);
+      const options = applyDiagramRcDefaults(rawOptions, getDiagramRcFromProgram(program), ['patterns', 'exclude', 'maxFiles']);
       const root = resolveRootPathOrExit(targetPath);
       const formatStr = (options.format || 'text').toLowerCase();
       const isJson = formatStr === 'json';

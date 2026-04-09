@@ -94,67 +94,185 @@ rules:
     severity: ERROR
     languages: [javascript, typescript]
     pattern-either:
-      - pattern: 'spawn(..., { ..., shell: true, ... })'
-      - pattern: 'spawnSync(..., { ..., shell: true, ... })'
-      - pattern: 'execFile(..., { ..., shell: true, ... })'
-      - pattern: 'execFileSync(..., { ..., shell: true, ... })'
+      - pattern: "require('child_process').spawn(..., { ..., shell: true, ... })"
+      - pattern: "require('child_process').spawnSync(..., { ..., shell: true, ... })"
+      - pattern: "require('child_process').execFile(..., { ..., shell: true, ... })"
+      - pattern: "require('child_process').execFileSync(..., { ..., shell: true, ... })"
+      - pattern: "require('node:child_process').spawn(..., { ..., shell: true, ... })"
+      - pattern: "require('node:child_process').spawnSync(..., { ..., shell: true, ... })"
+      - pattern: "require('node:child_process').execFile(..., { ..., shell: true, ... })"
+      - pattern: "require('node:child_process').execFileSync(..., { ..., shell: true, ... })"
       - patterns:
           - pattern-inside: |
+              const { ..., spawn, ... } = require('child_process');
+              ...
+          - pattern: "spawn(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const { ..., spawnSync, ... } = require('child_process');
+              ...
+          - pattern: "spawnSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const { ..., execFile, ... } = require('child_process');
+              ...
+          - pattern: "execFile(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const { ..., execFileSync, ... } = require('child_process');
+              ...
+          - pattern: "execFileSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import { ..., spawn, ... } from 'child_process';
+              ...
+          - pattern: "spawn(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import { ..., spawnSync, ... } from 'child_process';
+              ...
+          - pattern: "spawnSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import { ..., execFile, ... } from 'child_process';
+              ...
+          - pattern: "execFile(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import { ..., execFileSync, ... } from 'child_process';
+              ...
+          - pattern: "execFileSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const { ..., spawn, ... } = require('node:child_process');
+              ...
+          - pattern: "spawn(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const { ..., spawnSync, ... } = require('node:child_process');
+              ...
+          - pattern: "spawnSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const { ..., execFile, ... } = require('node:child_process');
+              ...
+          - pattern: "execFile(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const { ..., execFileSync, ... } = require('node:child_process');
+              ...
+          - pattern: "execFileSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import { ..., spawn, ... } from 'node:child_process';
+              ...
+          - pattern: "spawn(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import { ..., spawnSync, ... } from 'node:child_process';
+              ...
+          - pattern: "spawnSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import { ..., execFile, ... } from 'node:child_process';
+              ...
+          - pattern: "execFile(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import { ..., execFileSync, ... } from 'node:child_process';
+              ...
+          - pattern: "execFileSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const $CP = require('child_process');
+              ...
+          - pattern-either:
+              - pattern: "$CP.spawn(..., { ..., shell: true, ... })"
+              - pattern: "$CP.spawnSync(..., { ..., shell: true, ... })"
+              - pattern: "$CP.execFile(..., { ..., shell: true, ... })"
+              - pattern: "$CP.execFileSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import * as $CP from 'child_process';
+              ...
+          - pattern-either:
+              - pattern: "$CP.spawn(..., { ..., shell: true, ... })"
+              - pattern: "$CP.spawnSync(..., { ..., shell: true, ... })"
+              - pattern: "$CP.execFile(..., { ..., shell: true, ... })"
+              - pattern: "$CP.execFileSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const $CP = require('node:child_process');
+              ...
+          - pattern-either:
+              - pattern: "$CP.spawn(..., { ..., shell: true, ... })"
+              - pattern: "$CP.spawnSync(..., { ..., shell: true, ... })"
+              - pattern: "$CP.execFile(..., { ..., shell: true, ... })"
+              - pattern: "$CP.execFileSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              import * as $CP from 'node:child_process';
+              ...
+          - pattern-either:
+              - pattern: "$CP.spawn(..., { ..., shell: true, ... })"
+              - pattern: "$CP.spawnSync(..., { ..., shell: true, ... })"
+              - pattern: "$CP.execFile(..., { ..., shell: true, ... })"
+              - pattern: "$CP.execFileSync(..., { ..., shell: true, ... })"
+      - patterns:
+          - pattern-inside: |
+              const { ..., spawn, ... } = require('child_process');
+              ...
               const $OPTS = { ..., shell: true, ... };
               ...
-          - pattern: 'spawn(..., $OPTS)'
+          - pattern: "spawn(..., $OPTS)"
       - patterns:
           - pattern-inside: |
-              let $OPTS = { ..., shell: true, ... };
+              import { ..., spawn, ... } from 'child_process';
               ...
-          - pattern: 'spawn(..., $OPTS)'
-      - patterns:
-          - pattern-inside: |
-              var $OPTS = { ..., shell: true, ... };
-              ...
-          - pattern: 'spawn(..., $OPTS)'
-      - patterns:
-          - pattern-inside: |
               const $OPTS = { ..., shell: true, ... };
               ...
-          - pattern: 'spawnSync(..., $OPTS)'
+          - pattern: "spawn(..., $OPTS)"
       - patterns:
           - pattern-inside: |
-              let $OPTS = { ..., shell: true, ... };
+              const $CP = require('child_process');
               ...
-          - pattern: 'spawnSync(..., $OPTS)'
-      - patterns:
-          - pattern-inside: |
-              var $OPTS = { ..., shell: true, ... };
-              ...
-          - pattern: 'spawnSync(..., $OPTS)'
-      - patterns:
-          - pattern-inside: |
               const $OPTS = { ..., shell: true, ... };
               ...
-          - pattern: 'execFile(..., $OPTS)'
+          - pattern-either:
+              - pattern: "$CP.spawn(..., $OPTS)"
+              - pattern: "$CP.spawnSync(..., $OPTS)"
+              - pattern: "$CP.execFile(..., $OPTS)"
+              - pattern: "$CP.execFileSync(..., $OPTS)"
       - patterns:
           - pattern-inside: |
-              let $OPTS = { ..., shell: true, ... };
+              import * as $CP from 'child_process';
               ...
-          - pattern: 'execFile(..., $OPTS)'
-      - patterns:
-          - pattern-inside: |
-              var $OPTS = { ..., shell: true, ... };
-              ...
-          - pattern: 'execFile(..., $OPTS)'
-      - patterns:
-          - pattern-inside: |
               const $OPTS = { ..., shell: true, ... };
               ...
-          - pattern: 'execFileSync(..., $OPTS)'
+          - pattern-either:
+              - pattern: "$CP.spawn(..., $OPTS)"
+              - pattern: "$CP.spawnSync(..., $OPTS)"
+              - pattern: "$CP.execFile(..., $OPTS)"
+              - pattern: "$CP.execFileSync(..., $OPTS)"
       - patterns:
           - pattern-inside: |
-              let $OPTS = { ..., shell: true, ... };
+              const $CP = require('node:child_process');
               ...
-          - pattern: 'execFileSync(..., $OPTS)'
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern-either:
+              - pattern: "$CP.spawn(..., $OPTS)"
+              - pattern: "$CP.spawnSync(..., $OPTS)"
+              - pattern: "$CP.execFile(..., $OPTS)"
+              - pattern: "$CP.execFileSync(..., $OPTS)"
       - patterns:
           - pattern-inside: |
-              var $OPTS = { ..., shell: true, ... };
+              import * as $CP from 'node:child_process';
               ...
-          - pattern: 'execFileSync(..., $OPTS)'
+              const $OPTS = { ..., shell: true, ... };
+              ...
+          - pattern-either:
+              - pattern: "$CP.spawn(..., $OPTS)"
+              - pattern: "$CP.spawnSync(..., $OPTS)"
+              - pattern: "$CP.execFile(..., $OPTS)"
+              - pattern: "$CP.execFileSync(..., $OPTS)"

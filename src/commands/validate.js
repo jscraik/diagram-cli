@@ -10,6 +10,7 @@ const { formatResults } = require('../formatters/index');
 const { validateConfig, getDefaultConfig } = require('../schema/rules-schema');
 const {
   applyDiagramRcDefaults,
+  getDiagramRcFromProgram,
   resolveRootPathOrExit,
   validateOutputPath,
 } = require('./shared');
@@ -105,7 +106,7 @@ function registerValidateCommand(program) {
       const configProvidedByCli = configValueSource
         ? configValueSource === 'cli'
         : (process.argv.includes('--config') || process.argv.includes('-c'));
-      const options = applyDiagramRcDefaults(rawOptions, program._diagramRc, ['patterns', 'exclude', 'maxFiles']);
+      const options = applyDiagramRcDefaults(rawOptions, getDiagramRcFromProgram(program), ['patterns', 'exclude', 'maxFiles']);
       const root = resolveRootPathOrExit(targetPath);
       const engine = new RulesEngine();
       const startTime = Date.now();

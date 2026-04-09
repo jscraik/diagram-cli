@@ -4,6 +4,7 @@ const chalk = require('chalk');
 const { analyze, generate } = require('../core/analysis-generation');
 const {
   applyDiagramRcDefaults,
+  getDiagramRcFromProgram,
   normalizeThemeOption,
   resolveRootPathOrExit,
   validateOutputPath,
@@ -33,7 +34,7 @@ function getVideoModule(missingRuntimeMessage) {
 function resolveMediaCommandContext(program, targetPath, rawOptions) {
   const options = applyDiagramRcDefaults(
     rawOptions,
-    program._diagramRc,
+    getDiagramRcFromProgram(program),
     ['patterns', 'exclude', 'maxFiles', 'theme'],
     { theme: 'dark' }
   );

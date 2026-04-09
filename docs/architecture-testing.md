@@ -179,7 +179,7 @@ jobs:
       - run: npm test
       - run: npm run test:deep
       - run: npm run ci:artifacts
-      - run: diagram workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --risk-threshold high --fail-on-risk
+      - run: node src/diagram.js workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --risk-threshold high --fail-on-risk
       - uses: actions/upload-artifact@v4
         with:
           name: diagram-artifacts

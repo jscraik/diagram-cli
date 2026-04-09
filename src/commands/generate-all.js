@@ -13,6 +13,7 @@ const {
 } = require('../artifacts/artifact-budget');
 const {
   applyDiagramRcDefaults,
+  getDiagramRcFromProgram,
   maybeWriteArchitectureIR,
   resolveRootPathOrExit,
   runAnalysisPipeline,
@@ -36,7 +37,7 @@ function registerGenerateAllCommand(program) {
     .option('-f, --format <type>', 'Output format (text, json)', 'text')
     .option('--deterministic', 'Use deterministic machine output', false)
     .action(async (targetPath, rawOptions) => {
-      const options = applyDiagramRcDefaults(rawOptions, program._diagramRc, ['patterns', 'exclude', 'maxFiles']);
+      const options = applyDiagramRcDefaults(rawOptions, getDiagramRcFromProgram(program), ['patterns', 'exclude', 'maxFiles']);
       const root = resolveRootPathOrExit(targetPath);
       let outDir;
       let artifactProfile;

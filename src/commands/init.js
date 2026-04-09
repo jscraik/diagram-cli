@@ -50,16 +50,6 @@ function registerInitCommand(program) {
       const architecturePath = path.join(root, '.architecture.yml');
       const diagramRcPath = path.join(root, '.diagramrc');
       const ciSamplePath = path.join(root, '.diagram', 'ci', 'github-actions-step.yml');
-      const targets = [architecturePath, diagramRcPath, ciSamplePath];
-
-      if (!options.force) {
-        const existingTargets = targets.filter((target) => fs.existsSync(target));
-        if (existingTargets.length > 0) {
-          console.error(chalk.red('❌ Initialization blocked: one or more files already exist.'));
-          console.error(chalk.gray('Fix: rerun with `diagram init . --force` to overwrite generated starter files.'));
-          process.exit(2);
-        }
-      }
 
       // Preflight: check all targets if force is not set
       if (!options.force) {

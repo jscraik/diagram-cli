@@ -25,7 +25,6 @@
     "semgrep",
     "gitleaks",
     "trivy",
-    "gitleaks",
     "vale"
   ],
   "required_bins": [

@@ -139,20 +139,28 @@ function validateOutputPath(outputPath, rootPath) {
   return canonicalResolved;
 }
 
+function getDiagramRcFromProgram(program) {
+  return program?.diagramContext?.diagramRc || {};
+}
+
 function openPreviewUrl(url) {
   const { cmd, args } = getOpenCommand(url, process.platform);
+  const handleOpenError = (error) => {
+    console.error(chalk.yellow('⚠️  Failed to open browser:'), error.message);
+  };
+
   try {
     const child = spawn(cmd, args, {
       stdio: 'ignore',
       detached: true,
       windowsHide: true,
     });
-    child.on('error', (err) => {
-      console.error(chalk.yellow('⚠️  Failed to open browser:'), err.message);
-    });
-    child.unref();
-  } catch (err) {
-    console.error(chalk.yellow('⚠️  Failed to open browser:'), err.message);
+    child.on('error', handleOpenError);
+    if (child && typeof child.unref === 'function') {
+      child.unref();
+    }
+  } catch (error) {
+    handleOpenError(error);
   }
 }
 
@@ -291,6 +299,7 @@ module.exports = {
   createMermaidUrl,
   findClosestMatch,
   formatSuggestion,
+  getDiagramRcFromProgram,
   maybeWriteArchitectureIR,
   normalizeThemeOption,
   openPreviewUrl,

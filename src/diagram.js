@@ -150,7 +150,7 @@ function resolveAliasArgs(argv) {
 
 if (require.main === module) {
   const diagramRc = loadDiagramRc(process.cwd());
-  program._diagramRc = diagramRc;
+  program.diagramContext = { diagramRc };
   const resolvedArgs = resolveAliasArgs(process.argv);
   program.parse(resolvedArgs);
 }

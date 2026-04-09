@@ -7,6 +7,7 @@ const {
 } = require('../workflow/git-helpers');
 const {
   applyDiagramRcDefaults,
+  getDiagramRcFromProgram,
   resolveRootPathOrExit,
   splitList,
 } = require('./shared');
@@ -24,7 +25,7 @@ function registerDiffCommand(program) {
     .option('--deterministic', 'Use deterministic machine output', false)
     .option('--verbose', 'Show detailed output')
     .action(async (baseRef, headRef, rawOptions) => {
-      const options = applyDiagramRcDefaults(rawOptions, program._diagramRc, ['patterns', 'exclude', 'maxFiles']);
+      const options = applyDiagramRcDefaults(rawOptions, getDiagramRcFromProgram(program), ['patterns', 'exclude', 'maxFiles']);
       const root = resolveRootPathOrExit('.');
       const verbose = options.verbose || false;
 
@@ -48,7 +49,13 @@ function registerDiffCommand(program) {
         process.exit(2);
       }
 
-      const formatStr = (options.format || 'text').toLowerCase();
+      const formatStr = String(options.format || 'text').toLowerCase().trim();
+      const allowedFormats = new Set(['text', 'json']);
+      if (!allowedFormats.has(formatStr)) {
+        console.error(chalk.red('❌ Invalid format:'), options.format);
+        console.error(chalk.gray('Fix: use --format text or --format json.'));
+        process.exit(2);
+      }
       const isJson = formatStr === 'json';
       if (!isJson && !options.quiet) {
         console.error(chalk.blue('\n🔍 Architecture Diff'));
@@ -107,9 +114,11 @@ function registerDiffCommand(program) {
       }
 
       printArchitectureDiff(diff, baseRef, headRef);
-      console.log(chalk.cyan('\nNext steps:'));
-      console.log('  1) Run `diagram workflow pr . --base <base> --head <head>` for risk scoring.');
-      console.log('  2) Use `diagram explain <component> .` to inspect local dependency neighborhoods.');
+      if (!options.quiet) {
+        console.log(chalk.cyan('\nNext steps:'));
+        console.log('  1) Run `diagram workflow pr . --base <base> --head <head>` for risk scoring.');
+        console.log('  2) Use `diagram explain <component> .` to inspect local dependency neighborhoods.');
+      }
     });
 }
 

@@ -46,6 +46,10 @@ mapfile -t required_mise_tools < <(jq -r '.required_mise_tools[]' "$TOOLING_CONT
 mapfile -t required_bins < <(jq -r '.required_bins[]' "$TOOLING_CONTRACT_PATH")
 mapfile -t required_codex_actions < <(jq -r '.required_codex_actions[] | "\(.name)|\(.icon)"' "$TOOLING_CONTRACT_PATH")
 
+declare -A expected_action_commands=(
+	["Debug"]=$'set -euo pipefail\nnode src/diagram.js doctor . --strict'
+)
+
 if [[ "${#required_mise_tools[@]}" -eq 0 || "${#required_bins[@]}" -eq 0 || "${#required_codex_actions[@]}" -eq 0 ]]; then
 	echo "Error: tooling contract is missing required list entries in $TOOLING_CONTRACT_PATH"
 	exit 1
@@ -89,6 +93,7 @@ fi
 # shell's PATH.
 eval "$(mise activate bash)"
 export CLAUDE_APPROVAL_POSTURE="${CLAUDE_APPROVAL_POSTURE:-require}"
+export CLAUDE_SECRET_FILTER="${CLAUDE_SECRET_FILTER:-gitleaks}"
 
 for tool in "${required_mise_tools[@]}"; do
 	tool_pattern="$(printf '%s' "$tool" | sed 's/[][(){}.^$*+?|\\]/\\&/g')"
@@ -172,6 +177,70 @@ for action in "${required_codex_actions[@]}"; do
 	' "$CODEX_ENVIRONMENT_PATH"; then
 		echo "Error: Codex environment action '$name' is missing or mapped to the wrong icon in $CODEX_ENVIRONMENT_PATH"
 		exit 1
+	fi
+
+		if [[ -n "${expected_action_commands[$name]+set}" ]]; then
+			actual_command="$(awk -v name="$name" '
+				function trim(value) {
+					sub(/^[[:space:]]+/, "", value);
+					sub(/[[:space:]]+$/, "", value);
+					return value;
+				}
+				BEGIN {
+					sq = sprintf("%c", 39);
+					triple = sq sq sq;
+				}
+				{
+					line = trim($0);
+				if (line == "[[actions]]") {
+					in_block = 1;
+					in_target = 0;
+					in_command = 0;
+					next;
+				}
+				if (!in_block) {
+					next;
+				}
+				if (!in_target && line == ("name = \"" name "\"")) {
+					in_target = 1;
+					next;
+				}
+					if (!in_target) {
+						next;
+					}
+					if (!in_command && index(line, "command =") == 1) {
+						in_command = 1;
+						next;
+					}
+					if (in_command) {
+						if (line == triple) {
+							found = 1;
+							print command;
+							exit 0;
+					}
+					if (length(command) > 0) {
+						command = command "\n";
+					}
+					command = command line;
+				}
+			}
+			END {
+				exit found ? 0 : 1;
+			}
+		' "$CODEX_ENVIRONMENT_PATH")" || {
+			echo "Error: Codex environment action '$name' is missing a command payload in $CODEX_ENVIRONMENT_PATH"
+			exit 1
+		}
+
+		expected_command="${expected_action_commands[$name]}"
+		if [[ "$actual_command" != "$expected_command" ]]; then
+			echo "Error: Codex environment action '$name' command mismatch in $CODEX_ENVIRONMENT_PATH"
+			echo "Expected command:"
+			printf '%s\n' "$expected_command"
+			echo "Actual command:"
+			printf '%s\n' "$actual_command"
+			exit 1
+		fi
 	fi
 done
 
@@ -317,6 +386,7 @@ run_check_environment_with_runner() {
 	set +e
 	output="$("${runner[@]}" check-environment \
 		--contract "$CONTRACT_PATH" \
+		--check-secrets \
 		--json \
 		--attestation "$ATTESTATION_PATH" 2>&1)"
 	exit_code=$?

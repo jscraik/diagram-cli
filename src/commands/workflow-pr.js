@@ -1,6 +1,7 @@
 const { registerWorkflowCommands } = require('../workflow/pr-command');
 const {
   applyDiagramRcDefaults,
+  getDiagramRcFromProgram,
   resolveRootPathOrExit,
   splitList,
   validateOutputPath,
@@ -11,7 +12,7 @@ function registerWorkflowPrCommand(program) {
     resolveRootPathOrExit,
     validateOutputPath,
     applyDiagramRcDefaults,
-    getDiagramRc: () => program._diagramRc || {},
+    getDiagramRc: () => getDiagramRcFromProgram(program),
     splitList,
   });
 }

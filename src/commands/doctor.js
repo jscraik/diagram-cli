@@ -7,12 +7,13 @@ const { isShallowClone } = require('../workflow/git-helpers');
 const { resolveRootPathOrExit } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
-function checkMermaidCli() {
+function checkMermaidCli(root) {
   const candidates = getNpxCommandCandidates(process.platform);
   for (const candidate of candidates) {
     try {
       const output = execFileSync(candidate, ['-y', '@mermaid-js/mermaid-cli', 'mmdc', '--version'], {
         stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: root,
         encoding: 'utf8',
         timeout: 10000,
       }).trim();
@@ -28,7 +29,7 @@ function checkMermaidCli() {
   };
 }
 
-function checkPlaywright() {
+function checkPlaywright(root) {
   const quickLaunchScript = [
     'const { chromium } = require("playwright");',
     '(async () => {',
@@ -41,7 +42,7 @@ function checkPlaywright() {
   ].join('\n');
   let pkg = null;
   try {
-    pkg = require.resolve('playwright');
+    pkg = require.resolve('playwright', { paths: [path.join(root, 'node_modules')] });
   } catch (_resolveError) {
     pkg = null;
   }
@@ -50,6 +51,7 @@ function checkPlaywright() {
     try {
       execFileSync('node', ['-e', quickLaunchScript], {
         stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: root,
         encoding: 'utf8',
         timeout: 15000,
       });
@@ -68,6 +70,7 @@ function checkPlaywright() {
     try {
       const output = execFileSync(candidate, ['playwright', '--version'], {
         stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: root,
         encoding: 'utf8',
         timeout: 10000,
       }).trim();
@@ -83,12 +86,13 @@ function checkPlaywright() {
   };
 }
 
-function checkFfmpeg() {
+function checkFfmpeg(root) {
   const candidates = getFfmpegCommandCandidates(process.platform);
   for (const candidate of candidates) {
     try {
       const output = execFileSync(candidate, ['-version'], {
         stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: root,
         encoding: 'utf8',
         timeout: 5000,
         windowsHide: true,
@@ -165,10 +169,14 @@ function checkNpmCacheHealth() {
       fs.rmSync(probePath, { force: true });
       return { status: 'pass', message: `npm cache writable: ${cachePath}` };
     } catch (error) {
+      let fix = `sudo chown -R "$(id -u):$(id -g)" "${cachePath}"`;
+      if (process.platform === 'win32') {
+        fix = `Run an elevated PowerShell and grant cache access (for example: takeown /F "${cachePath}" /R /D Y && icacls "${cachePath}" /grant "%USERNAME%":(OI)(CI)F /T).`;
+      }
       return {
         status: 'fail',
         message: `npm cache not writable: ${cachePath} (${error.message})`,
-        fix: `sudo chown -R "$(id -u):$(id -g)" "${cachePath}"`,
+        fix,
       };
     }
   } catch (error) {
@@ -185,13 +193,14 @@ function registerDoctorCommand(program) {
     .command('doctor [path]')
     .description('Run environment diagnostics for diagram workflows')
     .option('--format <type>', 'Output format (text, json)', 'text')
+    .option('--strict', 'Fail when diagnostics include warnings', false)
     .option('--deterministic', 'Use deterministic machine output', false)
     .action((targetPath, options) => {
       const root = resolveRootPathOrExit(targetPath);
       const checks = [
-        { id: 'mermaid_cli', label: 'Mermaid CLI', ...checkMermaidCli() },
-        { id: 'playwright', label: 'Playwright', ...checkPlaywright() },
-        { id: 'ffmpeg', label: 'ffmpeg', ...checkFfmpeg() },
+        { id: 'mermaid_cli', label: 'Mermaid CLI', ...checkMermaidCli(root) },
+        { id: 'playwright', label: 'Playwright', ...checkPlaywright(root) },
+        { id: 'ffmpeg', label: 'ffmpeg', ...checkFfmpeg(root) },
         {
           id: 'git_shallow_clone',
           label: 'Git history depth',
@@ -202,11 +211,14 @@ function registerDoctorCommand(program) {
         { id: 'write_permissions', label: 'Write permissions', ...checkWritePermissions(root) },
         { id: 'npm_cache', label: 'npm cache health', ...checkNpmCacheHealth() },
       ];
+      const strictFailure = Boolean(options.strict) && checks.some((check) => check.status === 'warn');
+      const failedChecks = checks.filter((check) => check.status === 'fail');
+      const exitCode = (failedChecks.length > 0 || strictFailure) ? 1 : 0;
 
       const summary = {
         pass: checks.filter((check) => check.status === 'pass').length,
         warn: checks.filter((check) => check.status === 'warn').length,
-        fail: checks.filter((check) => check.status === 'fail').length,
+        fail: failedChecks.length,
       };
       const formatStr = (options.format || 'text').toLowerCase();
       if (formatStr === 'json') {
@@ -215,9 +227,12 @@ function registerDoctorCommand(program) {
           command: 'doctor',
           rootPath: root,
           deterministic: Boolean(options.deterministic),
-          status: summary.fail > 0 ? 'failure' : 'success',
+          status: exitCode === 0 ? 'success' : 'failure',
           data: { checks, summary },
-          errors: checks.filter((check) => check.status === 'fail'),
+          errors: [
+            ...failedChecks,
+            ...(strictFailure ? [{ id: 'strict_warn_policy', message: 'Strict mode treats warnings as failures.' }] : []),
+          ],
           agentSummary: {
             changedComponents: 0,
             riskReasons: checks.filter((check) => check.status !== 'pass').map((check) => check.id),
@@ -228,7 +243,7 @@ function registerDoctorCommand(program) {
           },
         });
         console.log(JSON.stringify(payload, null, 2));
-        process.exit(summary.fail > 0 ? 1 : 0);
+        process.exit(exitCode);
       }
 
       console.log(chalk.blue('\n🩺 diagram doctor'));
@@ -251,7 +266,7 @@ function registerDoctorCommand(program) {
       console.log('  1) Resolve any ❌ checks first, then rerun `diagram doctor`.');
       console.log('  2) Run `diagram generate-all . --artifact-profile agent` once diagnostics are clean.');
 
-      process.exit(summary.fail > 0 ? 1 : 0);
+      process.exit(exitCode);
     });
 }
 
