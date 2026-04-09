@@ -69,11 +69,28 @@ function byNameIndex(components) {
   return map;
 }
 
+function buildReverseDependencyIndex(components) {
+  const map = new Map();
+  if (!Array.isArray(components)) return map;
+
+  for (const component of components) {
+    if (!component || typeof component.name !== 'string') continue;
+    const deps = Array.isArray(component.dependencies) ? component.dependencies : [];
+    for (const depName of deps) {
+      if (!map.has(depName)) map.set(depName, []);
+      map.get(depName).push(component);
+    }
+  }
+
+  return map;
+}
+
 function collectConnectedComponents(components, seedComponents, maxDepth = 2, maxNodes = 35) {
   if (!Array.isArray(components)) return [];
   if (!Array.isArray(seedComponents) || seedComponents.length === 0) return [];
 
   const byName = byNameIndex(components);
+  const reverseDependencies = buildReverseDependencyIndex(components);
   const selected = new Map();
   const queue = [];
 
@@ -104,13 +121,11 @@ function collectConnectedComponents(components, seedComponents, maxDepth = 2, ma
         }
       }
 
-      for (const candidate of components) {
+      const reverse = reverseDependencies.get(current.name) || [];
+      for (const candidate of reverse) {
         if (selected.has(candidate.name)) continue;
-        const reverseDependencies = Array.isArray(candidate.dependencies) ? candidate.dependencies : [];
-        if (reverseDependencies.includes(current.name)) {
-          selected.set(candidate.name, candidate);
-          next.push(candidate);
-        }
+        selected.set(candidate.name, candidate);
+        next.push(candidate);
       }
 
       for (const nextComponent of next) {
@@ -178,6 +193,7 @@ module.exports = {
   mergeRoleComponents,
   mapSafeNames,
   byNameIndex,
+  buildReverseDependencyIndex,
   collectConnectedComponents,
   buildRoleDiagramContext,
   appendDependencyEdges,

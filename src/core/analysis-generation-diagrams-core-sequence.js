@@ -8,6 +8,22 @@ const {
 const { limitItems } = require('./analysis-generation-diagrams-limit');
 const { sequenceNote } = require('./analysis-generation-diagrams-empty');
 
+const ROLE_VERB_PRIORITY = [
+  ['database', 'reads from'],
+  ['auth', 'authenticates via'],
+  ['events', 'emits to'],
+  ['llm', 'calls LLM'],
+  ['tool', 'invokes tool'],
+];
+
+function resolveSequenceVerb(roleTags) {
+  const tags = Array.isArray(roleTags) ? roleTags : [];
+  for (const [role, verb] of ROLE_VERB_PRIORITY) {
+    if (tags.includes(role)) return verb;
+  }
+  return 'calls';
+}
+
 function generateSequence(data) {
   if (!data || !Array.isArray(data.components)) {
     return sequenceNote('No data available');
@@ -88,13 +104,7 @@ function generateSequence(data) {
       const key = `${callerSafe}->${calleeSafe}`;
       if (emittedEdges.has(key)) continue;
       emittedEdges.add(key);
-      const tags = callee.roleTags || [];
-      const verb = tags.includes('database') ? 'reads from'
-        : tags.includes('auth') ? 'authenticates via'
-        : tags.includes('events') ? 'emits to'
-        : tags.includes('llm') ? 'calls LLM'
-        : tags.includes('tool') ? 'invokes tool'
-        : 'calls';
+      const verb = resolveSequenceVerb(callee.roleTags);
       lines.push(`  ${callerSafe}->>${calleeSafe}: ${verb}`);
       lines.push(`  ${calleeSafe}-->>${callerSafe}: response`);
     }
@@ -105,4 +115,5 @@ function generateSequence(data) {
 
 module.exports = {
   generateSequence,
+  resolveSequenceVerb,
 };

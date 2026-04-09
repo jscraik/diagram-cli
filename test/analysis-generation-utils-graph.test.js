@@ -1,6 +1,8 @@
 const { expect } = require('chai');
 const {
   mergeRoleComponents,
+  buildReverseDependencyIndex,
+  collectConnectedComponents,
 } = require('../src/core/analysis-generation-utils-graph');
 
 describe('analysis generation graph utils', () => {
@@ -26,5 +28,34 @@ describe('analysis generation graph utils', () => {
     const merged = mergeRoleComponents(components, ['agent', { role: 'user', limit: 2 }]);
 
     expect(merged).to.deep.equal([agent, firstUser, secondUser]);
+  });
+
+  it('builds reverse dependency index for fast lookup', () => {
+    const database = { name: 'db', dependencies: [] };
+    const service = { name: 'svc', dependencies: ['db'] };
+    const worker = { name: 'worker', dependencies: ['db'] };
+    const index = buildReverseDependencyIndex([database, service, worker]);
+
+    expect(index.has('db')).to.equal(true);
+    expect(index.get('db')).to.deep.equal([service, worker]);
+  });
+
+  it('includes reverse-dependent neighbors when collecting connected components', () => {
+    const root = { name: 'root', dependencies: ['shared'] };
+    const shared = { name: 'shared', dependencies: [] };
+    const downstream = { name: 'downstream', dependencies: ['shared'] };
+    const isolated = { name: 'isolated', dependencies: [] };
+
+    const connected = collectConnectedComponents(
+      [root, shared, downstream, isolated],
+      [root],
+      2,
+      10
+    );
+
+    expect(connected).to.include(root);
+    expect(connected).to.include(shared);
+    expect(connected).to.include(downstream);
+    expect(connected).to.not.include(isolated);
   });
 });
