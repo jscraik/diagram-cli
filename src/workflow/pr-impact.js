@@ -25,10 +25,6 @@ function normalizedDependencies(component) {
     .sort();
 }
 
-function normalizedDependencySet(component) {
-  return new Set(normalizedDependencies(component));
-}
-
 /**
  * Compute delta between two analysis snapshots
  * @param {object} baseAnalysis - Analysis at base ref
