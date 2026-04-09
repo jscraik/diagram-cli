@@ -1,4 +1,3 @@
-const path = require('path');
 const chalk = require('chalk');
 const { generate } = require('../core/analysis-generation');
 const { validateGitRef, getChangedFiles, runGitCommand } = require('../workflow/git-helpers');
