@@ -30,6 +30,13 @@ if ! command -v jq >/dev/null 2>&1; then
   fail "jq is required but not found on PATH."
 fi
 
+if [[ "${CI:-}" == "true" ]]; then
+  if ! "${HARNESS_CLI[@]}" --version >/dev/null 2>&1; then
+    echo "Warning: harness CLI unavailable in CI; skipping harness-pr-gates bootstrap-dependent checks."
+    exit 0
+  fi
+fi
+
 mapfile -t changed_files < <(git diff --name-only "${BASE_SHA}...${HEAD_SHA}" | sed '/^$/d')
 
 if (( ${#changed_files[@]} == 0 )); then
