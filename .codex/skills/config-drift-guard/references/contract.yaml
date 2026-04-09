@@ -1,0 +1,30 @@
+schema_version: "1.0"
+
+purpose: >
+  Keep diagram-cli tooling contracts, environment wrappers, and local Codex
+  projection aligned so startup issues are classified as drift only when the
+  deterministic guard sequence shows real contract mismatch.
+
+triggers:
+  - work touches docs/agents/tooling.contract.json or docs/agents/tooling.md
+  - work touches scripts/check-environment.sh, scripts/codex-preflight.sh, or scripts/verify-work.sh
+  - work touches .codex/environments/environment.toml or harness.contract.json tooling policy
+  - startup warnings mention missing pinned tools, malformed actions, preflight drift, or projection drift
+
+inputs:
+  - repo root for ~/dev/diagram-cli
+  - changed files or failing startup symptom
+  - current ~/.codex projection state when relevant
+
+outputs:
+  - classified drift summary tied to the first failed layer
+  - validator evidence for environment contract, preflight, verify wrapper, and projection checks
+  - explicit handoff to mcp-startup-triage when drift is not the blocker
+
+non_goals:
+  - blanket startup debugging after tooling and wrapper checks are green
+  - speculative edits to wrappers or required flags before baseline checks run
+
+risks:
+  - misclassifying handshake or auth failures as contract drift
+  - fixing docs without updating validators or wrappers

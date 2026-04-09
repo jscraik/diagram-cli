@@ -7,10 +7,11 @@
 ## Resolved contradictions
 
 - Home-level AGENTS text references `/Users/jamiecraik/dev/configs/codex` as a repo-specific preflight path.
-- For this repository scope, the nearest-repo guidance applies and uses `/Users/jamiecraik/dev/diagram-cli` as the working root.
+- For this repository scope, the nearest-repo guidance applies and uses the current repository root as the working root.
 - Node runtime expectations vary by source. Package metadata requires `node >=18`, while workflows currently include Node 20, 24, and 25 lanes.
 
 ## Cleanup policy
 - Keep root `AGENTS.md` minimal and route detailed policy to `docs/agents/*`.
 - Remove duplicated or vague guidance during edits.
+- Drop timestamp-only generated-artifact noise before commit, including `artifacts/policy/environment-attestation.json` when no policy signal changed.
 - If a contradiction is discovered and precedence is unclear, stop and request a user decision.

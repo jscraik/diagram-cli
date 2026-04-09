@@ -1,0 +1,3 @@
+interface:
+  display_name: "CI Check Name Parity"
+  short_description: "Compare workflow names with harness required-check policy and document or propagate any intentional mapping."

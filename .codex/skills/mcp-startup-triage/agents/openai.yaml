@@ -1,0 +1,3 @@
+interface:
+  display_name: "MCP Startup Triage"
+  short_description: "Classify Codex startup failures across Local Memory, mise, path drift, handshake, and auth surfaces before editing config."

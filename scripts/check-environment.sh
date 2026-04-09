@@ -120,7 +120,7 @@ done
 
 for bin in "${required_bins[@]}"; do
 	if [[ "$bin" == "fd" ]]; then
-		if ! rg -Eq -- "\`fd\`|\`fdfind\`" "$TOOLING_DOC_PATH"; then
+		if ! rg -q -e "\`fd\`|\`fdfind\`" -- "$TOOLING_DOC_PATH"; then
 			echo "Error: tooling doc missing required binary '$bin' (or 'fdfind'): $TOOLING_DOC_PATH"
 			echo "Fix: run 'bash scripts/render-tooling-doc.sh' to regenerate the document."
 			exit 1

@@ -1,0 +1,30 @@
+schema_version: "1.0"
+
+purpose: >
+  Keep workflow check names, harness-required policy names, and human-facing CI
+  docs aligned so branch protection and review policy are understandable and
+  auditable.
+
+triggers:
+  - GitHub workflow names change
+  - .harness/ci-required-checks.json changes
+  - harness.contract.json required-check names change
+  - docs that describe required checks or the PR pipeline change
+
+inputs:
+  - repo root for ~/dev/diagram-cli
+  - changed workflow, policy, or docs files
+  - intended mapping when names differ intentionally
+
+outputs:
+  - mismatch report across workflow, policy, and docs surfaces
+  - propagated rename or documented explicit mapping
+  - validation evidence for the updated check-name contract
+
+non_goals:
+  - broad CI redesign unrelated to required-check naming
+  - silently accepting undocumented drift between workflow and policy names
+
+risks:
+  - branch protection requiring a name that no workflow emits
+  - docs teaching a check name that does not match live enforcement
