@@ -4,7 +4,24 @@ const { resolveCandidateFiles } = require('./analysis-generation-analyze-files')
 const { extractComponents } = require('./analysis-generation-analyze-components');
 const { linkDependencies } = require('./analysis-generation-analyze-dependencies');
 
-async function analyze(rootPath, options = {}) {
+/**
+ * Orchestrates a multi-step analysis of files under a root path and returns a structured summary of the results.
+ *
+ * @param {string} rootPath - Filesystem root to analyse.
+ * @param {Object} options - Analysis options.
+ * @param {string[]} [options.includeFiles] - Explicit files to include in the analysis.
+ * @param {boolean} [options.deterministic] - If true, sort candidate files deterministically.
+ * @param {...*} [options.*] - Other options may influence patterns, exclusions and max-files.
+ * @returns {Object} Analysis result containing:
+ *  - rootPath: the analysed root path.
+ *  - components: extracted component data.
+ *  - entryPoints: discovered entry points.
+ *  - languages: detected languages metadata.
+ *  - directories: analysed directory metadata.
+ *  - totalFilesFound: total number of candidate files discovered before truncation.
+ *  - maxFilesApplied: the max-files limit that was applied.
+ */
+async function analyze(rootPath, options) {
   const maxFiles = parseMaxFiles(options);
   const patterns = parsePatterns(options);
   const exclude = parseExclude(options);

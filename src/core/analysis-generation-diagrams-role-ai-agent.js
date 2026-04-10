@@ -13,6 +13,12 @@ const {
   emitSubgraphSpecs,
 } = require('./analysis-generation-diagrams-role-helpers');
 
+/**
+ * Build a Mermaid flowchart string visualising agents, tools, memories and LLMs as layered subgraphs with dependency edges and per-role styling.
+ *
+ * @param {Object} data - Input container.
+ * @param {Array} data.components - Array of component descriptors (roles like `agent`, `tool`, `memory`, `llm`, etc.) used to populate layers and edges.
+ * @returns {string} A Mermaid `flowchart TD` diagram string. If `data` is missing or contains no relevant components, the diagram contains a note indicating no data is available.
 function generateAgent(data) {
   if (!data || !Array.isArray(data.components)) {
     return flowNote('No data available');

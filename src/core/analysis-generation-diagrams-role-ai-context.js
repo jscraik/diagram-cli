@@ -32,6 +32,12 @@ const CATEGORY_LABELS = Object.freeze({
   external: 'External Service',
 });
 
+/**
+ * Determine the classification category for an external package identifier.
+ *
+ * @param {string} pkg - Package or import identifier to classify (may be falsy).
+ * @returns {string} The matched category key from EXTERNAL_CATEGORY_RULES, or `'external'` when no rule matches.
+ */
 function classifyExternalPackage(pkg) {
   const candidate = String(pkg || '').toLowerCase();
   for (const rule of EXTERNAL_CATEGORY_RULES) {
@@ -40,6 +46,19 @@ function classifyExternalPackage(pkg) {
   return 'external';
 }
 
+/**
+ * Builds a C4 Context Mermaid diagram for the project and its detected external systems.
+ *
+ * Iterates components' imports to classify and group external packages, emits a main
+ * System node with a Developer person and "Uses" relationship, and adds one external
+ * System_Ext node per detected category (listing up to three package names). If no
+ * externals are found a placeholder External Systems node is emitted.
+ *
+ * @param {Object} data - Analysis payload.
+ * @param {string} [data.rootPath] - Project root path used to derive the diagram title.
+ * @param {Array<Object>} data.components - Component descriptors; each may include an `imports` array of package strings.
+ * @returns {string} The Mermaid C4Context diagram markup. If `data` is missing or `components` is not an array, returns a short note indicating no data is available.
+ */
 function generateC4Context(data) {
   if (!data || !Array.isArray(data.components)) {
     return graphNote('No data available');
@@ -77,6 +96,15 @@ function generateC4Context(data) {
   return lines.join('\n');
 }
 
+/**
+ * Build a Mermaid `flowchart LR` diagram describing a RAG (Retrieval-Augmented Generation) pipeline and any detected memory stores, LLM clients or agentic tools.
+ *
+ * The diagram always includes the canonical RAG nodes (User Query → Embedding → Vector Store → Retriever → LLM/Generator → Response). When components with roles `memory`, `llm` or `tool` are present they are rendered as subgraphs and connected with role-specific edges. If `data` is missing or `data.components` is not an array, a short "No data available" flowchart note is returned.
+ *
+ * @param {object} data - Analysis data containing detected components.
+ * @param {Array<object>} data.components - Array of component descriptors used to detect memories, LLMs and tools; each component may include an `originalName` used for node labels.
+ * @returns {string} Mermaid `flowchart LR` markup representing the RAG pipeline and any detected subgraphs, or a short note diagram when input data is absent or invalid.
+ */
 function generateRag(data) {
   if (!data || !Array.isArray(data.components)) {
     return flowNote('No data available', 'LR');

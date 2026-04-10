@@ -11,13 +11,12 @@ const {
   emitSeedNodesWithIngress,
 } = require('./analysis-generation-diagrams-role-helpers');
 
-const DATABASE_DEPTH = 2;
-const DATABASE_NODE_LIMIT = 28;
-const USER_DEPTH = 1;
-const USER_NODE_LIMIT = 30;
-const EVENTS_DEPTH = 2;
-const EVENTS_NODE_LIMIT = 30;
-
+/**
+ * Builds a Mermaid flowchart (top-down) representing database-focused components and their implied control flow.
+ *
+ * @param {Object} data - Source object containing a `components` array of component records; components with role `"database"` will be rendered.
+ * @returns {string} The Mermaid `flowchart TD` diagram as a single string. If `data` is missing or `data.components` is not an array, returns a "No data available" note string; if no database components are present, returns a role-specific note string.
+ */
 function generateDatabase(data) {
   if (!data || !Array.isArray(data.components)) {
     return flowNote('No data available');
@@ -75,6 +74,12 @@ function generateDatabase(data) {
   return lines.join('\n');
 }
 
+/**
+ * Builds a left-to-right Mermaid flowchart representing user-facing components and their dependency connections.
+ *
+ * @param {Object} data - Analysis input containing a `components` array; components are filtered by role `'user'`.
+ * @returns {string} A Mermaid `flowchart LR` diagram as a string (may contain a note node when no data or no user-facing components are present).
+ */
 function generateUserInteractions(data) {
   if (!data || !Array.isArray(data.components)) {
     return flowNote('No data available', 'LR');
@@ -105,6 +110,14 @@ function generateUserInteractions(data) {
   return lines.join('\n');
 }
 
+/**
+ * Generate a Mermaid TD flowchart representing event channels/queues and which components emit or consume them.
+ *
+ * Builds a diagram that places event channel components inside a "Channels" subgraph and marks seed components as event sources (emitters) while others are rendered as consumers; also appends dependency edges between components. If `data` is missing or `data.components` is not an array, returns a compact "No data available" flow note; if no event-role components are found, returns a diagram containing a "No event/channels components found" note.
+ *
+ * @param {Object} data - Input model containing a `components` array describing system components.
+ * @returns {string} The complete Mermaid flowchart (TD) as a string.
+ */
 function generateEvents(data) {
   if (!data || !Array.isArray(data.components)) {
     return flowNote('No data available');
