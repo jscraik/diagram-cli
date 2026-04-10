@@ -9,6 +9,19 @@ const {
 } = require('./analysis-generation-utils');
 const { inferRoleTags } = require('./analysis-generation-role-tags');
 
+/**
+ * Extracts component metadata from a set of files beneath a root path.
+ *
+ * Processes each path in `uniqueFiles`, reading file contents (files larger than 10 MB are skipped), detecting language and relative path, identifying entry points, ensuring unique component names, extracting imports and type information, and collecting directory and language statistics.
+ *
+ * @param {string} rootPath - Root directory used to compute relative file paths.
+ * @param {string[]} uniqueFiles - Array of file paths to analyse.
+ * @returns {{components: Array, entryPoints: string[], languages: Object<string, number>, directories: string[]}} An object containing:
+ *   - `components`: array of component descriptors with properties `{ name, originalName, filePath, type, imports, roleTags, directory }`.
+ *   - `entryPoints`: list of relative file paths that match common entry-point filenames.
+ *   - `languages`: mapping of detected language to file count.
+ *   - `directories`: sorted array of unique relative directory names.
+ */
 function extractComponents(rootPath, uniqueFiles) {
   const components = [];
   const languages = {};

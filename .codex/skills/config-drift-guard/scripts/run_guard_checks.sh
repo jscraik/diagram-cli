@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SKILL_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
 REPO_ROOT="$(cd -- "${SKILL_ROOT}/../../.." && pwd -P)"
 
+# run prints the command prefixed with '+ ' and then executes it.
 run() {
   printf '+ %s\n' "$*"
   "$@"

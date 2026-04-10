@@ -13,6 +13,12 @@ const {
   emitSeedNodesWithIngress,
 } = require('./analysis-generation-diagrams-role-helpers');
 
+/**
+ * Build a Mermaid flowchart showing authentication-related components and their dependencies.
+ *
+ * @param {Object} data - Analysis data containing a `components` array; each component may include role, imports and identifying fields used to render nodes.
+ * @returns {string} The Mermaid `flowchart TD` source representing authentication components, their ingress boundary, dependency edges and external provider nodes; when input is missing or contains no components this returns a small note diagram indicating no data or no authentication components.
+ */
 function generateAuth(data) {
   if (!data || !Array.isArray(data.components)) {
     return flowNote('No data available');
@@ -57,6 +63,18 @@ function generateAuth(data) {
   return lines.join('\n');
 }
 
+/**
+ * Generate a Mermaid flowchart showing security-related components and their dependencies.
+ *
+ * Builds a `flowchart TD` diagram with an "Untrusted input" ingress node, nodes for components
+ * with roles `security`, `auth` and `integrations`, dependency edges between them, and class
+ * styling for security nodes.
+ *
+ * @param {Object} data - Analysis input containing a `components` array of component objects.
+ * @returns {string} The Mermaid `flowchart TD` source. If `data` is missing or malformed, the
+ * returned diagram contains a "No data available" note; if no matching components are found,
+ * the diagram contains a "No security-focused components found" note.
+ */
 function generateSecurity(data) {
   if (!data || !Array.isArray(data.components)) {
     return flowNote('No data available');

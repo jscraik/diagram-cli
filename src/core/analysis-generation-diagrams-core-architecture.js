@@ -9,6 +9,19 @@ const {
 } = require('./analysis-generation-utils');
 const { graphNote, architectureNote } = require('./analysis-generation-diagrams-empty');
 
+/**
+ * Build a Mermaid "architecture-beta" diagram for the provided components, optionally restricted to a focus path.
+ *
+ * The diagram groups components by directory, assigns an icon based on role tags or type, marks entry points with a star,
+ * and draws dependency edges between components. If `data` is missing or malformed, or if no components match `focus`,
+ * a text note is returned instead of the diagram.
+ *
+ * @param {Object} data - Input data object containing architecture information.
+ * @param {Array<Object>} data.components - List of component objects to include in the diagram.
+ * @param {Array<string>} [data.entryPoints] - Optional list of entry-point file paths used to mark entry nodes.
+ * @param {string} [focus] - Optional path or name to filter components; normalised before matching.
+ * @returns {string} The complete Mermaid diagram as a newline-joined string, or a note message when no data/components are available.
+ */
 function generateArchitecture(data, focus) {
   if (!data || !Array.isArray(data.components)) {
     return architectureNote('No data available');

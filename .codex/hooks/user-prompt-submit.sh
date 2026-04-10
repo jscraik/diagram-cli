@@ -53,6 +53,7 @@ typeset -a destructive_markers=(
   "remove|everything"
 )
 
+# has_phrase_marker checks whether any marker (treating `|` as a space) appears as a substring of the given haystack and returns success if a match is found.
 has_phrase_marker() {
   local haystack="$1"
   shift

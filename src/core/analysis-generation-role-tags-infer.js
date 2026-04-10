@@ -3,6 +3,16 @@ const { ROLE_PATTERNS, SENSITIVE_RISK_TAGS } = require('./analysis-generation-ro
 const { textHasToken } = require('./analysis-generation-role-tags-match');
 const { collectExternalImports } = require('./analysis-generation-role-tags-imports');
 
+/**
+ * Infer role and risk tags for a file from its path, original name, content and external imports.
+ *
+ * @param {string} filePath - File path used for structural matching.
+ * @param {string} originalName - Original file name used for structural matching.
+ * @param {string} fileContent - Full file content used for token matching.
+ * @param {Array} importEntries - Import records used to collect external import identifiers.
+ * @param {string} type - If equal to `'service'`, the `'service'` tag will be added.
+ * @returns {string[]} Array of inferred tags. Includes `'service'` when `type === 'service'`; if no tags match, returns `['general']`.
+ */
 function inferRoleTags(filePath, originalName, fileContent, importEntries, type) {
   const content = (fileContent || '').toLowerCase();
   const pathText = normalizePath(filePath || '').toLowerCase();

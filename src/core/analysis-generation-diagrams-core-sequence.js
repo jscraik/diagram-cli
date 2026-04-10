@@ -16,6 +16,11 @@ const ROLE_VERB_PRIORITY = [
   ['tool', 'invokes tool'],
 ];
 
+/**
+ * Selects the preferred sequence-message verb for a dependency based on its role tags.
+ * @param {Array<string>} roleTags - Array of role tag identifiers; if not an array it is treated as empty.
+ * @returns {string} The chosen verb (for example `reads from`, `authenticates via`, `emits to`); returns `"calls"` if no role matches.
+ */
 function resolveSequenceVerb(roleTags) {
   const tags = Array.isArray(roleTags) ? roleTags : [];
   for (const [role, verb] of ROLE_VERB_PRIORITY) {
@@ -24,6 +29,19 @@ function resolveSequenceVerb(roleTags) {
   return 'calls';
 }
 
+/**
+ * Generate a Mermaid sequence diagram for the provided components and their dependencies.
+ *
+ * @param {Object} data - Input model containing components and optional entry points.
+ * @param {Array<Object>} data.components - Array of component objects. Each component is expected to include at least:
+ *   - {string} name - Internal identifier.
+ *   - {string} originalName - Human-visible name.
+ *   - {string} [type] - Component type (e.g. 'service').
+ *   - {Array<string>} [roleTags] - Role tags (e.g. 'user', 'database').
+ *   - {Array<string>} [dependencies] - Names of dependent components.
+ * @param {Array<string>} [data.entryPoints] - Optional list of entry point file paths; basenames are matched against component.originalName to seed the diagram.
+ * @returns {string} The Mermaid sequence diagram text starting with `sequenceDiagram`, or a short note string such as "No data available" or "No services detected". 
+ */
 function generateSequence(data) {
   if (!data || !Array.isArray(data.components)) {
     return sequenceNote('No data available');
