@@ -17,6 +17,7 @@ const { graphNote, noteNode } = require('./analysis-generation-diagrams-empty');
  * @param {Object} data - Analysis data containing components and a rootPath used to resolve internal imports. Expected shape: `{ components: Array, rootPath?: string }`.
  * @param {string} [focus] - Optional file or directory path to restrict the graph to a subtree; the path is normalised before matching.
  * @returns {string} A Mermaid `graph LR` diagram as a string. If `data` is missing or `data.components` is not an array, the returned diagram is a left-to-right note stating "No data available". If no components match `focus`, the diagram contains a "No components found" note.
+ */
 function generateDependency(data, focus) {
   if (!data || !Array.isArray(data.components)) {
     return graphNote('No data available', 'LR');
