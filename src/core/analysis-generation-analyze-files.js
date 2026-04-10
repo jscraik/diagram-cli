@@ -13,6 +13,7 @@ const chalk = require('chalk');
  * @param {string|string[]} exclude - Patterns to pass to glob's `ignore` option.
  * @param {string[]} explicitFiles - Optional explicit file paths; if provided and non-empty these are used instead of globbing.
  * @returns {string[]} An array of absolute, existing file paths with duplicates removed.
+ */
 async function resolveCandidateFiles(rootPath, patterns, exclude, explicitFiles) {
   if (Array.isArray(explicitFiles) && explicitFiles.length > 0) {
     return [...new Set(explicitFiles
