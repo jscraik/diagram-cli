@@ -44,8 +44,11 @@ function generateAuth(data) {
 
   const providerNodeByPackage = new Map();
   const providerEdges = new Set();
+  const externalImportsBySeed = new Map();
   for (const seed of seeds) {
-    for (const pkg of collectExternalImports(seed.imports || [])) {
+    const externalImports = collectExternalImports(seed.imports || []);
+    externalImportsBySeed.set(seed, externalImports);
+    for (const pkg of externalImports) {
       if (!providerNodeByPackage.has(pkg)) {
         providerNodeByPackage.set(pkg, `ext_${sanitize(pkg)}`);
       }
@@ -57,7 +60,7 @@ function generateAuth(data) {
   for (const seed of seeds) {
     const seedNode = safeNames.get(seed);
     if (!seedNode) continue;
-    for (const pkg of collectExternalImports(seed.imports || [])) {
+    for (const pkg of externalImportsBySeed.get(seed) || []) {
       const providerNode = providerNodeByPackage.get(pkg);
       if (!providerNode) continue;
       const edgeKey = `${seedNode}->${providerNode}`;

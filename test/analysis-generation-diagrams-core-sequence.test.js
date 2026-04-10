@@ -19,8 +19,8 @@ describe('analysis generation core sequence', () => {
     // ROLE_VERB_PRIORITY order: database, auth, events, llm, tool
     expect(resolveSequenceVerb(['llm', 'tool'])).to.equal('calls LLM');
     expect(resolveSequenceVerb(['tool', 'llm'])).to.equal('calls LLM');
-    expect(resolveSequenceVerb(['auth', 'database'])).to.equal('reads from');
-    expect(resolveSequenceVerb(['database', 'auth'])).to.equal('reads from');
+    expect(resolveSequenceVerb(['auth', 'database'])).to.equal('queries');
+    expect(resolveSequenceVerb(['database', 'auth'])).to.equal('queries');
     expect(resolveSequenceVerb(['events', 'llm', 'tool'])).to.equal('emits to');
     expect(resolveSequenceVerb(['tool', 'events'])).to.equal('emits to');
   });

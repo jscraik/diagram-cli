@@ -1,5 +1,4 @@
 const path = require('path');
-const { ROLE_COLOURS } = require('./analysis-generation-constants');
 const {
   escapeMermaid,
   componentsByRole,
@@ -8,7 +7,7 @@ const {
 const { collectExternalImports } = require('./analysis-generation-role-tags');
 const { graphNote, flowNote } = require('./analysis-generation-diagrams-empty');
 const {
-  emitClassStyle,
+  emitRoleClassStyle,
   emitSubgraph,
 } = require('./analysis-generation-diagrams-role-helpers');
 
@@ -145,9 +144,9 @@ function generateRag(data) {
     }
   }
 
-  emitClassStyle(lines, 'memNode', ROLE_COLOURS.memory.fill, ROLE_COLOURS.memory.color, ['VecDB', 'Retriever']);
-  emitClassStyle(lines, 'llmNode', ROLE_COLOURS.llm.fill, ROLE_COLOURS.llm.color, ['LLMNode', 'Embed']);
-  emitClassStyle(lines, 'toolNode', ROLE_COLOURS.tool.fill, ROLE_COLOURS.tool.color, toolNodeIds);
+  emitRoleClassStyle(lines, 'memNode', 'memory', ['VecDB', 'Retriever']);
+  emitRoleClassStyle(lines, 'llmNode', 'llm', ['LLMNode', 'Embed']);
+  emitRoleClassStyle(lines, 'toolNode', 'tool', toolNodeIds);
 
   return lines.join('\n');
 }
