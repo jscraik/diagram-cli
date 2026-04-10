@@ -52,6 +52,5 @@ describe('analysis generation core sequence', () => {
     expect(output).to.include(': emits to');
     expect(output).to.include(': calls LLM');
     expect(output).to.include(': invokes tool');
-    expect(output).to.include(': calls');
   });
 });

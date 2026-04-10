@@ -30,6 +30,7 @@ function detectLanguage(filePath) {
  * @param {string} filePath - File path used for basename-based heuristics.
  * @param {string} content - File content used for token-based heuristics.
  * @returns {string} One of: `'service'`, `'component'`, `'class'`, `'function'`, `'module'`, or `'file'`.
+ */
 function inferType(filePath, content) {
   const base = typeof filePath === 'string' ? path.basename(filePath).toLowerCase() : '';
   const text = typeof content === 'string' ? content : '';
