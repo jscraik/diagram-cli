@@ -14,6 +14,16 @@ describe('analysis generation core sequence', () => {
     expect(resolveSequenceVerb(['misc'])).to.equal('calls');
   });
 
+  it('resolves verb precedence when multiple tags are present', () => {
+    // ROLE_VERB_PRIORITY order: database, auth, events, llm, tool
+    expect(resolveSequenceVerb(['llm', 'tool'])).to.equal('calls LLM');
+    expect(resolveSequenceVerb(['tool', 'llm'])).to.equal('calls LLM');
+    expect(resolveSequenceVerb(['auth', 'database'])).to.equal('reads from');
+    expect(resolveSequenceVerb(['database', 'auth'])).to.equal('reads from');
+    expect(resolveSequenceVerb(['events', 'llm', 'tool'])).to.equal('emits to');
+    expect(resolveSequenceVerb(['tool', 'events'])).to.equal('emits to');
+  });
+
   it('emits role-specific verbs in generated sequence output', () => {
     const data = {
       entryPoints: [],

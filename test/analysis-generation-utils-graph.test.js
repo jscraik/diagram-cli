@@ -58,4 +58,24 @@ describe('analysis generation graph utils', () => {
     expect(connected).to.include(downstream);
     expect(connected).to.not.include(isolated);
   });
+
+  it('respects strict maxNodes cap during reverse-dependent expansion', () => {
+    const root = { name: 'root', dependencies: ['shared'] };
+    const shared = { name: 'shared', dependencies: [] };
+    const downstream = { name: 'downstream', dependencies: ['shared'] };
+    const isolated = { name: 'isolated', dependencies: [] };
+
+    const connected = collectConnectedComponents(
+      [root, shared, downstream, isolated],
+      [root],
+      2,
+      2
+    );
+
+    expect(connected.length).to.be.at.most(2);
+    expect(connected).to.include(root);
+    expect(connected).to.include(shared);
+    expect(connected).to.not.include(downstream);
+    expect(connected).to.not.include(isolated);
+  });
 });
