@@ -14,10 +14,11 @@ function generateArchitecture(data, focus) {
     return architectureNote('No data available');
   }
 
-  const focusNorm = focus ? normalizePath(focus) : null;
+  const stripTrailingSlashes = (value) => (value.length > 1 ? value.replace(/\/+$/, '') : value);
+  const focusNorm = focus ? stripTrailingSlashes(normalizePath(focus)) : null;
   const comps = focusNorm
     ? data.components.filter((component) => {
-        const fp = normalizePath(component.filePath || '');
+        const fp = stripTrailingSlashes(normalizePath(component.filePath || ''));
         return fp === focusNorm || fp.startsWith(`${focusNorm}/`) || component.name === focusNorm;
       })
     : data.components;

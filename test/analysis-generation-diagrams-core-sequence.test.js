@@ -6,7 +6,8 @@ const {
 
 describe('analysis generation core sequence', () => {
   it('maps role tags to expected interaction verbs', () => {
-    expect(resolveSequenceVerb(['database'])).to.equal('reads from');
+    expect(resolveSequenceVerb(['database'])).to.equal('queries');
+    expect(resolveSequenceVerb(['database', 'writes'])).to.equal('writes to');
     expect(resolveSequenceVerb(['auth'])).to.equal('authenticates via');
     expect(resolveSequenceVerb(['events'])).to.equal('emits to');
     expect(resolveSequenceVerb(['llm'])).to.equal('calls LLM');
@@ -46,7 +47,7 @@ describe('analysis generation core sequence', () => {
 
     const output = generateSequence(data);
 
-    expect(output).to.include(': reads from');
+    expect(output).to.include(': queries');
     expect(output).to.include(': authenticates via');
     expect(output).to.include(': emits to');
     expect(output).to.include(': calls LLM');

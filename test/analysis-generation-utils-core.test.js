@@ -36,4 +36,20 @@ describe('analysis generation core utils', () => {
       { path: 'requests', line: 2 },
     ]);
   });
+
+  it('extracts Go imports from block syntax with positions', () => {
+    const content = [
+      'package demo',
+      'import (',
+      '  "fmt"',
+      '  alias "os"',
+      ')',
+    ].join('\n');
+
+    expect(extractImports(content, 'go')).to.deep.equal(['fmt', 'os']);
+    expect(extractImportsWithPositions(content, 'go')).to.deep.equal([
+      { path: 'fmt', line: 3 },
+      { path: 'os', line: 4 },
+    ]);
+  });
 });

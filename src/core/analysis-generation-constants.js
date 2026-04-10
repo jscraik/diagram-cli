@@ -12,6 +12,7 @@ const ROLE_COLOURS = Object.freeze({
   service: { fill: '#374151', color: '#fff' },
   general: { fill: '#374151', color: '#fff' },
 });
+Object.values(ROLE_COLOURS).forEach((entry) => Object.freeze(entry));
 
 const ROLE_ARCH_ICON = Object.freeze({
   llm: 'cloud',

@@ -11,6 +11,8 @@ input_json="$(cat)"
 stop_hook_active="$(printf '%s' "$input_json" | jq -r '.stop_hook_active // false')"
 last_message="$(printf '%s' "$input_json" | jq -r '.last_assistant_message // ""')"
 
+# If stop_hook_active is true, the caller has already validated output and
+# this hook should bypass draft-marker checks.
 if [[ "$stop_hook_active" == "true" ]]; then
   jq -n '{continue: true}'
   exit 0

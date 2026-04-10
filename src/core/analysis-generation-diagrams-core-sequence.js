@@ -9,7 +9,6 @@ const { limitItems } = require('./analysis-generation-diagrams-limit');
 const { sequenceNote } = require('./analysis-generation-diagrams-empty');
 
 const ROLE_VERB_PRIORITY = [
-  ['database', 'reads from'],
   ['auth', 'authenticates via'],
   ['events', 'emits to'],
   ['llm', 'calls LLM'],
@@ -18,6 +17,10 @@ const ROLE_VERB_PRIORITY = [
 
 function resolveSequenceVerb(roleTags) {
   const tags = Array.isArray(roleTags) ? roleTags : [];
+  if (tags.includes('database')) {
+    if (tags.includes('write') || tags.includes('writes')) return 'writes to';
+    return 'queries';
+  }
   for (const [role, verb] of ROLE_VERB_PRIORITY) {
     if (tags.includes(role)) return verb;
   }
@@ -65,10 +68,10 @@ function generateSequence(data) {
     }
   }
 
-  const participants = limitItems([...visited.entries()]
+  const participants = [...visited.entries()]
     .sort((a, b) => a[1] - b[1])
     .map(([name]) => byName.get(name))
-    .filter(Boolean), MAX_PARTICIPANTS);
+    .filter(Boolean);
 
   for (const participant of participants) {
     participantLookup.set(participant.name, participant);

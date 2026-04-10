@@ -103,6 +103,7 @@ if [[ -n "$validation_hint" ]]; then
 fi
 
 case "$permission_mode" in
+  # Split string form avoids accidental trigger matches when analyzing hook content.
   bypassPerm""issions)
     context_parts+=("Full-access permission mode is active; verify before destructive commands.")
     if [[ -z "$system_message" ]]; then

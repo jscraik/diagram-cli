@@ -1,4 +1,4 @@
-const { sanitize, escapeMermaid } = require('./analysis-generation-utils');
+const { escapeMermaid, mapSafeNames } = require('./analysis-generation-utils');
 const { limitItems } = require('./analysis-generation-diagrams-limit');
 const { classNote } = require('./analysis-generation-diagrams-empty');
 
@@ -15,6 +15,8 @@ function generateClass(data) {
     'Class diagram limited to {limit} classes'
   );
   const classNames = new Set(classes.map((component) => component.name));
+  const classByName = new Map(classes.map((component) => [component.name, component]));
+  const classIds = mapSafeNames(classes);
 
   if (classes.length === 0) {
     lines.push('  note "No classes found"');
@@ -22,7 +24,9 @@ function generateClass(data) {
   }
 
   for (const component of classes) {
-    lines.push(`  class ${sanitize(component.name)} {`);
+    const safeId = classIds.get(component);
+    if (!safeId) continue;
+    lines.push(`  class ${safeId} {`);
     lines.push(`    +${escapeMermaid(component.filePath)}`);
     lines.push('  }');
   }
@@ -31,7 +35,10 @@ function generateClass(data) {
     const deps = (component.dependencies || []).slice(0, 3);
     for (const depName of deps) {
       if (classNames.has(depName)) {
-        lines.push(`  ${sanitize(component.name)} --> ${sanitize(depName)}`);
+        const from = classIds.get(component);
+        const to = classIds.get(classByName.get(depName));
+        if (!from || !to) continue;
+        lines.push(`  ${from} --> ${to}`);
       }
     }
   }
@@ -56,8 +63,10 @@ function generateFlow(data) {
   }
 
   let prev = 'Start';
+  const nodeIds = mapSafeNames(comps);
   for (const component of comps) {
-    const safeName = sanitize(component.name);
+    const safeName = nodeIds.get(component);
+    if (!safeName) continue;
     lines.push(`  ${safeName}["${escapeMermaid(component.originalName)}"]`);
     lines.push(`  ${prev} --> ${safeName}`);
     prev = safeName;

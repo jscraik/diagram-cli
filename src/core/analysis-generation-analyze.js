@@ -4,7 +4,7 @@ const { resolveCandidateFiles } = require('./analysis-generation-analyze-files')
 const { extractComponents } = require('./analysis-generation-analyze-components');
 const { linkDependencies } = require('./analysis-generation-analyze-dependencies');
 
-async function analyze(rootPath, options) {
+async function analyze(rootPath, options = {}) {
   const maxFiles = parseMaxFiles(options);
   const patterns = parsePatterns(options);
   const exclude = parseExclude(options);

@@ -42,15 +42,29 @@ function generateAuth(data) {
 
   appendDependencyEdges(lines, connected, byName, safeNames, edges);
 
-  const providerSet = new Set();
+  const providerNodeByPackage = new Map();
+  const providerEdges = new Set();
   for (const seed of seeds) {
     for (const pkg of collectExternalImports(seed.imports || [])) {
-      providerSet.add(pkg);
+      if (!providerNodeByPackage.has(pkg)) {
+        providerNodeByPackage.set(pkg, `ext_${sanitize(pkg)}`);
+      }
     }
   }
-  for (const provider of providerSet) {
-    const providerNode = sanitize(provider);
+  for (const [provider, providerNode] of providerNodeByPackage) {
     lines.push(`  ${providerNode}[("${escapeMermaid(provider)}")]`);
+  }
+  for (const seed of seeds) {
+    const seedNode = safeNames.get(seed);
+    if (!seedNode) continue;
+    for (const pkg of collectExternalImports(seed.imports || [])) {
+      const providerNode = providerNodeByPackage.get(pkg);
+      if (!providerNode) continue;
+      const edgeKey = `${seedNode}->${providerNode}`;
+      if (providerEdges.has(edgeKey)) continue;
+      providerEdges.add(edgeKey);
+      lines.push(`  ${seedNode} --> ${providerNode}`);
+    }
   }
 
   emitClassStyle(lines, 'authNode', '#7c3aed', '#fff', authNodeIds);

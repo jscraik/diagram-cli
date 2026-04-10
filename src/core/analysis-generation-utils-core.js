@@ -16,12 +16,13 @@ function detectLanguage(filePath) {
 }
 
 function inferType(filePath, content) {
-  const base = path.basename(filePath).toLowerCase();
+  const base = typeof filePath === 'string' ? path.basename(filePath).toLowerCase() : '';
+  const text = typeof content === 'string' ? content : '';
   if (base.includes('service')) return 'service';
   if (base.includes('component') || base.endsWith('.tsx') || base.endsWith('.jsx')) return 'component';
-  if (content.includes('class ') && content.includes('extends')) return 'class';
-  if (content.includes('export default function') || content.includes('export function')) return 'function';
-  if (content.includes('module.exports') || content.includes('export ')) return 'module';
+  if (text.includes('class ') && text.includes('extends')) return 'class';
+  if (text.includes('export default function') || text.includes('export function')) return 'function';
+  if (text.includes('module.exports') || text.includes('export ')) return 'module';
   return 'file';
 }
 
@@ -35,15 +36,51 @@ const IMPORT_PATTERNS = Object.freeze({
     /^\s*from\s+([\w.]+)/gm,
     /^\s*import\s+([\w.]+)/gm,
   ],
-  go: [
-    /import\s+(?:\(\s*)?["']([^"']+)["']/g,
-  ],
 });
+
+function extractGoImportsWithPositions(content) {
+  if (typeof content !== 'string' || content.length === 0) return [];
+
+  const imports = [];
+  const lines = content.split(/\r?\n/);
+  let inImportBlock = false;
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+
+    if (!inImportBlock) {
+      if (/^import\s*\(\s*$/.test(trimmed)) {
+        inImportBlock = true;
+        continue;
+      }
+
+      const single = trimmed.match(/^import\s+(?:[._A-Za-z][A-Za-z0-9_]*\s+)?["']([^"']+)["']/);
+      if (single) {
+        imports.push({ path: single[1], line: i + 1 });
+      }
+      continue;
+    }
+
+    if (/^\)/.test(trimmed)) {
+      inImportBlock = false;
+      continue;
+    }
+    if (trimmed === '' || trimmed.startsWith('//')) continue;
+
+    const withoutComment = rawLine.replace(/\/\/.*$/, '').trim();
+    const block = withoutComment.match(/^(?:[._A-Za-z][A-Za-z0-9_]*\s+)?["']([^"']+)["']/);
+    if (block) {
+      imports.push({ path: block[1], line: i + 1 });
+    }
+  }
+
+  return imports;
+}
 
 function resolveImportPatterns(lang) {
   if (lang === 'typescript' || lang === 'javascript') return IMPORT_PATTERNS.javascript;
   if (lang === 'python') return IMPORT_PATTERNS.python;
-  if (lang === 'go') return IMPORT_PATTERNS.go;
   return [];
 }
 
@@ -98,10 +135,16 @@ function lineNumberForIndex(lineStarts, index) {
 }
 
 function extractImports(content, lang) {
+  if (lang === 'go') {
+    return extractGoImportsWithPositions(content).map((match) => match.path);
+  }
   return collectImportMatches(content, lang).map((match) => match.path);
 }
 
 function extractImportsWithPositions(content, lang) {
+  if (lang === 'go') {
+    return extractGoImportsWithPositions(content);
+  }
   const lineStarts = buildLineStarts(typeof content === 'string' ? content : '');
   return collectImportMatches(content, lang).map((match) => ({
     path: match.path,

@@ -1,5 +1,11 @@
+const { escapeMermaid } = require('./analysis-generation-utils');
+
+function safeMessage(message) {
+  return escapeMermaid(String(message ?? '')).replace(/\r?\n/g, ' ');
+}
+
 function noteNode(message) {
-  return `  Note["${message}"]`;
+  return `  Note["${safeMessage(message)}"]`;
 }
 
 function graphNote(message, direction = 'TD') {
@@ -11,15 +17,15 @@ function flowNote(message, direction = 'TD') {
 }
 
 function sequenceNote(message) {
-  return `sequenceDiagram\n  Note over User,App: ${message}`;
+  return `sequenceDiagram\n  Note over User,App: ${safeMessage(message)}`;
 }
 
 function classNote(message) {
-  return `classDiagram\n  note "${message}"`;
+  return `classDiagram\n  note "${safeMessage(message)}"`;
 }
 
 function architectureNote(message) {
-  return `architecture-beta\n    service note(server)[${message}]`;
+  return `architecture-beta\n    service note(server)[${safeMessage(message)}]`;
 }
 
 module.exports = {

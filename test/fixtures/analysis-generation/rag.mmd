@@ -11,15 +11,15 @@ flowchart LR
   Retriever -->|context + query| LLMNode
   LLMNode -->|generated answer| Output
   subgraph DetectedMemory["Detected memory stores"]
-    orders_db_2adfdbb6[("orders-db")]
+    det_detectedmemory_orders_db_2adfdbb6[("orders-db")]
   end
   VecDB -. "implemented by" .-> DetectedMemory
   subgraph DetectedLLM["Detected LLM clients"]
-    agent_worker_3b96fcc8["agent-worker"]
+    det_detectedllm_agent_worker_3b96fcc8["agent-worker"]
   end
   LLMNode -. "implemented by" .-> DetectedLLM
   subgraph DetectedTools["Agentic tool calls"]
-    agent_worker_3b96fcc8["🔧 agent-worker"]
+    det_detectedtools_agent_worker_3b96fcc8["🔧 agent-worker"]
   end
   LLMNode -->|tool use| DetectedTools
   DetectedTools -->|result| LLMNode
@@ -28,3 +28,4 @@ flowchart LR
   classDef llmNode fill:#6d28d9,color:#fff
   class LLMNode,Embed llmNode
   classDef toolNode fill:#1d4ed8,color:#fff
+  class det_detectedtools_agent_worker_3b96fcc8 toolNode
