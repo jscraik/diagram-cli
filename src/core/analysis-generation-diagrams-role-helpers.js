@@ -2,7 +2,6 @@ const {
   mapSafeNames,
   appendClassAssignment,
 } = require('./analysis-generation-utils');
-const { ROLE_COLOURS } = require('./analysis-generation-constants');
 
 /**
  * Convert a list of components into their corresponding safe node identifiers.
