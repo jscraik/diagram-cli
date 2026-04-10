@@ -6,13 +6,13 @@ purpose: >
   auditable.
 
 triggers:
-  - GitHub workflow names change
+  - GitHub Actions job check names (`jobs.<id>.name`) change
   - .harness/ci-required-checks.json changes
   - harness.contract.json required-check names change
   - docs that describe required checks or the PR pipeline change
 
 inputs:
-  - repo root for ~/dev/diagram-cli
+  - repository root path (resolved at runtime)
   - changed workflow, policy, or docs files
   - intended mapping when names differ intentionally
 

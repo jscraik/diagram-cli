@@ -3,6 +3,7 @@ const { ROLE_COLOURS } = require('./analysis-generation-constants');
 const {
   escapeMermaid,
   componentsByRole,
+  mapSafeNames,
 } = require('./analysis-generation-utils');
 const { collectExternalImports } = require('./analysis-generation-role-tags');
 const { graphNote, flowNote } = require('./analysis-generation-diagrams-empty');
@@ -14,7 +15,7 @@ const {
 const EXTERNAL_CATEGORY_RULES = Object.freeze([
   { category: 'payment', pattern: /stripe|pay|billing|invoice/ },
   { category: 'email', pattern: /sendgrid|mail|email|smtp|postmark/ },
-  { category: 'database', pattern: /postgres|mysql|sqlite|mongo|redis|dynamo|prisma|typeorm|sequelize/ },
+  { category: 'database', pattern: /postgres|pg|mysql|sqlite|mongo|redis|dynamo|prisma|typeorm|sequelize/ },
   { category: 'ai', pattern: /openai|anthropic|gemini|ollama|hugging/ },
   { category: 'vcs', pattern: /github|gitlab|bitbucket|octokit/ },
   { category: 'messaging', pattern: /slack|discord|teams|twilio/ },
@@ -113,6 +114,7 @@ function generateRag(data) {
   const memories = componentsByRole(data.components, 'memory');
   const llms = componentsByRole(data.components, 'llm');
   const tools = componentsByRole(data.components, 'tool');
+  const toolNodeIds = [];
 
   const lines = ['flowchart LR'];
   lines.push('  UserQ(["👤 User Query"])');
@@ -156,7 +158,16 @@ function generateRag(data) {
   ];
 
   for (const spec of detectedSpecs) {
-    if (!emitSubgraph(lines, spec.id, spec.title, spec.components, spec.renderNode)) continue;
+    const scopedSafeNames = new Map(
+      [...mapSafeNames(spec.components)].map(([component, safe]) => [component, `det_${spec.id.toLowerCase()}_${safe}`])
+    );
+    if (!emitSubgraph(lines, spec.id, spec.title, spec.components, spec.renderNode, scopedSafeNames)) continue;
+    if (spec.id === 'DetectedTools') {
+      for (const component of spec.components) {
+        const safe = scopedSafeNames.get(component);
+        if (safe) toolNodeIds.push(safe);
+      }
+    }
     for (const edge of spec.extraEdges) {
       lines.push(edge);
     }
@@ -164,7 +175,7 @@ function generateRag(data) {
 
   emitClassStyle(lines, 'memNode', ROLE_COLOURS.memory.fill, ROLE_COLOURS.memory.color, ['VecDB', 'Retriever']);
   emitClassStyle(lines, 'llmNode', ROLE_COLOURS.llm.fill, ROLE_COLOURS.llm.color, ['LLMNode', 'Embed']);
-  emitClassStyle(lines, 'toolNode', ROLE_COLOURS.tool.fill, ROLE_COLOURS.tool.color, []);
+  emitClassStyle(lines, 'toolNode', ROLE_COLOURS.tool.fill, ROLE_COLOURS.tool.color, toolNodeIds);
 
   return lines.join('\n');
 }

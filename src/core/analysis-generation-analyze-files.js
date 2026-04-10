@@ -19,7 +19,7 @@ async function resolveCandidateFiles(rootPath, patterns, exclude, explicitFiles)
       .map((filePath) => {
         const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(rootPath, filePath);
         const relativeToRoot = path.relative(rootPath, absolute);
-        if (relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+        if (relativeToRoot.startsWith('..')) {
           return null;
         }
         return absolute;
@@ -34,8 +34,9 @@ async function resolveCandidateFiles(rootPath, patterns, exclude, explicitFiles)
     try {
       const matches = await glob(pattern.trim(), { cwd: rootPath, absolute: true, ignore: exclude });
       files.push(...matches);
-    } catch (_error) {
-      console.warn(chalk.yellow(`⚠️  Invalid pattern: ${pattern}`));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(chalk.yellow(`⚠️  Invalid pattern: ${pattern} — ${message}`));
     }
   }
   return [...new Set(files)];

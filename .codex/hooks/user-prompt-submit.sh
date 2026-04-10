@@ -14,6 +14,8 @@ prompt_lc="${prompt:l}"
 block_reason=""
 
 typeset -a context_parts
+# Marker strings are intentionally split to avoid self-triggering this hook
+# during static analysis of the script source.
 typeset -a instruction_override_markers=(
   "ig""nore|previous instructions"
   "ig""nore|the previous instructions"

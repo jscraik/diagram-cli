@@ -6,9 +6,9 @@
 
 ## Overview
 
-These skills are specific to `~/dev/diagram-cli` and cover recurring governance and startup failure patterns that the global shared skill library does not own.
+These skills are specific to this repository and cover recurring governance and startup failure patterns that the global shared skill library does not own.
 
-They are stored and versioned in this repository under `.codex/skills/`. The shared `~/dev/agent-skills` catalog is a reference source for patterns and quality standards, not the runtime source of truth for these repo-local workflows.
+They are stored and versioned in this repository under `.codex/skills/`. The shared `agent-skills` catalog (for example `~/dev/agent-skills`) is a reference source for patterns and quality standards, not the runtime source of truth for these repo-local workflows.
 
 ## Skills
 

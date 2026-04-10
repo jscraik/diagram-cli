@@ -10,11 +10,19 @@ cd "${REPO_ROOT}"
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/ci-check-parity.XXXXXX")"
 trap 'rm -r "${tmp_dir}"' EXIT
 
+WORKFLOW_FILE="${WORKFLOW_FILE:-.github/workflows/pr-pipeline.yml}"
+if [[ ! -f "${WORKFLOW_FILE}" ]]; then
+  echo "Missing workflow file: ${WORKFLOW_FILE}" >&2
+  exit 1
+fi
+export WORKFLOW_FILE
+
 python3 <<'PY' > "${tmp_dir}/workflow_names.txt"
 from pathlib import Path
+import os
 import re
 
-workflow = Path(".github/workflows/pr-pipeline.yml")
+workflow = Path(os.environ["WORKFLOW_FILE"])
 text = workflow.read_text()
 in_jobs = False
 current_job = None

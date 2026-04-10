@@ -22,7 +22,7 @@ metadata:
 
 ## Overview
 
-Use this skill when docs or scripts describe how validation works in `~/dev/diagram-cli`. The goal is to keep AGENTS guidance, README guidance, package scripts, Makefile targets, and validator docs saying the same thing.
+Use this skill when docs or scripts describe how validation works in this repository. The goal is to keep AGENTS guidance, README guidance, package scripts, Makefile targets, and validator docs saying the same thing.
 
 ## When to use
 
@@ -32,7 +32,7 @@ Use this skill when docs or scripts describe how validation works in `~/dev/diag
 
 ## Required inputs
 
-- Repo root, defaulting to `~/dev/diagram-cli`.
+- Repository root for the active checkout.
 - The changed docs or scripts that mention validation.
 - The current command contract from `package.json`, `Makefile`, and live scripts.
 
@@ -48,8 +48,9 @@ Use this skill when docs or scripts describe how validation works in `~/dev/diag
 1. Derive the live contract from `package.json`, `Makefile`, `README.md`, and live scripts before rewriting docs.
 2. Check the root `AGENTS.md` and docs in `docs/agents/` for drift.
 3. Reject stale sourced-shell examples. `scripts/codex-preflight.sh` is a CLI script and should be invoked with `bash`.
-4. If a workflow name or required-check name changes, route the check to [$ci-check-name-parity](../ci-check-name-parity/SKILL.md).
-5. Do not leave duplicate commands with conflicting scopes unexplained.
+4. Scan shell scripts for `source .../scripts/codex-preflight.sh` and `. .../scripts/codex-preflight.sh` patterns. Treat matches as failures and replace with explicit `bash scripts/codex-preflight.sh ...` invocation.
+5. If a workflow name or required-check name changes, route the check to [$ci-check-name-parity](../ci-check-name-parity/SKILL.md).
+6. Do not leave duplicate commands with conflicting scopes unexplained.
 
 ## Validation
 

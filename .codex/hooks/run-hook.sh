@@ -12,6 +12,10 @@ if [[ -z "$hook_name" ]]; then
   printf '%s\n' '{"continue":true,"systemMessage":"hook name missing; skipping hook runner."}'
   exit 0
 fi
+if [[ "$hook_name" == *"/"* || "$hook_name" == *".."* || ! "$hook_name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  printf '%s\n' '{"continue":true,"systemMessage":"invalid hook name; skipping hook runner."}'
+  exit 0
+fi
 
 script_dir="$(cd -- "$(dirname -- "${0}")" && pwd -P)"
 target_script="${script_dir}/${hook_name}.sh"

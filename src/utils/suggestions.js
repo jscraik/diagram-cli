@@ -48,7 +48,6 @@ function findClosestMatch(input, options) {
     .map((option) => ({ option, score: levenshtein(normalizedInput, String(option).toLowerCase()) }))
     .sort((a, b) => a.score - b.score);
 
-  if (!scored.length) return null;
   const best = scored[0];
   return best.score <= Math.max(2, Math.floor(normalizedInput.length / 3)) ? best.option : null;
 }

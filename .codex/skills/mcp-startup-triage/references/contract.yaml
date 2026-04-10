@@ -12,7 +12,7 @@ triggers:
 
 inputs:
   - failing startup command or error text
-  - repo root for ~/dev/diagram-cli
+  - repository root path for the active checkout
   - baseline config-drift evidence, or permission to gather it
 
 outputs:

@@ -6,12 +6,23 @@ const {
 
 describe('analysis generation core sequence', () => {
   it('maps role tags to expected interaction verbs', () => {
-    expect(resolveSequenceVerb(['database'])).to.equal('reads from');
+    expect(resolveSequenceVerb(['database'])).to.equal('queries');
+    expect(resolveSequenceVerb(['database', 'writes'])).to.equal('writes to');
     expect(resolveSequenceVerb(['auth'])).to.equal('authenticates via');
     expect(resolveSequenceVerb(['events'])).to.equal('emits to');
     expect(resolveSequenceVerb(['llm'])).to.equal('calls LLM');
     expect(resolveSequenceVerb(['tool'])).to.equal('invokes tool');
     expect(resolveSequenceVerb(['misc'])).to.equal('calls');
+  });
+
+  it('resolves verb precedence when multiple tags are present', () => {
+    // ROLE_VERB_PRIORITY order: database, auth, events, llm, tool
+    expect(resolveSequenceVerb(['llm', 'tool'])).to.equal('calls LLM');
+    expect(resolveSequenceVerb(['tool', 'llm'])).to.equal('calls LLM');
+    expect(resolveSequenceVerb(['auth', 'database'])).to.equal('reads from');
+    expect(resolveSequenceVerb(['database', 'auth'])).to.equal('reads from');
+    expect(resolveSequenceVerb(['events', 'llm', 'tool'])).to.equal('emits to');
+    expect(resolveSequenceVerb(['tool', 'events'])).to.equal('emits to');
   });
 
   it('emits role-specific verbs in generated sequence output', () => {
@@ -36,7 +47,7 @@ describe('analysis generation core sequence', () => {
 
     const output = generateSequence(data);
 
-    expect(output).to.include(': reads from');
+    expect(output).to.include(': queries');
     expect(output).to.include(': authenticates via');
     expect(output).to.include(': emits to');
     expect(output).to.include(': calls LLM');

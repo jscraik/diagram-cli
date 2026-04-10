@@ -4,7 +4,7 @@
  * @returns {string} The Mermaid fragment in the form `  Note["<message>"]`.
  */
 function noteNode(message) {
-  return `  Note["${message}"]`;
+  return `  Note["${safeMessage(message)}"]`;
 }
 
 /**
@@ -34,7 +34,7 @@ function flowNote(message, direction = 'TD') {
  * @returns {string} A `sequenceDiagram` snippet with a `Note over User,App` containing the provided message.
  */
 function sequenceNote(message) {
-  return `sequenceDiagram\n  Note over User,App: ${message}`;
+  return `sequenceDiagram\n  Note over User,App: ${safeMessage(message)}`;
 }
 
 /**
@@ -43,7 +43,7 @@ function sequenceNote(message) {
  * @returns {string} The Mermaid `classDiagram` snippet that contains the note with the provided message.
  */
 function classNote(message) {
-  return `classDiagram\n  note "${message}"`;
+  return `classDiagram\n  note "${safeMessage(message)}"`;
 }
 
 /**
@@ -53,7 +53,7 @@ function classNote(message) {
  * @returns {string} The Mermaid diagram fragment `architecture-beta\n    service note(server)[<message>]`.
  */
 function architectureNote(message) {
-  return `architecture-beta\n    service note(server)[${message}]`;
+  return `architecture-beta\n    service note(server)[${safeMessage(message)}]`;
 }
 
 module.exports = {

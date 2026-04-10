@@ -82,9 +82,10 @@ describe('analysis generation role diagrams snapshots', () => {
   it('classifies external package categories through rule-table mapping', () => {
     expect(classifyExternalPackage('stripe')).to.equal('payment');
     expect(classifyExternalPackage('@sendgrid/mail')).to.equal('email');
-    expect(classifyExternalPackage('pg')).to.equal('external');
+    expect(classifyExternalPackage('pg')).to.equal('database');
     expect(classifyExternalPackage('@octokit/rest')).to.equal('vcs');
     expect(classifyExternalPackage('@slack/web-api')).to.equal('messaging');
     expect(classifyExternalPackage('@aws-sdk/client-s3')).to.equal('cloud');
+    expect(classifyExternalPackage('unknown-pkg')).to.equal('external');
   });
 });

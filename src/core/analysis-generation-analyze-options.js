@@ -31,7 +31,7 @@ function parsePatterns(options) {
     if (typeof options.patterns !== 'string') {
       throw new TypeError('patterns must be a string');
     }
-    patterns = options.patterns.split(',');
+    patterns = parseCsv(options.patterns);
   }
   return patterns;
 }
@@ -50,7 +50,7 @@ function parseExclude(options) {
     if (typeof options.exclude !== 'string') {
       throw new TypeError('exclude must be a string');
     }
-    exclude = options.exclude.split(',');
+    exclude = parseCsv(options.exclude);
   }
   return exclude;
 }

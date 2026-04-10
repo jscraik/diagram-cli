@@ -159,12 +159,19 @@ function collectConnectedComponents(components, seedComponents, maxDepth = 2, ma
   const reverseDependencies = buildReverseDependencyIndex(components);
   const selected = new Map();
   const queue = [];
+  const addSelected = (candidate) => {
+    if (!candidate || typeof candidate.name !== 'string') return false;
+    if (selected.has(candidate.name)) return false;
+    if (selected.size >= maxNodes) return false;
+    selected.set(candidate.name, candidate);
+    return true;
+  };
 
   for (const seed of seedComponents) {
-    if (seed && seed.name && !selected.has(seed.name)) {
-      selected.set(seed.name, seed);
+    if (addSelected(seed)) {
       queue.push(seed);
     }
+    if (selected.size >= maxNodes) break;
   }
 
   let depth = 0;
@@ -181,22 +188,22 @@ function collectConnectedComponents(components, seedComponents, maxDepth = 2, ma
 
       const next = [];
       for (const depName of current.dependencies || []) {
+        if (selected.size >= maxNodes) break;
         const dependency = byName.get(depName);
-        if (dependency && !selected.has(depName)) {
-          selected.set(depName, dependency);
+        if (addSelected(dependency)) {
           next.push(dependency);
         }
       }
 
       const reverse = reverseDependencies.get(current.name) || [];
       for (const candidate of reverse) {
-        if (selected.has(candidate.name)) continue;
-        selected.set(candidate.name, candidate);
-        next.push(candidate);
+        if (selected.size >= maxNodes) break;
+        if (addSelected(candidate)) next.push(candidate);
       }
 
-      for (const nextComponent of next) {
-        if (selected.size >= maxNodes) break;
+      const remaining = maxNodes - selected.size;
+      if (remaining <= 0) break;
+      for (const nextComponent of next.slice(0, remaining)) {
         queue.push(nextComponent);
       }
       if (selected.size >= maxNodes) break;
@@ -257,9 +264,14 @@ function appendDependencyEdges(lines, sourceComponents, byName, safeNames, edges
       if (edges.has(key)) continue;
       edges.add(key);
 
-      const label = typeof edgeLabelFn === 'function' ? edgeLabelFn(comp, dep) : null;
-      if (label) {
-        lines.push(`  ${from} -->|${label}| ${to}`);
+      const edgeSpec = typeof edgeLabelFn === 'function' ? edgeLabelFn(comp, dep) : null;
+      if (typeof edgeSpec === 'string' && edgeSpec.trim() !== '') {
+        const trimmed = edgeSpec.trim();
+        if (trimmed.includes('-->')) {
+          lines.push(trimmed.startsWith('  ') ? trimmed : `  ${trimmed}`);
+        } else {
+          lines.push(`  ${from} -->|${trimmed}| ${to}`);
+        }
       } else {
         lines.push(`  ${from} --> ${to}`);
       }

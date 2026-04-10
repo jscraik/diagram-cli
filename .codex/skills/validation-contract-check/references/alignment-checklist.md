@@ -10,8 +10,8 @@
 2. `Makefile`
 3. `README.md`
 4. Live scripts under `scripts/`
-5. `docs/agents/**`
-6. `AGENTS.md`
+5. `AGENTS.md`
+6. `docs/agents/**`
 
 Update the lower rows to match the higher rows, not the other way around.
 

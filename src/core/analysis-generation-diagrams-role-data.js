@@ -29,7 +29,7 @@ function generateDatabase(data) {
     return lines.join('\n');
   }
 
-  const { byName, safeNames } = buildRoleDiagramContext(data, seeds, 2, 28);
+  const { byName, safeNames } = buildRoleDiagramContext(data, seeds, DATABASE_DEPTH, DATABASE_NODE_LIMIT);
 
   lines.push('  UserRequest["User request"]');
   lines.push('  Decision{Record exists?}');
@@ -92,7 +92,7 @@ function generateUserInteractions(data) {
     return lines.join('\n');
   }
 
-  const { connected, byName, safeNames } = buildRoleDiagramContext(data, seeds, 1, 30);
+  const { connected, byName, safeNames } = buildRoleDiagramContext(data, seeds, USER_DEPTH, USER_NODE_LIMIT);
   const edges = new Set();
   const userNodeIds = [];
 
@@ -130,7 +130,7 @@ function generateEvents(data) {
     return lines.join('\n');
   }
 
-  const { connected, byName, safeNames } = buildRoleDiagramContext(data, seeds, 2, 30);
+  const { connected, byName, safeNames } = buildRoleDiagramContext(data, seeds, EVENTS_DEPTH, EVENTS_NODE_LIMIT);
   const edges = new Set();
   const eventNodeIds = [];
   const eventSeedNames = new Set(seeds.map((seed) => seed.name));
@@ -155,7 +155,13 @@ function generateEvents(data) {
     byName,
     safeNames,
     edges,
-    (component) => (eventSeedNames.has(component.name) ? 'emit' : 'consume')
+    (component, dep) => {
+      const from = safeNames.get(component);
+      const to = safeNames.get(dep);
+      if (!from || !to) return '';
+      const label = eventSeedNames.has(component.name) ? 'emit' : 'consume';
+      return `${from} -->|${label}| ${to}`;
+    }
   );
 
   emitClassStyle(lines, 'eventNode', '#db2777', '#fff', eventNodeIds);

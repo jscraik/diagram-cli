@@ -12,7 +12,7 @@ triggers:
   - startup warnings mention missing pinned tools, malformed actions, preflight drift, or projection drift
 
 inputs:
-  - repo root for ~/dev/diagram-cli
+  - repository root path for the active checkout
   - changed files or failing startup symptom
   - current ~/.codex projection state when relevant
 

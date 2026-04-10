@@ -31,12 +31,13 @@ function detectLanguage(filePath) {
  * @param {string} content - File content used for token-based heuristics.
  * @returns {string} One of: `'service'`, `'component'`, `'class'`, `'function'`, `'module'`, or `'file'`.
 function inferType(filePath, content) {
-  const base = path.basename(filePath).toLowerCase();
+  const base = typeof filePath === 'string' ? path.basename(filePath).toLowerCase() : '';
+  const text = typeof content === 'string' ? content : '';
   if (base.includes('service')) return 'service';
   if (base.includes('component') || base.endsWith('.tsx') || base.endsWith('.jsx')) return 'component';
-  if (content.includes('class ') && content.includes('extends')) return 'class';
-  if (content.includes('export default function') || content.includes('export function')) return 'function';
-  if (content.includes('module.exports') || content.includes('export ')) return 'module';
+  if (text.includes('class ') && text.includes('extends')) return 'class';
+  if (text.includes('export default function') || text.includes('export function')) return 'function';
+  if (text.includes('module.exports') || text.includes('export ')) return 'module';
   return 'file';
 }
 
@@ -50,9 +51,6 @@ const IMPORT_PATTERNS = Object.freeze({
     /^\s*from\s+([\w.]+)/gm,
     /^\s*import\s+([\w.]+)/gm,
   ],
-  go: [
-    /import\s+(?:\(\s*)?["']([^"']+)["']/g,
-  ],
 });
 
 /**
@@ -63,7 +61,6 @@ const IMPORT_PATTERNS = Object.freeze({
 function resolveImportPatterns(lang) {
   if (lang === 'typescript' || lang === 'javascript') return IMPORT_PATTERNS.javascript;
   if (lang === 'python') return IMPORT_PATTERNS.python;
-  if (lang === 'go') return IMPORT_PATTERNS.go;
   return [];
 }
 
@@ -148,6 +145,9 @@ function lineNumberForIndex(lineStarts, index) {
  * @returns {string[]} An array of import paths found in the content; an empty array if none are found or the input is invalid.
  */
 function extractImports(content, lang) {
+  if (lang === 'go') {
+    return extractGoImportsWithPositions(content).map((match) => match.path);
+  }
   return collectImportMatches(content, lang).map((match) => match.path);
 }
 
@@ -159,6 +159,9 @@ function extractImports(content, lang) {
  * @returns {{path: string, line: number}[]} An array of objects containing the import `path` and its 1-based `line` number.
  */
 function extractImportsWithPositions(content, lang) {
+  if (lang === 'go') {
+    return extractGoImportsWithPositions(content);
+  }
   const lineStarts = buildLineStarts(typeof content === 'string' ? content : '');
   return collectImportMatches(content, lang).map((match) => ({
     path: match.path,
