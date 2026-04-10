@@ -1,4 +1,3 @@
-const { ROLE_COLOURS } = require('./analysis-generation-constants');
 const {
   escapeMermaid,
   componentsByRole,
@@ -10,8 +9,8 @@ const {
 const { flowNote, noteNode } = require('./analysis-generation-diagrams-empty');
 const {
   safeNodeIds,
-  emitClassStyle,
-  emitSubgraph,
+  emitRoleClassStyle,
+  emitSubgraphSpecs,
 } = require('./analysis-generation-diagrams-role-helpers');
 
 /**
@@ -73,9 +72,7 @@ function generateAgent(data) {
       renderNode: (component, safe) => `${safe}[("📚 ${escapeMermaid(component.originalName)}")]`,
     },
   ];
-  for (const spec of layerSpecs) {
-    emitSubgraph(lines, spec.id, spec.title, spec.components, spec.renderNode, safeNames);
-  }
+  emitSubgraphSpecs(lines, layerSpecs, safeNames);
 
   const edges = new Set();
   appendDependencyEdges(lines, all, byName, safeNames, edges, (_caller, callee) => {
@@ -88,20 +85,13 @@ function generateAgent(data) {
   });
 
   const classSpecs = [
-    { className: 'agentNode', colourKey: 'agent', components: agents },
-    { className: 'llmNode', colourKey: 'llm', components: llms },
-    { className: 'toolNode', colourKey: 'tool', components: tools },
-    { className: 'memNode', colourKey: 'memory', components: memories },
+    { className: 'agentNode', roleKey: 'agent', components: agents },
+    { className: 'llmNode', roleKey: 'llm', components: llms },
+    { className: 'toolNode', roleKey: 'tool', components: tools },
+    { className: 'memNode', roleKey: 'memory', components: memories },
   ];
   for (const spec of classSpecs) {
-    const roleColour = ROLE_COLOURS[spec.colourKey];
-    emitClassStyle(
-      lines,
-      spec.className,
-      roleColour.fill,
-      roleColour.color,
-      safeNodeIds(spec.components, safeNames)
-    );
+    emitRoleClassStyle(lines, spec.className, spec.roleKey, safeNodeIds(spec.components, safeNames));
   }
 
   return lines.join('\n');

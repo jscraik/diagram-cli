@@ -2,6 +2,7 @@ const {
   mapSafeNames,
   appendClassAssignment,
 } = require('./analysis-generation-utils');
+const { ROLE_COLOURS } = require('./analysis-generation-constants');
 
 /**
  * Convert a list of components into their corresponding safe node identifiers.
@@ -93,9 +94,23 @@ function emitSubgraph(lines, id, title, components, renderNode, safeNames) {
   return true;
 }
 
+function emitSubgraphSpecs(lines, specs, safeNames) {
+  if (!Array.isArray(specs)) return [];
+
+  const emitted = [];
+  for (const spec of specs) {
+    if (!spec) continue;
+    const didEmit = emitSubgraph(lines, spec.id, spec.title, spec.components, spec.renderNode, safeNames);
+    if (didEmit) emitted.push(spec);
+  }
+  return emitted;
+}
+
 module.exports = {
   safeNodeIds,
   emitClassStyle,
+  emitRoleClassStyle,
   emitSeedNodesWithIngress,
   emitSubgraph,
+  emitSubgraphSpecs,
 };
