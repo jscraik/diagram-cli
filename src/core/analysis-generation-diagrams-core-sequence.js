@@ -79,6 +79,7 @@ function generateSequence(data) {
     const { comp, depth } = queue[queueIndex++];
     for (const depName of comp.dependencies || []) {
       if (visited.has(depName)) continue;
+      if (visited.size >= MAX_PARTICIPANTS) break;
       const dep = byName.get(depName);
       if (!dep) continue;
       visited.set(depName, depth + 1);

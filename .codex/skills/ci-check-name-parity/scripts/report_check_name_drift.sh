@@ -53,7 +53,12 @@ for item in sorted(dict.fromkeys(results)):
     print(item)
 PY
 
-jq -r '.requiredChecks[].displayName' .harness/ci-required-checks.json | sort -u > "${tmp_dir}/required_checks.txt"
+if [[ -f .harness/ci-required-checks.json ]]; then
+  jq -r '.requiredChecks[].displayName' .harness/ci-required-checks.json | sort -u > "${tmp_dir}/required_checks.txt"
+else
+  echo "Warning: .harness/ci-required-checks.json not found; creating empty required_checks.txt" >&2
+  touch "${tmp_dir}/required_checks.txt"
+fi
 jq -r '.reviewPolicy.requiredChecks[]?, .branchProtection.requiredChecks[]?' harness.contract.json | sort -u > "${tmp_dir}/contract_checks.txt"
 
 printf '== workflow names ==\n'

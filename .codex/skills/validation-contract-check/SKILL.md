@@ -45,7 +45,7 @@ Use this skill when docs or scripts describe how validation works in this reposi
 
 ## Workflow
 
-1. Derive the live contract from `package.json`, `Makefile`, `README.md`, and live scripts before rewriting docs.
+1. Derive the live contract from `package.json`, `Makefile`, and live scripts before rewriting docs.
 2. Check the root `AGENTS.md` and docs in `docs/agents/` for drift.
 3. Reject stale sourced-shell examples. `scripts/codex-preflight.sh` is a CLI script and should be invoked with `bash`.
 4. Scan shell scripts for `source .../scripts/codex-preflight.sh` and `. .../scripts/codex-preflight.sh` patterns. Treat matches as failures and replace with explicit `bash scripts/codex-preflight.sh ...` invocation.
@@ -55,9 +55,6 @@ Use this skill when docs or scripts describe how validation works in this reposi
 ## Validation
 
 - Use fail-fast validation: stop at the first failed gate and fix it before continuing.
-- `npm run lint`
-- `npm run typecheck`
-- `npm test`
 - `bash scripts/verify-work.sh --fast`
 
 ## References

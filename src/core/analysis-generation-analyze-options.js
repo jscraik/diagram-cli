@@ -1,4 +1,15 @@
 /**
+ * Parse a comma-separated string into an array of trimmed, non-empty values.
+ *
+ * @param {string|null|undefined} input - Comma-separated string to parse.
+ * @returns {string[]} Array of trimmed non-empty strings; empty array if input is falsy.
+ */
+function parseCsv(input) {
+  if (!input) return [];
+  return input.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/**
  * Determine and normalise the maximum number of files to analyse.
  *
  * @param {object} options - Options object.

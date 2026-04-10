@@ -11,6 +11,13 @@ const {
   emitSeedNodesWithIngress,
 } = require('./analysis-generation-diagrams-role-helpers');
 
+const DATABASE_DEPTH = 2;
+const DATABASE_NODE_LIMIT = 30;
+const USER_DEPTH = 2;
+const USER_NODE_LIMIT = 30;
+const EVENTS_DEPTH = 2;
+const EVENTS_NODE_LIMIT = 30;
+
 /**
  * Builds a Mermaid flowchart (top-down) representing database-focused components and their implied control flow.
  *

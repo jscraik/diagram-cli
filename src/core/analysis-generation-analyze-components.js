@@ -41,6 +41,7 @@ function extractComponents(rootPath, uniqueFiles) {
         }
         content = fs.readFileSync(fd, 'utf-8');
       } finally {
+        // Close fd even if continue is called in the size check above (uniqueFiles loop)
         fs.closeSync(fd);
       }
 

@@ -139,6 +139,53 @@ function lineNumberForIndex(lineStarts, index) {
 }
 
 /**
+ * Extract Go import statements with their positions from source code.
+ *
+ * @param {string} content - Go source code to scan.
+ * @returns {Array<{path: string, line: number}>} Array of import records with path and line number.
+ */
+function extractGoImportsWithPositions(content) {
+  if (typeof content !== 'string' || content.length === 0) return [];
+
+  const imports = [];
+  const lineStarts = buildLineStarts(content);
+
+  // Match single import: import "path"
+  const singleImportPattern = /import\s+"([^"]+)"/g;
+  for (const match of content.matchAll(singleImportPattern)) {
+    const importPath = match[1];
+    if (!importPath) continue;
+    const index = typeof match.index === 'number' ? match.index : 0;
+    imports.push({
+      path: importPath,
+      line: lineNumberForIndex(lineStarts, index),
+    });
+  }
+
+  // Match import blocks: import ( ... )
+  const blockPattern = /import\s*\(\s*([\s\S]*?)\s*\)/g;
+  for (const blockMatch of content.matchAll(blockPattern)) {
+    const block = blockMatch[1];
+    if (!block) continue;
+    const blockStart = typeof blockMatch.index === 'number' ? blockMatch.index : 0;
+
+    // Extract individual imports from the block
+    const pathPattern = /"([^"]+)"/g;
+    for (const pathMatch of block.matchAll(pathPattern)) {
+      const importPath = pathMatch[1];
+      if (!importPath) continue;
+      const pathIndex = blockStart + (typeof pathMatch.index === 'number' ? pathMatch.index : 0);
+      imports.push({
+        path: importPath,
+        line: lineNumberForIndex(lineStarts, pathIndex),
+      });
+    }
+  }
+
+  return imports;
+}
+
+/**
  * Extracts import specifiers from source content for a given language.
  *
  * @param {string} content - The file contents to scan for import statements.
@@ -248,6 +295,7 @@ module.exports = {
   inferType,
   extractImports,
   extractImportsWithPositions,
+  extractGoImportsWithPositions,
   sanitize,
   escapeMermaid,
   normalizePath,

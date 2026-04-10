@@ -201,9 +201,8 @@ function collectConnectedComponents(components, seedComponents, maxDepth = 2, ma
         if (addSelected(candidate)) next.push(candidate);
       }
 
-      const remaining = maxNodes - selected.size;
-      if (remaining <= 0) break;
-      for (const nextComponent of next.slice(0, remaining)) {
+      if (selected.size >= maxNodes) break;
+      for (const nextComponent of next) {
         queue.push(nextComponent);
       }
       if (selected.size >= maxNodes) break;
@@ -301,8 +300,8 @@ function appendClassAssignment(lines, nodeIds, className) {
  */
 function inferDbIntent(component) {
   const source = `${component.filePath || ''} ${component.originalName || ''} ${component.name || ''}`.toLowerCase();
-  const hasLookup = /(read|find|query|select|get|lookup|exists|fetch)/.test(source);
-  const hasWrite = /(create|insert|update|upsert|save|delete|remove|write|transaction)/.test(source);
+  const hasLookup = /\b(read|find|query|select|get|lookup|exists|fetch)\b/.test(source);
+  const hasWrite = /\b(create|insert|update|upsert|save|delete|remove|write|transaction)\b/.test(source);
   return { hasLookup, hasWrite };
 }
 

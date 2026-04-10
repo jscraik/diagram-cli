@@ -55,7 +55,7 @@ function generateArchitecture(data, focus) {
 
   const byDir = new Map();
   for (const component of comps) {
-    const dir = component.directory || 'root';
+    const dir = component.directory === '.' ? 'root' : (component.directory || 'root');
     if (!byDir.has(dir)) byDir.set(dir, []);
     byDir.get(dir).push(component);
   }

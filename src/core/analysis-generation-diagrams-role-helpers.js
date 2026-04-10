@@ -29,6 +29,20 @@ function emitClassStyle(lines, className, fill, color, nodeIds) {
 }
 
 /**
+ * Emit a Mermaid class definition for role-specific styling and assign that class to the given nodes.
+ * @param {string[]} lines - Mutable array of diagram lines to append to.
+ * @param {string} className - Identifier for the class to define and assign.
+ * @param {string} roleKey - Role key to look up in the palette.
+ * @param {string[]|undefined} nodeIds - Optional list of safe node identifiers to assign to the class.
+ * @param {Object} palette - Object mapping role keys to {fill, color} objects; falls back to 'general' if roleKey is not found.
+ */
+function emitRoleClassStyle(lines, className, roleKey, nodeIds, palette) {
+  const style = (palette && palette[roleKey]) || (palette && palette.general) || { fill: '#555', color: '#fff' };
+  lines.push(`  classDef ${className} fill:${style.fill},color:${style.color}`);
+  appendClassAssignment(lines, nodeIds, className);
+}
+
+/**
  * Appends rendered seed nodes to the output lines and, optionally, records their safe IDs and emits unique ingress edges from a specified source.
  * @param {string[]} lines - Array of output lines to append to.
  * @param {Array} seeds - Seed identifiers to process.

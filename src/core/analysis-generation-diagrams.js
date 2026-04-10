@@ -60,6 +60,24 @@ function generate(data, type, focus) {
 }
 
 /**
+ * Common placeholder note texts used to detect empty diagrams.
+ */
+const PLACEHOLDER_NOTE_TEXTS = [
+  'note["no data available"]',
+  'note["no components found',
+  'no services detected',
+  'note "no data available"',
+  'note "no classes found"',
+  'note["no database-focused components found"]',
+  'note["no user-facing components found"]',
+  'note["no event/channels components found"]',
+  'note["no authentication components found"]',
+  'note["no security-focused components found"]',
+  'no agent/llm components found',
+  'no data available',
+];
+
+/**
  * Detects whether Mermaid diagram content represents a placeholder or empty diagram.
  *
  * @param {string|null|undefined} mermaidCode - Mermaid diagram source to inspect; non-string or falsy values are treated as placeholder content.
@@ -68,19 +86,7 @@ function generate(data, type, focus) {
 function isPlaceholderDiagram(mermaidCode) {
   if (!mermaidCode || typeof mermaidCode !== 'string') return true;
   const compact = mermaidCode.toLowerCase();
-  return compact.includes('note["no data available"]')
-    || compact.includes('note["no components found')
-    || compact.includes('no services detected')
-    || compact.includes('note "no data available"')
-    || compact.includes('note "no classes found"')
-    || compact.includes('note["no database-focused components found"]')
-    || compact.includes('note["no user-facing components found"]')
-    || compact.includes('note["no event/channels components found"]')
-    || compact.includes('note["no authentication components found"]')
-    || compact.includes('note["no security-focused components found"]')
-    || compact.includes('no architecture data')
-    || compact.includes('no agent/llm components found')
-    || compact.includes('no data available');
+  return PLACEHOLDER_NOTE_TEXTS.some(noteText => compact.includes(noteText));
 }
 
 /**

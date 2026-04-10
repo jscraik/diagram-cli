@@ -1,10 +1,12 @@
+const { escapeMermaid } = require('./analysis-generation-utils-core');
+
 /**
  * Create a Mermaid Note node string containing the given message.
  * @param {string} message - The text to include inside the note node.
  * @returns {string} The Mermaid fragment in the form `  Note["<message>"]`.
  */
 function noteNode(message) {
-  return `  Note["${safeMessage(message)}"]`;
+  return `  Note["${escapeMermaid(message)}"]`;
 }
 
 /**
@@ -34,7 +36,7 @@ function flowNote(message, direction = 'TD') {
  * @returns {string} A `sequenceDiagram` snippet with a `Note over User,App` containing the provided message.
  */
 function sequenceNote(message) {
-  return `sequenceDiagram\n  Note over User,App: ${safeMessage(message)}`;
+  return `sequenceDiagram\n  Note over User,App: ${escapeMermaid(message)}`;
 }
 
 /**
@@ -43,7 +45,7 @@ function sequenceNote(message) {
  * @returns {string} The Mermaid `classDiagram` snippet that contains the note with the provided message.
  */
 function classNote(message) {
-  return `classDiagram\n  note "${safeMessage(message)}"`;
+  return `classDiagram\n  note "${escapeMermaid(message)}"`;
 }
 
 /**
@@ -53,7 +55,7 @@ function classNote(message) {
  * @returns {string} The Mermaid diagram fragment `architecture-beta\n    service note(server)[<message>]`.
  */
 function architectureNote(message) {
-  return `architecture-beta\n    service note(server)[${safeMessage(message)}]`;
+  return `architecture-beta\n    service note(server)[${escapeMermaid(message)}]`;
 }
 
 module.exports = {

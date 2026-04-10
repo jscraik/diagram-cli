@@ -37,7 +37,7 @@ function inferRoleTags(filePath, originalName, fileContent, importEntries, type)
     tags.add('service');
   }
 
-  if (tags.size === 0) {
+  if (tags.size === 0 || (type === 'service' && tags.size === 1 && tags.has('service'))) {
     tags.add('general');
   }
 
