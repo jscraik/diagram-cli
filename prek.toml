@@ -2,11 +2,23 @@
 # Install prek: mise install cargo-prek || cargo install prek
 # Run: prek install && prek run --all-files
 
-[hooks]
-pre-commit = ["make hooks-pre-commit"]
-pre-push = ["make hooks-pre-push"]
+default_install_hook_types = ["pre-commit", "pre-push"]
 
-[tools]
-biome = "1.9.4"
-typescript = "5.7"
-vitest = "3.2"
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "hooks-pre-commit"
+name = "hooks-pre-commit"
+entry = "make hooks-pre-commit"
+language = "system"
+pass_filenames = false
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "hooks-pre-push"
+name = "hooks-pre-push"
+entry = "make hooks-pre-push"
+language = "system"
+pass_filenames = false
+stages = ["pre-push"]

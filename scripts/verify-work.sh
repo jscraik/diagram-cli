@@ -8,6 +8,18 @@ changed_only=1
 fast_mode=0
 strict_mode=0
 repo_root=""
+hook_governance_scope="project-local"
+local_memory_mode="required"
+declare -a temp_paths=()
+
+cleanup_temp_paths() {
+	local path=""
+	for path in "${temp_paths[@]}"; do
+		[[ -n "$path" ]] || continue
+		rm -f "$path"
+	done
+}
+trap cleanup_temp_paths EXIT
 
 usage() {
 	cat <<'USAGE'
@@ -21,6 +33,8 @@ Options:
   --strict           Fail when fast-mode fallbacks are needed
   --fast             Run preflight + lint + typecheck + tests instead of the full check bundle
   --repo-root PATH   Run checks in a specific repository root
+  --project-governance   Limit hook-governance checks to the current git repo (default)
+  --workspace-governance Run hook-governance checks using docs/hooks-governance/repo-scope.manifest.json
   -h, --help         Show this help text
 USAGE
 }
@@ -67,6 +81,121 @@ has_package_script() {
 	jq -e --arg script_name "$script_name" '(.scripts // {}) | has($script_name)' "$repo_root/package.json" >/dev/null 2>&1
 }
 
+build_project_local_manifest() {
+	local out_path="$1"
+	local workspace_root="$2"
+	local repo_name="$3"
+	python3 - "$out_path" "$workspace_root" "$repo_name" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+out = Path(sys.argv[1])
+workspace_root = sys.argv[2]
+repo_name = sys.argv[3]
+payload = {
+    "workspace_root": workspace_root,
+    "repos": {
+        "in_scope": [repo_name],
+        "excluded": [],
+    },
+}
+out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+PY
+}
+
+run_hook_governance_checks() {
+	local hook_root="$repo_root/scripts/hook-governance"
+	if [[ ! -d "$hook_root" ]]; then
+		echo "[verify-work] hook-governance scripts not found; skipping governance checks"
+		return 0
+	fi
+
+	local current_git_root=""
+	current_git_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)"
+	local current_repo_name=""
+	current_repo_name="$(basename "$current_git_root")"
+	local workspace_root=""
+	workspace_root="$(dirname "$current_git_root")"
+
+	local inventory_script="$hook_root/inventory_repos.py"
+	local classify_script="$hook_root/classify_public_api.py"
+	local rollout_script="$hook_root/rollout_check.py"
+	local ratchet_script="$hook_root/evaluate_docstring_ratchet.py"
+	local scope_manifest="$repo_root/docs/hooks-governance/repo-scope.manifest.json"
+	local public_rules="$repo_root/docs/hooks-governance/public-api-rules.yaml"
+	local metrics_file="$repo_root/docs/hooks-governance/docstring-ratchet-metrics.json"
+	local inventory_path="$repo_root/docs/hooks-governance/repo-profile-matrix.json"
+	local classification_path="$repo_root/docs/hooks-governance/public-api-classification.json"
+	local rollout_output="$repo_root/docs/hooks-governance/rollout-check-report.json"
+	local ratchet_output="$repo_root/docs/hooks-governance/docstring-ratchet-report.json"
+	local inventory_ready=0
+	local classification_ready=0
+
+	if [[ "$hook_governance_scope" == "project-local" ]]; then
+		scope_manifest="$(mktemp "${TMPDIR:-/tmp}/verify-work-hook-scope.XXXXXX.json")"
+		inventory_path="$(mktemp "${TMPDIR:-/tmp}/verify-work-repo-profile-matrix.XXXXXX.json")"
+		classification_path="$(mktemp "${TMPDIR:-/tmp}/verify-work-public-api-classification.XXXXXX.json")"
+		rollout_output="$(mktemp "${TMPDIR:-/tmp}/verify-work-rollout-check-report.XXXXXX.json")"
+		ratchet_output="$(mktemp "${TMPDIR:-/tmp}/verify-work-docstring-ratchet-report.XXXXXX.json")"
+		temp_paths+=("$scope_manifest" "$inventory_path" "$classification_path" "$rollout_output" "$ratchet_output")
+		build_project_local_manifest "$scope_manifest" "$workspace_root" "$current_repo_name"
+		echo "[verify-work] hook-governance scope: project-local (repo=$current_repo_name)"
+	else
+		echo "[verify-work] hook-governance scope: workspace"
+		if [[ -f "$inventory_path" ]]; then
+			inventory_ready=1
+		fi
+		if [[ -f "$classification_path" ]]; then
+			classification_ready=1
+		fi
+	fi
+
+	if [[ -f "$inventory_script" && -f "$scope_manifest" ]]; then
+		echo
+		echo "==> hook-governance-inventory"
+		python3 "$inventory_script" --manifest "$scope_manifest" --out "$inventory_path"
+		inventory_ready=1
+	else
+		echo "[verify-work] skip hook-governance-inventory: inventory_repos.py or scope manifest not found"
+	fi
+
+	if [[ -f "$classify_script" && -f "$public_rules" && "$inventory_ready" -eq 1 ]]; then
+		echo
+		echo "==> hook-governance-public-api-classification"
+		python3 "$classify_script" \
+			--inventory "$inventory_path" \
+			--rules "$public_rules" \
+			--out "$classification_path"
+		classification_ready=1
+	else
+		echo "[verify-work] skip hook-governance-public-api-classification: classifier script, rules, or inventory not found"
+	fi
+
+	if [[ -f "$ratchet_script" && -f "$metrics_file" && "$classification_ready" -eq 1 ]]; then
+		echo
+		echo "==> hook-governance-docstring-ratchet"
+		python3 "$ratchet_script" \
+			--classification "$classification_path" \
+			--metrics "$metrics_file" \
+			--window-days 14 \
+			--out "$ratchet_output"
+	else
+		echo "[verify-work] skip hook-governance-docstring-ratchet: evaluator script, classification, or metrics not found"
+	fi
+
+	if [[ -f "$rollout_script" && "$inventory_ready" -eq 1 ]]; then
+		echo
+		echo "==> hook-governance-rollout-check"
+		python3 "$rollout_script" \
+			--inventory "$inventory_path" \
+			--recovery-slo-hours 24 \
+			--out "$rollout_output"
+	else
+		echo "[verify-work] skip hook-governance-rollout-check: rollout_check.py or inventory not found"
+	fi
+}
+
 while (( $# > 0 )); do
 	case "$1" in
 		--all|--all-skills)
@@ -89,6 +218,14 @@ while (( $# > 0 )); do
 			repo_root="${2:-}"
 			shift 2
 			;;
+		--project-governance)
+			hook_governance_scope="project-local"
+			shift
+			;;
+		--workspace-governance)
+			hook_governance_scope="workspace"
+			shift
+			;;
 		-h|--help)
 			usage
 			exit 0
@@ -105,6 +242,10 @@ if [[ -z "$repo_root" ]]; then
 	repo_root="$REPO_ROOT"
 fi
 
+if [[ "$fast_mode" -eq 1 ]]; then
+	local_memory_mode="optional"
+fi
+
 cd "$repo_root"
 echo "[verify-work] repo root: $repo_root"
 
@@ -116,7 +257,7 @@ echo
 echo "==> codex-preflight"
 bash "$repo_root/scripts/codex-preflight.sh" \
 	--stack "$stack" \
-	--mode required \
+	--mode "$local_memory_mode" \
 	--bins "$bins_csv" \
 	--paths "$paths_csv"
 
@@ -124,6 +265,7 @@ if [[ "$fast_mode" -eq 0 ]]; then
 	echo
 	echo "==> check"
 	pnpm check
+	run_hook_governance_checks
 	exit 0
 fi
 
@@ -155,3 +297,5 @@ else
 	echo "==> test"
 	pnpm test
 fi
+
+run_hook_governance_checks

@@ -26,6 +26,7 @@
     "audit": "npm audit --audit-level=high",
     "check": "npm test",
     "secrets:staged": "bash scripts/check-staged-secrets.sh",
+    "docs:lint": "echo 'No docs linter configured (plain JS project)' && exit 0",
     "docs:style:changed": "bash scripts/check-doc-style.sh",
     "test:related": "bash scripts/check-related-tests.sh",
     "semgrep:changed": "bash scripts/check-semgrep-changed.sh"
