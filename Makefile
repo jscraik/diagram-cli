@@ -38,14 +38,7 @@ hooks-pre-commit: ## Run local pre-commit gates before creating a commit
 	$(MAKE) related-tests
 
 hooks-pre-push: ## Run local pre-push governance gates before pushing
-	pnpm exec tsx src/cli.ts docs-gate --mode required --json
-	@bash ./scripts/check-diagram-freshness.sh
-	pnpm exec tsx src/cli.ts tooling-audit --path . --json
-	@bash ./scripts/check-environment.sh
-	$(MAKE) semgrep-changed
-	pnpm test
-	pnpm build
-	pnpm audit
+	@bash ./scripts/verify-work.sh --fast
 
 secrets-staged: ## Scan staged content for secrets before committing
 	pnpm run secrets:staged
