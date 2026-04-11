@@ -1,0 +1,41 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env zsh -lc 'repo_root=$(git -C \"$PWD\" rev-parse --show-toplevel 2>/dev/null || true); runner=\"${repo_root:-$PWD}/.codex/hooks/run-hook.sh\"; if [[ -x \"$runner\" ]]; then exec \"$runner\" session-start; fi; printf \"%s\\n\" \"{\\\"continue\\\":true,\\\"systemMessage\\\":\\\"run-hook.sh not found; skipping SessionStart hook.\\\"}\"'",
+            "timeout": 10,
+            "statusMessage": "loading repo-aware startup context"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env zsh -lc 'repo_root=$(git -C \"$PWD\" rev-parse --show-toplevel 2>/dev/null || true); runner=\"${repo_root:-$PWD}/.codex/hooks/run-hook.sh\"; if [[ -x \"$runner\" ]]; then exec \"$runner\" user-prompt-submit; fi; printf \"%s\\n\" \"{\\\"continue\\\":true,\\\"systemMessage\\\":\\\"run-hook.sh not found; skipping UserPromptSubmit hook.\\\"}\"'",
+            "timeout": 10,
+            "statusMessage": "checking prompt safety and shortcut requests"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env zsh -lc 'repo_root=$(git -C \"$PWD\" rev-parse --show-toplevel 2>/dev/null || true); runner=\"${repo_root:-$PWD}/.codex/hooks/run-hook.sh\"; if [[ -x \"$runner\" ]]; then exec \"$runner\" stop-guard; fi; printf \"%s\\n\" \"{\\\"continue\\\":true,\\\"systemMessage\\\":\\\"run-hook.sh not found; skipping Stop hook.\\\"}\"'",
+            "timeout": 10,
+            "statusMessage": "checking final-response completeness"
+          }
+        ]
+      }
+    ]
+  }
+}

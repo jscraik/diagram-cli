@@ -1,0 +1,3 @@
+interface:
+  display_name: "Validation Contract Check"
+  short_description: "Keep AGENTS, README, preflight guidance, and validator docs aligned with the live repo command contract."

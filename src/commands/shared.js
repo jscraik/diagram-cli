@@ -11,6 +11,7 @@ const {
   writeCachedAnalysis,
 } = require('../incremental/cache');
 const { toArchitectureIR, writeArchitectureIR } = require('../ir/architecture-ir');
+const { findClosestMatch, formatSuggestion } = require('../utils/suggestions');
 
 const ALLOWED_THEMES = ['default', 'dark', 'forest', 'neutral', 'light'];
 
@@ -282,63 +283,6 @@ function createMermaidUrl(mermaidCode) {
   } catch (_error) {
     return { url: null, large: true };
   }
-}
-
-/**
- * Compute the Levenshtein edit distance between two strings.
- * @param {string} a - The source string.
- * @param {string} b - The target string.
- * @returns {number} The minimum number of single-character insertions, deletions or substitutions required to transform `a` into `b`.
- */
-function levenshtein(a, b) {
-  const rows = a.length + 1;
-  const cols = b.length + 1;
-  const matrix = Array.from({ length: rows }, () => Array(cols).fill(0));
-
-  for (let i = 0; i < rows; i += 1) matrix[i][0] = i;
-  for (let j = 0; j < cols; j += 1) matrix[0][j] = j;
-
-  for (let i = 1; i < rows; i += 1) {
-    for (let j = 1; j < cols; j += 1) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,
-        matrix[i][j - 1] + 1,
-        matrix[i - 1][j - 1] + cost
-      );
-    }
-  }
-
-  return matrix[a.length][b.length];
-}
-
-/**
- * Selects the closest string from a list using Levenshtein distance.
- *
- * @param {string|any} input - Value to match; coerced to a lowercase string for comparison.
- * @param {Array<string>} options - Candidate strings to compare against; returns `null` if not an array or empty.
- * @returns {string|null} The closest matching option, or `null` if no candidate is within a threshold of max(2, floor(input.length / 3)).
- */
-function findClosestMatch(input, options) {
-  if (!input || !Array.isArray(options) || options.length === 0) return null;
-
-  const normalizedInput = String(input).toLowerCase();
-  const scored = options
-    .map((option) => ({ option, score: levenshtein(normalizedInput, String(option).toLowerCase()) }))
-    .sort((a, b) => a.score - b.score);
-
-  if (!scored.length) return null;
-  const best = scored[0];
-  return best.score <= Math.max(2, Math.floor(normalizedInput.length / 3)) ? best.option : null;
-}
-
-/**
- * Format a suggestion message for display.
- * @param {string} suggestion - The suggested alternative text to show.
- * @returns {string} The suggestion line prefixed with three spaces and `Did you mean:`, styled in grey.
- */
-function formatSuggestion(suggestion) {
-  return chalk.gray(`   Did you mean: ${suggestion}`);
 }
 
 /**

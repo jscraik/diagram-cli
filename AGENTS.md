@@ -9,14 +9,53 @@ This repository contains the `diagram-cli` Node.js tool for static codebase arch
 ## Table of Contents
 
 - [Mandatory workflow snippet](#mandatory-workflow-snippet)
-- [Required essentials](#required-essentials)
-- [Global discovery order](#global-discovery-order)
-- [Instruction docs](#instruction-docs)
-- [Preflight Enforcement (REQUIRED)](#preflight-enforcement-required)
-- [References (informational)](#references-informational)
-- [CLI Usage (Robot Mode)](#cli-usage-robot-mode)
+- [Repo-local skills](#repo-local-skills)
+- [Validation contract](#validation-contract)
+- [Instruction discovery](#instruction-discovery)
+- [Working rules](#working-rules)
+- [CLI usage (robot mode)](#cli-usage-robot-mode)
 
-## CLI Usage (Robot Mode)
+## Mandatory workflow snippet
+
+1. Explore project first, then invoke skill.
+2. IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any React, Tauri, Apps-SDK-ui, Tailwind, Vite, Storybook + Chat Widget tasks.
+3. Add a Table of Contents for docs you create or substantially rewrite.
+
+## Repo-local skills
+
+- Repo-local Codex skills for this repo live in `.codex/skills/`.
+- They are authored and maintained inside this repository; do not treat `~/dev/agent-skills` as their source of truth.
+- Use `$config-drift-guard` when work touches `docs/agents/tooling.contract.json`, `scripts/check-environment.sh`, `scripts/codex-preflight.sh`, `scripts/verify-work.sh`, `.codex/environments/environment.toml`, or docs that describe local projection/startup envelope behavior.
+- Use `$validation-contract-check` when work changes `AGENTS.md`, `README.md`, `Makefile`, `package.json`, `scripts/codex-preflight.sh`, `scripts/verify-work.sh`, `scripts/check-environment.sh`, or validation/preflight instructions under `docs/agents/**`.
+- Use `$mcp-startup-triage` when the task involves MCP startup failures, Local Memory listener failures, `mise` trust/runtime issues, hook startup failures, or `codex mcp list`.
+- Use `$ci-check-name-parity` when work changes `.github/workflows/**`, `.harness/ci-required-checks.json`, `harness.contract.json`, or docs that describe required checks.
+
+## Validation contract
+
+- Run shell commands with `zsh -lc` and invoke script files explicitly with `bash`.
+- Use `bash scripts/codex-preflight.sh --mode optional` before multi-step, destructive, or path-sensitive workflows.
+- Do not source `scripts/codex-preflight.sh`; it is a CLI script, not a sourced shell helper.
+- Baseline implementation validation: `npm test` and `npm run test:deep`.
+- Contract-sensitive validation for docs/scripts/governance updates: `bash scripts/verify-work.sh --fast`.
+- Tooling envelope validation when startup/environment surfaces change: `bash scripts/check-environment.sh`.
+- If CI artifact generation behavior changes, run: `npm run ci:artifacts`.
+- Do not commit timestamp-only churn in `artifacts/policy/environment-attestation.json`; keep attestation updates only when policy signal fields change.
+- Report exact commands run and exact outcomes.
+
+## Instruction discovery
+
+1. Read this file for repo-wide constraints.
+2. Read [docs/agents/01-instruction-map.md](docs/agents/01-instruction-map.md) for the front-door instruction map.
+3. Open linked instruction docs only after the governing AGENTS file is read.
+4. If this file tells you to use a repo-local skill, load the matching `.codex/skills/<skill>/SKILL.md` before deeper docs.
+
+## Working rules
+
+- Prefer repository evidence over memory or prior assumptions.
+- Keep updates single-threaded unless the user explicitly requests parallelism.
+- If instructions conflict across local docs, pause and ask which rule should win.
+
+## CLI usage (robot mode)
 
 When operating `diagram-cli` autonomously, use the normalized commands:
 
@@ -24,47 +63,7 @@ When operating `diagram-cli` autonomously, use the normalized commands:
 - `generate-all` (formerly `all`)
 - `generate-video` (formerly `video`)
 - `generate-animated` (formerly `animate`)
+
 Use `--format <type>` instead of `--json`.
-The CLI has fallback logic to forgive minor syntax mistakes with a helpful warning, and provides detailed error context when it completely misunderstands your intent.
 
-## Mandatory workflow snippet
-
-1. Explore project first, then invoke skill.
-2. IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any React, Tauri, Apps-SDK-ui, Tailwind, Vite, Storybook + Chat Widget tasks.
-3. Add a Table of Contents for docs.
-
-## Required essentials
-
-- Package manager: npm.
-- Default shell: `zsh -lc`.
-- Preferred tools: `rg`, `fd`, `jq`.
-- Execution mode: single-threaded by default; do not parallelize or spawn subagents unless explicitly requested.
-- Validation baseline: run `npm test` and `npm run test:deep` after implementation changes.
-
-## Global discovery order
-
-1. `/Users/jamiecraik/.codex/AGENTS.md`
-2. Nearest repo `AGENTS.md`
-3. Linked instruction files under `docs/agents/`
-4. If instructions conflict and precedence is unclear, pause and ask which one wins.
-
-## Instruction docs
-
-- [Instruction map](docs/agents/01-instruction-map.md)
-- [Tooling and command policy](docs/agents/02-tooling-policy.md)
-- [Validation and checks](docs/agents/03-validation.md)
-- [External integrations](docs/agents/04-external-integrations.md)
-- [Git workflow and communication](docs/agents/05-git-and-communication.md)
-- [Contradictions and cleanup](docs/agents/06-contradictions-and-cleanup.md)
-
-## Preflight Enforcement (REQUIRED)
-
-- Use `scripts/codex-preflight.sh` before multi-step, destructive, or path-sensitive workflows.
-- Source and run: `source scripts/codex-preflight.sh && preflight_repo`.
-- If the helper is unavailable, run the manual checks documented in [tooling policy](docs/agents/02-tooling-policy.md).
-
-## References (informational)
-
-- Global protocol: `/Users/jamiecraik/.codex/AGENTS.md`
-- Security baseline: `/Users/jamiecraik/.codex/instructions/standards.md`
-- RVCP source of truth: `/Users/jamiecraik/.codex/instructions/rvcp-common.md`
+The CLI has fallback logic to forgive minor syntax mistakes with a helpful warning, and provides detailed error context when it completely misunderstands intent.
