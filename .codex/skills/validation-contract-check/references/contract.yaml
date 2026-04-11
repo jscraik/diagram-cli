@@ -1,0 +1,28 @@
+schema_version: "1.0"
+
+purpose: >
+  Keep validation and preflight documentation aligned with the live repo
+  command contract so agents do not follow stale or contradictory guidance.
+
+triggers:
+  - AGENTS.md or README changes mention validation or preflight
+  - Makefile, package.json, or validator scripts change
+  - docs/agents/** changes mention quality gates or workflow entrypoints
+
+inputs:
+  - repo root for ~/dev/diagram-cli
+  - changed docs or scripts
+  - current command contract from package.json, Makefile, and live scripts
+
+outputs:
+  - reconciled validation contract summary
+  - aligned documentation across AGENTS, README, and docs/agents
+  - exact validation evidence for the updated contract
+
+non_goals:
+  - changing the repo validation contract without script or package evidence
+  - leaving repo-wide and Codex-subtree scopes conflated
+
+risks:
+  - preserving stale sourced-shell examples
+  - documenting a weaker or different command set than the one the repo actually enforces

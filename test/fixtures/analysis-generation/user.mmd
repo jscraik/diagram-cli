@@ -1,0 +1,13 @@
+flowchart LR
+  User(("User"))
+  web_ui_40ce0b0c["web-ui"]
+  User --> web_ui_40ce0b0c
+  web_ui_40ce0b0c --> auth_service_f360a42d
+  web_ui_40ce0b0c --> orders_db_2adfdbb6
+  web_ui_40ce0b0c --> agent_worker_3b96fcc8
+  web_ui_40ce0b0c --> event_bus_c195d017
+  auth_service_f360a42d --> orders_db_2adfdbb6
+  agent_worker_3b96fcc8 --> orders_db_2adfdbb6
+  agent_worker_3b96fcc8 --> event_bus_c195d017
+  classDef userNode fill:#16a34a,color:#fff
+  class web_ui_40ce0b0c userNode

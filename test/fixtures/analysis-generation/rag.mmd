@@ -1,0 +1,31 @@
+flowchart LR
+  UserQ(["👤 User Query"])
+  Embed["📐 Embedding Model"]
+  VecDB[("📚 Vector Store")]
+  Retriever["🔍 Retriever"]
+  LLMNode["🧠 LLM / Generator"]
+  Output(["✅ Response"])
+  UserQ -->|query| Embed
+  Embed -->|vector| VecDB
+  VecDB -->|top-k chunks| Retriever
+  Retriever -->|context + query| LLMNode
+  LLMNode -->|generated answer| Output
+  subgraph DetectedMemory["Detected memory stores"]
+    det_detectedmemory_orders_db_2adfdbb6[("orders-db")]
+  end
+  VecDB -. "implemented by" .-> DetectedMemory
+  subgraph DetectedLLM["Detected LLM clients"]
+    det_detectedllm_agent_worker_3b96fcc8["agent-worker"]
+  end
+  LLMNode -. "implemented by" .-> DetectedLLM
+  subgraph DetectedTools["Agentic tool calls"]
+    det_detectedtools_agent_worker_3b96fcc8["🔧 agent-worker"]
+  end
+  LLMNode -->|tool use| DetectedTools
+  DetectedTools -->|result| LLMNode
+  classDef memNode fill:#065f46,color:#fff
+  class VecDB,Retriever memNode
+  classDef llmNode fill:#6d28d9,color:#fff
+  class LLMNode,Embed llmNode
+  classDef toolNode fill:#1d4ed8,color:#fff
+  class det_detectedtools_agent_worker_3b96fcc8 toolNode

@@ -1,0 +1,29 @@
+schema_version: "1.0"
+
+purpose: >
+  Classify Codex startup failures into the smallest actionable blocker class so
+  follow-up changes target the real failing surface instead of masking symptoms.
+
+triggers:
+  - codex mcp list fails
+  - startup logs mention initialize response failures or repeated hook startup issues
+  - Local Memory listener checks or local-memory preflight fail
+  - mise trust/runtime selection interferes with startup
+
+inputs:
+  - failing startup command or error text
+  - repository root path for the active checkout
+  - baseline config-drift evidence, or permission to gather it
+
+outputs:
+  - startup blocker class
+  - supporting command evidence for Local Memory, MCP startup, and runtime selection
+  - smallest safe next action for the blocker class
+
+non_goals:
+  - broad config edits before startup classification
+  - treating auth rejection, handshake failure, and path drift as the same issue
+
+risks:
+  - misclassifying auth or consent failures as config drift
+  - mistaking a running process for a healthy Local Memory listener

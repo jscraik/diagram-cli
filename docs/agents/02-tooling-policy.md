@@ -18,7 +18,7 @@
 - Regenerate it from [`tooling.contract.json`](tooling.contract.json) with `bash scripts/render-tooling-doc.sh`.
 
 ## Command preflight checklist
-- Confirm `pwd` is `/Users/jamiecraik/dev/diagram-cli` before repo edits.
+- Confirm `pwd` is inside this repository before repo edits.
 - Confirm required binaries for the task (`rg`, `fd`, `jq`, plus task-specific tools).
 - Confirm target paths exist before edits (`AGENTS.md`, `docs/agents/`, `scripts/`).
 - Fail fast and stop if any required preflight check is missing.

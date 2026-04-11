@@ -1,0 +1,10 @@
+flowchart TD
+  UserRequest["User request"]
+  Decision{Record exists?}
+  orders_db_2adfdbb6["orders-db"]
+  UserRequest --> orders_db_2adfdbb6
+  orders_db_2adfdbb6 --> orders_db_2adfdbb6_result["result"]
+  classDef dbNode fill:#0ea5e9,color:#fff
+  class orders_db_2adfdbb6 dbNode
+  classDef decisionNode fill:#0284c7,color:#fff
+  class Decision decisionNode

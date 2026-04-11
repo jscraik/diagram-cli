@@ -1,0 +1,3 @@
+interface:
+  display_name: "Config Drift Guard"
+  short_description: "Validate Codex config, hooks, agents, and home-directory projection before editing startup behavior."

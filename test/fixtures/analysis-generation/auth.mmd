@@ -1,0 +1,20 @@
+flowchart TD
+  Request["Authentication request"]
+  Boundary{"Auth Boundary"}
+  Request --> Boundary
+  auth_service_f360a42d["auth-service"]
+  Boundary --> auth_service_f360a42d
+  auth_service_f360a42d --> orders_db_2adfdbb6
+  web_ui_40ce0b0c --> auth_service_f360a42d
+  web_ui_40ce0b0c --> orders_db_2adfdbb6
+  web_ui_40ce0b0c --> agent_worker_3b96fcc8
+  web_ui_40ce0b0c --> event_bus_c195d017
+  security_gateway_f3c49f5a --> auth_service_f360a42d
+  agent_worker_3b96fcc8 --> orders_db_2adfdbb6
+  agent_worker_3b96fcc8 --> event_bus_c195d017
+  ext__octokit_rest_c557ffd5[("@octokit/rest")]
+  ext_passport_cbc471ca[("passport")]
+  auth_service_f360a42d --> ext__octokit_rest_c557ffd5
+  auth_service_f360a42d --> ext_passport_cbc471ca
+  classDef authNode fill:#7c3aed,color:#fff
+  class auth_service_f360a42d authNode

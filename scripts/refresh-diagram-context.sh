@@ -27,9 +27,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=/dev/null
-source "$ROOT_DIR/scripts/codex-preflight.sh"
-preflight_repo
+bash "$ROOT_DIR/scripts/codex-preflight.sh" --mode optional
 
 DIAGRAM_DIR="$ROOT_DIR/.diagram"
 CONTEXT_DIR="$DIAGRAM_DIR/context"

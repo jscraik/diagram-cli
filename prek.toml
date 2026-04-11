@@ -2,23 +2,30 @@
 # Install prek: mise install cargo-prek || cargo install prek
 # Run: prek install && prek run --all-files
 
-default_install_hook_types = ["pre-commit", "pre-push"]
+default_install_hook_types = ["pre-commit", "pre-push", "commit-msg"]
 
 [[repos]]
 repo = "local"
 
 [[repos.hooks]]
-id = "hooks-pre-commit"
-name = "hooks-pre-commit"
+id = "pre-commit"
+name = "Pre-commit"
 entry = "make hooks-pre-commit"
 language = "system"
 pass_filenames = false
-stages = ["pre-commit"]
 
 [[repos.hooks]]
-id = "hooks-pre-push"
-name = "hooks-pre-push"
+id = "pre-push"
+name = "Pre-push"
 entry = "make hooks-pre-push"
 language = "system"
 pass_filenames = false
 stages = ["pre-push"]
+
+[[repos.hooks]]
+id = "commit-msg"
+name = "Commit message validation"
+entry = "node scripts/validate-commit-msg.js"
+language = "system"
+pass_filenames = true
+stages = ["commit-msg"]
