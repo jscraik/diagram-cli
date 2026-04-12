@@ -23,9 +23,9 @@ flowchart LR
   end
   LLMNode -->|tool use| DetectedTools
   DetectedTools -->|result| LLMNode
-  classDef memNode fill:#065f46,color:#fff
+  classDef memNode fill:#555,color:#fff
   class VecDB,Retriever memNode
-  classDef llmNode fill:#6d28d9,color:#fff
+  classDef llmNode fill:#555,color:#fff
   class LLMNode,Embed llmNode
-  classDef toolNode fill:#1d4ed8,color:#fff
+  classDef toolNode fill:#555,color:#fff
   class det_detectedtools_agent_worker_3b96fcc8 toolNode
