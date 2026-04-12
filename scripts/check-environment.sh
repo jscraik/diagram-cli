@@ -265,10 +265,61 @@ for target in "${required_make_targets[@]}"; do
 done
 
 required_prek_hooks=("pre-commit|make hooks-pre-commit" "pre-push|make hooks-pre-push")
+
+has_required_prek_hook() {
+	local hook_name="$1"
+	local hook_command="$2"
+
+	# Backward-compatible support for legacy shorthand entries such as:
+	# pre-commit = ["make hooks-pre-commit"]
+	if rg -q "^[[:space:]]*${hook_name}[[:space:]]*=[[:space:]]*\\[[[:space:]]*\"${hook_command}\"[[:space:]]*\\][[:space:]]*$" "$PREK_CONFIG_PATH"; then
+		return 0
+	fi
+
+	# Current canonical Prek format uses [[repos.hooks]] blocks.
+	awk -v hook_name="$hook_name" -v hook_command="$hook_command" '
+		function trim(value) {
+			sub(/^[[:space:]]+/, "", value);
+			sub(/[[:space:]]+$/, "", value);
+			return value;
+		}
+		{
+			line = trim($0);
+			if (line == "[[repos.hooks]]") {
+				if (in_block && found_id && found_entry) {
+					matched = 1;
+					exit 0;
+				}
+				in_block = 1;
+				found_id = 0;
+				found_entry = 0;
+				next;
+			}
+			if (!in_block) {
+				next;
+			}
+			if (line == ("id = \"" hook_name "\"")) {
+				found_id = 1;
+				next;
+			}
+			if (line == ("entry = \"" hook_command "\"")) {
+				found_entry = 1;
+				next;
+			}
+		}
+		END {
+			if (in_block && found_id && found_entry) {
+				matched = 1;
+			}
+			exit matched ? 0 : 1;
+		}
+	' "$PREK_CONFIG_PATH"
+}
+
 for hook_spec in "${required_prek_hooks[@]}"; do
 	hook_name="${hook_spec%%|*}"
 	hook_command="${hook_spec#*|}"
-	if ! rg -q "^[[:space:]]*${hook_name}[[:space:]]*=[[:space:]]*\\[[[:space:]]*\"${hook_command}\"[[:space:]]*\\][[:space:]]*$" "$PREK_CONFIG_PATH"; then
+	if ! has_required_prek_hook "$hook_name" "$hook_command"; then
 		echo "Error: required prek hook '$hook_name' is missing or out of date in $PREK_CONFIG_PATH"
 		exit 1
 	fi
