@@ -184,7 +184,12 @@ function validateOutputPath(outputPath, rootPath) {
   const resolved = path.isAbsolute(outputPath)
     ? path.resolve(outputPath)
     : path.resolve(realRoot, outputPath);
-  const canonicalResolved = resolvePathViaExistingAncestor(resolved);
+  let canonicalResolved;
+  try {
+    canonicalResolved = resolvePathViaExistingAncestor(resolved);
+  } catch (_error) {
+    throw new Error(`Invalid path: cannot resolve "${outputPath}"`);
+  }
   const relative = path.relative(realRoot, canonicalResolved);
 
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
@@ -383,6 +388,7 @@ module.exports = {
   normalizeThemeOption,
   openPreviewUrl,
   resolveRootPathOrExit,
+  resolvePathViaExistingAncestor,
   runAnalysisPipeline,
   runMermaidCli,
   splitList,

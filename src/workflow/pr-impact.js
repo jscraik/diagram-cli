@@ -407,6 +407,14 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+function compareStringsDeterministically(leftValue, rightValue) {
+  const left = String(leftValue || '');
+  const right = String(rightValue || '');
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
 /**
  * Group file paths by change status with stable sorting
  * @param {object} result - PR impact result
@@ -423,7 +431,7 @@ function groupChangePaths(result, maxPreview = 10) {
   };
 
   const buildSortedPreviewGroup = (items) => {
-    const sorted = [...(items || [])].sort((a, b) => String(a).localeCompare(String(b)));
+    const sorted = [...(items || [])].sort(compareStringsDeterministically);
     return {
       count: sorted.length,
       items: sorted.slice(0, maxPreview),
@@ -431,9 +439,11 @@ function groupChangePaths(result, maxPreview = 10) {
     };
   };
   const buildRenamedPreviewGroup = (items) => {
-    const sorted = [...(items || [])].sort((a, b) =>
-      String(a?.from || '').localeCompare(String(b?.from || ''))
-    );
+    const sorted = [...(items || [])].sort((a, b) => {
+      const fromCmp = compareStringsDeterministically(a?.from, b?.from);
+      if (fromCmp !== 0) return fromCmp;
+      return compareStringsDeterministically(a?.to, b?.to);
+    });
     return {
       count: sorted.length,
       items: sorted.slice(0, maxPreview),

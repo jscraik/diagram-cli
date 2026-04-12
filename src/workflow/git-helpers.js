@@ -123,7 +123,21 @@ function runGitCommand(args, root, timeout = 30000) {
 }
 
 function sortStrings(values) {
-  return [...values].sort((a, b) => String(a).localeCompare(String(b)));
+  return [...values].sort((leftValue, rightValue) => {
+    const left = String(leftValue || '');
+    const right = String(rightValue || '');
+    if (left < right) return -1;
+    if (left > right) return 1;
+    return 0;
+  });
+}
+
+function compareStringsDeterministically(leftValue, rightValue) {
+  const left = String(leftValue || '');
+  const right = String(rightValue || '');
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
 }
 
 /**
@@ -189,7 +203,11 @@ function getChangedFiles(baseSha, headSha, root) {
   // Sort all arrays for deterministic output
   return {
     changed: sortStrings(changed),
-    renamed: renamed.sort((a, b) => a.from.localeCompare(b.from)),
+    renamed: renamed.sort((a, b) => {
+      const fromCmp = compareStringsDeterministically(a.from, b.from);
+      if (fromCmp !== 0) return fromCmp;
+      return compareStringsDeterministically(a.to, b.to);
+    }),
     deleted: sortStrings(deleted),
     added: sortStrings(added)
   };

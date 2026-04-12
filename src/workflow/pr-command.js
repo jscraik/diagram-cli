@@ -24,6 +24,18 @@ const VALID_OUTPUT_FORMATS = Object.freeze(['text', 'json']);
 const VALID_RISK_THRESHOLDS = Object.freeze(['none', 'low', 'medium', 'high']);
 const RISK_LEVEL_SCORE = Object.freeze({ low: 1, medium: 2, high: 3 });
 
+function compareStringsDeterministically(leftValue, rightValue) {
+  const left = String(leftValue || '');
+  const right = String(rightValue || '');
+  if (left < right) return -1;
+  if (left > right) return 1;
+  return 0;
+}
+
+function sortStringsDeterministically(values) {
+  return [...(values || [])].sort(compareStringsDeterministically);
+}
+
 function hasNoChangedFiles(changedFiles) {
   return (
     (changedFiles?.changed?.length || 0) === 0 &&
@@ -34,7 +46,7 @@ function hasNoChangedFiles(changedFiles) {
 }
 
 function normalizeListOption(value, splitList) {
-  return Array.isArray(value) ? value : splitList(value);
+  return Array.isArray(value) ? value : splitList(String(value || ''));
 }
 
 function isNonEmptyString(value) {
@@ -48,30 +60,30 @@ function createVerboseLogger(enabled) {
 }
 
 function sortPrImpactResultDeterministically(result) {
-  result.changedFiles = [...(result.changedFiles || [])].sort();
+  result.changedFiles = sortStringsDeterministically(result.changedFiles);
   result.renamedFiles = [...(result.renamedFiles || [])].sort((a, b) => {
-    const fromCmp = String(a.from || '').localeCompare(String(b.from || ''));
+    const fromCmp = compareStringsDeterministically(a?.from, b?.from);
     if (fromCmp !== 0) return fromCmp;
-    return String(a.to || '').localeCompare(String(b.to || ''));
+    return compareStringsDeterministically(a?.to, b?.to);
   });
-  result.deletedFiles = [...(result.deletedFiles || [])].sort();
-  result.addedFiles = [...(result.addedFiles || [])].sort();
-  result.unmodeledChanges = [...(result.unmodeledChanges || [])].sort();
+  result.deletedFiles = sortStringsDeterministically(result.deletedFiles);
+  result.addedFiles = sortStringsDeterministically(result.addedFiles);
+  result.unmodeledChanges = sortStringsDeterministically(result.unmodeledChanges);
   result.changedComponents = [...(result.changedComponents || [])]
     .map((component) => ({
       ...component,
-      dependenciesAdded: [...(component.dependenciesAdded || [])].sort(),
-      dependenciesRemoved: [...(component.dependenciesRemoved || [])].sort(),
-      roleTagsAdded: [...(component.roleTagsAdded || [])].sort(),
-      roleTagsRemoved: [...(component.roleTagsRemoved || [])].sort(),
-      roleTags: [...(component.roleTags || [])].sort(),
+      dependenciesAdded: sortStringsDeterministically(component.dependenciesAdded),
+      dependenciesRemoved: sortStringsDeterministically(component.dependenciesRemoved),
+      roleTagsAdded: sortStringsDeterministically(component.roleTagsAdded),
+      roleTagsRemoved: sortStringsDeterministically(component.roleTagsRemoved),
+      roleTags: sortStringsDeterministically(component.roleTags),
     }))
-    .sort((a, b) => String(a.filePath || '').localeCompare(String(b.filePath || '')));
-  result.dependencyEdgeDelta.added = [...(result.dependencyEdgeDelta.added || [])].sort();
-  result.dependencyEdgeDelta.removed = [...(result.dependencyEdgeDelta.removed || [])].sort();
-  result.blastRadius.impactedComponents = [...(result.blastRadius.impactedComponents || [])].sort();
-  result.risk.flags = [...(result.risk.flags || [])].sort();
-  result.agentSummary.riskReasons = [...(result.agentSummary.riskReasons || [])].sort();
+    .sort((a, b) => compareStringsDeterministically(a?.filePath, b?.filePath));
+  result.dependencyEdgeDelta.added = sortStringsDeterministically(result.dependencyEdgeDelta.added);
+  result.dependencyEdgeDelta.removed = sortStringsDeterministically(result.dependencyEdgeDelta.removed);
+  result.blastRadius.impactedComponents = sortStringsDeterministically(result.blastRadius.impactedComponents);
+  result.risk.flags = sortStringsDeterministically(result.risk.flags);
+  result.agentSummary.riskReasons = sortStringsDeterministically(result.agentSummary.riskReasons);
   result._meta.durationMs = 0;
 }
 
@@ -469,8 +481,13 @@ function registerWorkflowCommands(program, deps) {
       // so the JSON reflects the override state correctly
       let exitCode = 0;
       if (options.failOnRisk && threshold !== 'none') {
-        const thresholdNum = RISK_LEVEL_SCORE[threshold] || 0;
-        const riskNum = RISK_LEVEL_SCORE[result.risk.level] || 0;
+        const thresholdNum = RISK_LEVEL_SCORE[threshold];
+        const riskNum = RISK_LEVEL_SCORE[result.risk.level];
+
+        if (typeof riskNum !== 'number') {
+          console.error(chalk.red('\n❌ Unknown computed risk level:'), result.risk.level);
+          process.exit(2);
+        }
 
         if (riskNum >= thresholdNum) {
           // Check for override
@@ -555,4 +572,9 @@ function registerWorkflowCommands(program, deps) {
   return workflowCommand;
 }
 
-module.exports = { registerWorkflowCommands };
+module.exports = {
+  registerWorkflowCommands,
+  normalizeListOption,
+  compareStringsDeterministically,
+  sortPrImpactResultDeterministically,
+};

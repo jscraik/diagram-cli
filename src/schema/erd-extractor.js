@@ -272,6 +272,8 @@ function appendParseDiagnostics(diagnostics, parseErrors) {
 }
 
 function relationshipKey(fromEntity, toEntity) {
+  // Deduplicate inferred links against explicit relationships at the entity-pair level.
+  // Cardinality differences are preserved later in erd-model relationship storage.
   return `${canonicalEntityName(fromEntity)}|${canonicalEntityName(toEntity)}`;
 }
 

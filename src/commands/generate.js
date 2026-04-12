@@ -30,8 +30,10 @@ function cleanupTempDirectory(tempDir) {
   if (!tempDir || !fs.existsSync(tempDir)) return;
   try {
     fs.rmSync(tempDir, { recursive: true, force: true });
-  } catch (_cleanupError) {
-    // Ignore cleanup errors.
+  } catch (cleanupError) {
+    if (process.env.DEBUG) {
+      console.error(chalk.gray(`Temp cleanup failed for "${tempDir}": ${cleanupError.message}`));
+    }
   }
 }
 
