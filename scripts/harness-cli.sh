@@ -58,24 +58,6 @@ if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
 		set -e
 		exit "$harness_status"
 	fi
-	if [[ "${CI:-}" == "true" ]]; then
-		if ! command -v npm >/dev/null 2>&1; then
-			echo "Error: npm is required for CI fallback when local harness package is missing." >&2
-			print_bootstrap_guidance
-			exit 1
-		fi
-		echo "Warning: local harness CLI missing; using npm exec fallback in CI." >&2
-		set +e
-		bash -lc 'npm exec harness -- "$@"' _ "$@"
-		npm_exec_status=$?
-		set -e
-		if [[ $npm_exec_status -eq 0 ]]; then
-			exit 0
-		fi
-		echo "Error: CI fallback failed to execute harness via npm exec." >&2
-		print_bootstrap_guidance
-		exit "$npm_exec_status"
-	fi
 	echo "Error: local harness CLI could not be resolved from this repo." >&2
 	echo "This is a local install/bootstrap problem, not a harness command failure." >&2
 	print_bootstrap_guidance
