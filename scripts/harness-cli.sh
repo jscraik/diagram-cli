@@ -53,7 +53,7 @@ set -e
 if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
 	if command -v harness >/dev/null 2>&1; then
 		set +e
-		harness "$@"
+		zsh -lc 'harness "$@"' _ "$@"
 		harness_status=$?
 		set -e
 		exit "$harness_status"
@@ -66,7 +66,7 @@ if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
 		fi
 		echo "Warning: local @brainwav/coding-harness missing; using pinned npx package fallback in CI." >&2
 		set +e
-		npx --yes --package @brainwav/coding-harness harness "$@"
+		zsh -lc 'npx --yes --package @brainwav/coding-harness harness "$@"' _ "$@"
 		npx_status=$?
 		set -e
 		if [[ $npx_status -eq 0 ]]; then

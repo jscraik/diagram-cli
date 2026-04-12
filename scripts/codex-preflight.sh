@@ -255,7 +255,7 @@ create_named_tmp_files() {
 			cleanup_tmp_files "${created[@]}"
 			return 1
 		fi
-		printf -v "${var_name}" '%s' "${tmp_file}"
+		eval "${var_name}=\"\${tmp_file}\""
 		created+=("${tmp_file}")
 	done
 
@@ -680,9 +680,11 @@ run_preflight_profile() {
 	local local_memory_mode="${5:-required}"
 
 	if [[ -z "${bins_csv}" ]]; then
+		# Keep the defaults here so direct run_preflight_profile calls still work even when main receives explicit flags.
 		bins_csv="$(stack_bins_csv "${stack}")"
 	fi
 	if [[ -z "${paths_csv}" ]]; then
+		# main has its own defaults; passing these through preserves the direct-call behavior above.
 		paths_csv="$(stack_paths_csv "${stack}")"
 	fi
 
