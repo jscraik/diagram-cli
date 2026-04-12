@@ -358,6 +358,25 @@ async function analyzeAtRef(ref, root, options = {}) {
   };
 }
 
+function dependencyFilePathSet(dependencies) {
+  return new Set(
+    (dependencies || [])
+      .map((dependency) => (typeof dependency === 'object' ? dependency.filePath : dependency))
+      .filter(Boolean)
+  );
+}
+
+function countDependencyEdges(components) {
+  return components.reduce((sum, component) => sum + (component.dependencies || []).length, 0);
+}
+
+function buildTypeDistribution(components) {
+  return components.reduce((distribution, component) => {
+    distribution[component.type] = (distribution[component.type] || 0) + 1;
+    return distribution;
+  }, {});
+}
+
 /**
  * Compute architecture diff between two analysis results
  * @param {object} base - Base analysis result
@@ -378,12 +397,8 @@ function computeArchitectureDiff(base, head) {
       added.push({ filePath, name: comp.name, type: comp.type });
     } else {
       const baseComp = baseComponents.get(filePath);
-      // dependencies are stored as {name, filePath} objects by analyzeAtRef.
-      // Normalise to a Set of filePaths for comparison.
-      const toFilePaths = (deps) =>
-        new Set((deps || []).map(d => (typeof d === 'object' ? d.filePath : d)).filter(Boolean));
-      const baseDeps = toFilePaths(baseComp.dependencies);
-      const headDeps = toFilePaths(comp.dependencies);
+      const baseDeps = dependencyFilePathSet(baseComp.dependencies);
+      const headDeps = dependencyFilePathSet(comp.dependencies);
 
       const depsAdded = [...headDeps].filter(d => !baseDeps.has(d));
       const depsRemoved = [...baseDeps].filter(d => !headDeps.has(d));
@@ -407,18 +422,10 @@ function computeArchitectureDiff(base, head) {
   }
 
   // Count edges
-  const baseEdgeCount = base.components.reduce((sum, c) => sum + (c.dependencies || []).length, 0);
-  const headEdgeCount = head.components.reduce((sum, c) => sum + (c.dependencies || []).length, 0);
-
-  // Type distribution
-  const baseTypes = {};
-  const headTypes = {};
-  for (const c of base.components) {
-    baseTypes[c.type] = (baseTypes[c.type] || 0) + 1;
-  }
-  for (const c of head.components) {
-    headTypes[c.type] = (headTypes[c.type] || 0) + 1;
-  }
+  const baseEdgeCount = countDependencyEdges(base.components);
+  const headEdgeCount = countDependencyEdges(head.components);
+  const baseTypes = buildTypeDistribution(base.components);
+  const headTypes = buildTypeDistribution(head.components);
 
   // Language distribution
   const baseLangs = { ...base.languages };

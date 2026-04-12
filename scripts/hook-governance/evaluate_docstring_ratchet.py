@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -92,8 +93,8 @@ def evaluate_repo(
         )
     unresolved_suppressions = unresolved_suppressions_value
 
-    import math
     expected_points = math.ceil(window_days / 7)
+    max_false_positive_rate = max(false_positive_rates, default=0.0)
 
     ratchet_reasons: list[str] = []
     if len(false_positive_rates) < expected_points:
@@ -101,10 +102,10 @@ def evaluate_repo(
             f"insufficient false-positive metrics for the full {window_days}-day window "
             f"({len(false_positive_rates)}/{expected_points} weeks)"
         )
-    elif max(false_positive_rates) > FALSE_POSITIVE_THRESHOLD:
+    elif max_false_positive_rate > FALSE_POSITIVE_THRESHOLD:
         ratchet_reasons.append(
             "false-positive rate exceeds threshold "
-            f"({max(false_positive_rates):.3f} > {FALSE_POSITIVE_THRESHOLD:.3f})"
+            f"({max_false_positive_rate:.3f} > {FALSE_POSITIVE_THRESHOLD:.3f})"
         )
 
     if unresolved_suppressions > 0:

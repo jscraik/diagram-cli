@@ -50,10 +50,6 @@ def parse_rfc3339_utc(value: str) -> datetime:
     return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
-def utc_now_rfc3339() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 def _make_path_portable(path_str: str) -> str:
     """Convert absolute paths to portable relative form by removing user-specific prefixes."""
     path_obj = Path(path_str)
@@ -85,6 +81,28 @@ def _extract_gate_ids(stages: object) -> set[str]:
     return gate_ids
 
 
+def _repo_summary(
+    *,
+    repo_name: str,
+    repo_path: str,
+    profile_type: str,
+    rollout_wave: str,
+    artifact_path: str,
+    issues: list[str],
+    warnings: list[str],
+) -> dict[str, object]:
+    return {
+        "repo_name": repo_name,
+        "repo_path": repo_path,
+        "profile_type": profile_type,
+        "rollout_wave": rollout_wave,
+        "artifact_path": artifact_path,
+        "status": "pass" if not issues else "fail",
+        "issues": issues,
+        "warnings": warnings,
+    }
+
+
 def _evaluate_repo(
     repo: dict[str, object],
     required_gate_ids: tuple[str, ...],
@@ -104,6 +122,8 @@ def _evaluate_repo(
     repo_path = Path(repo_path_value)
     artifact_path = repo_path / ".codex" / "hook-conformance.json"
     rollout_wave = PROFILE_TO_WAVE.get(profile_type, "wave-unclassified")
+    portable_repo_path = _make_path_portable(str(repo_path))
+    portable_artifact_path = _make_path_portable(str(artifact_path))
 
     issues: list[str] = []
     warnings: list[str] = []
@@ -112,60 +132,56 @@ def _evaluate_repo(
         issues.append(
             f"repo '{repo_name}' missing conformance artifact: {artifact_path}"
         )
-        return {
-            "repo_name": repo_name,
-            "repo_path": _make_path_portable(str(repo_path)),
-            "profile_type": profile_type,
-            "rollout_wave": rollout_wave,
-            "artifact_path": _make_path_portable(str(artifact_path)),
-            "status": "fail",
-            "issues": issues,
-            "warnings": warnings,
-        }
+        return _repo_summary(
+            repo_name=repo_name,
+            repo_path=portable_repo_path,
+            profile_type=profile_type,
+            rollout_wave=rollout_wave,
+            artifact_path=portable_artifact_path,
+            issues=issues,
+            warnings=warnings,
+        )
 
     try:
         artifact = load_structured_file(artifact_path)
     except RolloutCheckError as exc:
         issues.append(f"repo '{repo_name}' artifact parse error: {exc}")
-        return {
-            "repo_name": repo_name,
-            "repo_path": _make_path_portable(str(repo_path)),
-            "profile_type": profile_type,
-            "rollout_wave": rollout_wave,
-            "artifact_path": _make_path_portable(str(artifact_path)),
-            "status": "fail",
-            "issues": issues,
-            "warnings": warnings,
-        }
+        return _repo_summary(
+            repo_name=repo_name,
+            repo_path=portable_repo_path,
+            profile_type=profile_type,
+            rollout_wave=rollout_wave,
+            artifact_path=portable_artifact_path,
+            issues=issues,
+            warnings=warnings,
+        )
 
     if not isinstance(artifact, dict):
         issues.append(f"repo '{repo_name}' artifact must be a JSON object")
-        return {
-            "repo_name": repo_name,
-            "repo_path": _make_path_portable(str(repo_path)),
-            "profile_type": profile_type,
-            "rollout_wave": rollout_wave,
-            "artifact_path": _make_path_portable(str(artifact_path)),
-            "status": "fail",
-            "issues": issues,
-            "warnings": warnings,
-        }
+        return _repo_summary(
+            repo_name=repo_name,
+            repo_path=portable_repo_path,
+            profile_type=profile_type,
+            rollout_wave=rollout_wave,
+            artifact_path=portable_artifact_path,
+            issues=issues,
+            warnings=warnings,
+        )
 
     schema_version = artifact.get("schema_version")
     if schema_version != "hook-conformance.v1":
         issues.append(
             f"repo '{repo_name}' artifact schema_version must be 'hook-conformance.v1' (found '{schema_version}')"
         )
-        return {
-            "repo_name": repo_name,
-            "repo_path": _make_path_portable(str(repo_path)),
-            "profile_type": profile_type,
-            "rollout_wave": rollout_wave,
-            "artifact_path": _make_path_portable(str(artifact_path)),
-            "status": "fail",
-            "issues": issues,
-            "warnings": warnings,
-        }
+        return _repo_summary(
+            repo_name=repo_name,
+            repo_path=portable_repo_path,
+            profile_type=profile_type,
+            rollout_wave=rollout_wave,
+            artifact_path=portable_artifact_path,
+            issues=issues,
+            warnings=warnings,
+        )
 
     freshness_status = artifact.get("freshness_status")
     if freshness_status != "fresh":
@@ -227,16 +243,15 @@ def _evaluate_repo(
                 )
             )
 
-    return {
-        "repo_name": repo_name,
-        "repo_path": _make_path_portable(str(repo_path)),
-        "profile_type": profile_type,
-        "rollout_wave": rollout_wave,
-        "artifact_path": _make_path_portable(str(artifact_path)),
-        "status": "pass" if not issues else "fail",
-        "issues": issues,
-        "warnings": warnings,
-    }
+    return _repo_summary(
+        repo_name=repo_name,
+        repo_path=portable_repo_path,
+        profile_type=profile_type,
+        rollout_wave=rollout_wave,
+        artifact_path=portable_artifact_path,
+        issues=issues,
+        warnings=warnings,
+    )
 
 
 def evaluate_rollout(

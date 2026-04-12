@@ -24,6 +24,10 @@ const SQL_TABLE_FOREIGN_KEY_RE = new RegExp(
   'i'
 );
 const SQL_TABLE_CONSTRAINT_LINE_RE = /^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i;
+const SCHEMA_PARSERS = Object.freeze({
+  prisma: parsePrismaSchema,
+  sql: parseSqlSchema,
+});
 
 function parsePrismaField(line) {
   const trimmed = line.trim();
@@ -256,8 +260,8 @@ function parseSqlSchema(fileContent) {
 }
 
 function parseSchemaSource(source, content) {
-  if (source === 'prisma') return parsePrismaSchema(content);
-  if (source === 'sql') return parseSqlSchema(content);
+  const parser = SCHEMA_PARSERS[source];
+  if (parser) return parser(content);
   throw new Error(`unsupported schema source: ${source}`);
 }
 
@@ -266,14 +270,14 @@ function appendParseDiagnostics(diagnostics, parseErrors) {
   diagnostics.push(...parseErrors.map((error) => `${error.source}:${error.file}: ${error.message}`));
 }
 
+function relationshipKey(fromEntity, toEntity) {
+  return `${canonicalEntityName(fromEntity)}|${canonicalEntityName(toEntity)}`;
+}
+
 function inferRelationshipsFromForeignKeyNames(entities, explicitRelationships) {
   const byEntity = new Map(entities.map((entity) => [canonicalEntityName(entity.name), entity]));
   const explicitKeys = new Set(
-    explicitRelationships.map((relationship) => {
-      const from = canonicalEntityName(relationship.fromEntity);
-      const to = canonicalEntityName(relationship.toEntity);
-      return `${from}|${to}`;
-    })
+    explicitRelationships.map((relationship) => relationshipKey(relationship.fromEntity, relationship.toEntity))
   );
 
   const inferred = [];
@@ -292,7 +296,7 @@ function inferRelationshipsFromForeignKeyNames(entities, explicitRelationships) 
 
       const target = candidates.find((candidate) => byEntity.has(candidate));
       if (!target) continue;
-      const key = `${from}|${target}`;
+      const key = relationshipKey(from, target);
       if (explicitKeys.has(key)) continue;
       explicitKeys.add(key);
       inferred.push({

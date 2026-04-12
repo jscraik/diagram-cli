@@ -121,6 +121,14 @@ function normalizedDependencySet(component, aliases = null) {
   return new Set(normalizedDependencies(component, aliases));
 }
 
+function addDependencyEdges(edgeSet, component, aliases = null) {
+  const fromPath = component?.filePath;
+  if (!fromPath) return;
+  for (const dep of normalizedDependencies(component, aliases)) {
+    edgeSet.add(`${fromPath}→${dep}`);
+  }
+}
+
 /**
  * Build a concise delta summary describing file, component and dependency changes between two analysis snapshots.
  *
@@ -214,16 +222,12 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   // Compute dependency edge deltas
   const baseEdges = new Set();
   for (const c of baseAnalysis.components || []) {
-    for (const dep of normalizedDependencies(c, baseAliases)) {
-      baseEdges.add(`${c.filePath}→${dep}`);
-    }
+    addDependencyEdges(baseEdges, c, baseAliases);
   }
 
   const headEdges = new Set();
   for (const c of headAnalysis.components || []) {
-    for (const dep of normalizedDependencies(c, headAliases)) {
-      headEdges.add(`${c.filePath}→${dep}`);
-    }
+    addDependencyEdges(headEdges, c, headAliases);
   }
 
   const edgesAdded = [...headEdges].filter(e => !baseEdges.has(e)).sort();
@@ -418,41 +422,30 @@ function groupChangePaths(result, maxPreview = 10) {
     unmodeled: { items: [], count: 0, truncated: false }
   };
 
-  // Process each file status array with stable sorting
-  const sortStrings = (arr) => [...arr].sort((a, b) => String(a).localeCompare(String(b)));
+  const buildSortedPreviewGroup = (items) => {
+    const sorted = [...(items || [])].sort((a, b) => String(a).localeCompare(String(b)));
+    return {
+      count: sorted.length,
+      items: sorted.slice(0, maxPreview),
+      truncated: sorted.length > maxPreview,
+    };
+  };
+  const buildRenamedPreviewGroup = (items) => {
+    const sorted = [...(items || [])].sort((a, b) =>
+      String(a?.from || '').localeCompare(String(b?.from || ''))
+    );
+    return {
+      count: sorted.length,
+      items: sorted.slice(0, maxPreview),
+      truncated: sorted.length > maxPreview,
+    };
+  };
 
-  // Changed files
-  const changed = sortStrings(result.changedFiles || []);
-  groups.changed.count = changed.length;
-  groups.changed.items = changed.slice(0, maxPreview);
-  groups.changed.truncated = changed.length > maxPreview;
-
-  // Renamed files (array of { from, to } objects)
-  const renamed = result.renamedFiles || [];
-  const renamedSorted = [...renamed].sort((a, b) =>
-    (a.from || '').localeCompare(b.from || '')
-  );
-  groups.renamed.count = renamedSorted.length;
-  groups.renamed.items = renamedSorted.slice(0, maxPreview);
-  groups.renamed.truncated = renamedSorted.length > maxPreview;
-
-  // Added files
-  const added = sortStrings(result.addedFiles || []);
-  groups.added.count = added.length;
-  groups.added.items = added.slice(0, maxPreview);
-  groups.added.truncated = added.length > maxPreview;
-
-  // Deleted files
-  const deleted = sortStrings(result.deletedFiles || []);
-  groups.deleted.count = deleted.length;
-  groups.deleted.items = deleted.slice(0, maxPreview);
-  groups.deleted.truncated = deleted.length > maxPreview;
-
-  // Unmodeled changes
-  const unmodeled = sortStrings(result.unmodeledChanges || []);
-  groups.unmodeled.count = unmodeled.length;
-  groups.unmodeled.items = unmodeled.slice(0, maxPreview);
-  groups.unmodeled.truncated = unmodeled.length > maxPreview;
+  groups.changed = buildSortedPreviewGroup(result.changedFiles);
+  groups.renamed = buildRenamedPreviewGroup(result.renamedFiles);
+  groups.added = buildSortedPreviewGroup(result.addedFiles);
+  groups.deleted = buildSortedPreviewGroup(result.deletedFiles);
+  groups.unmodeled = buildSortedPreviewGroup(result.unmodeledChanges);
 
   return groups;
 }

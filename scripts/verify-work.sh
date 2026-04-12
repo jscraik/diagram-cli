@@ -21,6 +21,20 @@ cleanup_temp_paths() {
 }
 trap cleanup_temp_paths EXIT
 
+new_temp_json() {
+	local __target_var="$1"
+	local pattern="$2"
+	local temp_path=""
+	temp_path="$(mktemp "${TMPDIR:-/tmp}/${pattern}.XXXXXX.json")"
+	temp_paths+=("$temp_path")
+	printf -v "$__target_var" '%s' "$temp_path"
+}
+
+print_stage() {
+	echo
+	echo "==> $1"
+}
+
 usage() {
 	cat <<'USAGE'
 Usage: scripts/verify-work.sh [options]
@@ -133,27 +147,21 @@ run_hook_governance_checks() {
 	local classification_ready=0
 
 	if [[ "$hook_governance_scope" == "project-local" ]]; then
-		scope_manifest="$(mktemp "${TMPDIR:-/tmp}/verify-work-hook-scope.XXXXXX.json")"
-		inventory_path="$(mktemp "${TMPDIR:-/tmp}/verify-work-repo-profile-matrix.XXXXXX.json")"
-		classification_path="$(mktemp "${TMPDIR:-/tmp}/verify-work-public-api-classification.XXXXXX.json")"
-		rollout_output="$(mktemp "${TMPDIR:-/tmp}/verify-work-rollout-check-report.XXXXXX.json")"
-		ratchet_output="$(mktemp "${TMPDIR:-/tmp}/verify-work-docstring-ratchet-report.XXXXXX.json")"
-		temp_paths+=("$scope_manifest" "$inventory_path" "$classification_path" "$rollout_output" "$ratchet_output")
+		new_temp_json scope_manifest "verify-work-hook-scope"
+		new_temp_json inventory_path "verify-work-repo-profile-matrix"
+		new_temp_json classification_path "verify-work-public-api-classification"
+		new_temp_json rollout_output "verify-work-rollout-check-report"
+		new_temp_json ratchet_output "verify-work-docstring-ratchet-report"
 		build_project_local_manifest "$scope_manifest" "$workspace_root" "$current_repo_name"
 		echo "[verify-work] hook-governance scope: project-local (repo=$current_repo_name)"
 	else
 		echo "[verify-work] hook-governance scope: workspace"
-		if [[ -f "$inventory_path" ]]; then
-			inventory_ready=1
-		fi
-		if [[ -f "$classification_path" ]]; then
-			classification_ready=1
-		fi
+		[[ -f "$inventory_path" ]] && inventory_ready=1
+		[[ -f "$classification_path" ]] && classification_ready=1
 	fi
 
 	if [[ -f "$inventory_script" && -f "$scope_manifest" ]]; then
-		echo
-		echo "==> hook-governance-inventory"
+		print_stage "hook-governance-inventory"
 		python3 "$inventory_script" --manifest "$scope_manifest" --out "$inventory_path"
 		inventory_ready=1
 	else
@@ -161,8 +169,7 @@ run_hook_governance_checks() {
 	fi
 
 	if [[ -f "$classify_script" && -f "$public_rules" && "$inventory_ready" -eq 1 ]]; then
-		echo
-		echo "==> hook-governance-public-api-classification"
+		print_stage "hook-governance-public-api-classification"
 		python3 "$classify_script" \
 			--inventory "$inventory_path" \
 			--rules "$public_rules" \
@@ -173,8 +180,7 @@ run_hook_governance_checks() {
 	fi
 
 	if [[ -f "$ratchet_script" && -f "$metrics_file" && "$classification_ready" -eq 1 ]]; then
-		echo
-		echo "==> hook-governance-docstring-ratchet"
+		print_stage "hook-governance-docstring-ratchet"
 		python3 "$ratchet_script" \
 			--classification "$classification_path" \
 			--metrics "$metrics_file" \
@@ -185,8 +191,7 @@ run_hook_governance_checks() {
 	fi
 
 	if [[ -f "$rollout_script" && "$inventory_ready" -eq 1 ]]; then
-		echo
-		echo "==> hook-governance-rollout-check"
+		print_stage "hook-governance-rollout-check"
 		python3 "$rollout_script" \
 			--inventory "$inventory_path" \
 			--recovery-slo-hours 24 \
@@ -253,8 +258,7 @@ stack="$(detect_stack)"
 bins_csv="$(preflight_bins_csv "$stack")"
 paths_csv="$(preflight_paths_csv "$stack")"
 
-echo
-echo "==> codex-preflight"
+print_stage "codex-preflight"
 bash "$repo_root/scripts/codex-preflight.sh" \
 	--stack "$stack" \
 	--mode "$local_memory_mode" \
@@ -262,25 +266,21 @@ bash "$repo_root/scripts/codex-preflight.sh" \
 	--paths "$paths_csv"
 
 if [[ "$fast_mode" -eq 0 ]]; then
-	echo
-	echo "==> check"
+	print_stage "check"
 	pnpm check
 	run_hook_governance_checks
 	exit 0
 fi
 
-echo
-echo "==> lint"
+print_stage "lint"
 pnpm lint
 
-echo
-echo "==> typecheck"
+print_stage "typecheck"
 pnpm typecheck
 
 if [[ "$changed_only" -eq 1 ]]; then
 	if has_package_script "test:related"; then
-		echo
-		echo "==> test:related"
+		print_stage "test:related"
 		pnpm test:related
 	else
 		if [[ "$strict_mode" -eq 1 ]]; then
@@ -288,13 +288,11 @@ if [[ "$changed_only" -eq 1 ]]; then
 			exit 1
 		fi
 		echo "[verify-work] test:related unavailable; falling back to full test run"
-		echo
-		echo "==> test"
+		print_stage "test"
 		pnpm test
 	fi
 else
-	echo
-	echo "==> test"
+	print_stage "test"
 	pnpm test
 fi
 

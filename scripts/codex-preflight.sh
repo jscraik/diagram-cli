@@ -653,6 +653,14 @@ run_preflight_profile() {
 	local bins_csv="${3:-}"
 	local paths_csv="${4:-}"
 	local local_memory_mode="${5:-required}"
+
+	if [[ -z "${bins_csv}" ]]; then
+		bins_csv="$(stack_bins_csv "${stack}")"
+	fi
+	if [[ -z "${paths_csv}" ]]; then
+		paths_csv="$(stack_paths_csv "${stack}")"
+	fi
+
 	local -a args=(
 		--stack "${stack}"
 		--mode "${local_memory_mode}"
@@ -672,43 +680,23 @@ run_preflight_profile() {
 }
 
 preflight_repo() {
-	run_preflight_profile \
-		repo \
-		"${1:-}" \
-		"${2:-git,bash,sed,rg,jq,curl,python3}" \
-		"${3:-CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" \
-		"${4:-required}"
+	run_preflight_profile repo "${1:-}" "${2:-}" "${3:-}" "${4:-required}"
 }
 
 preflight_js() {
-	run_preflight_profile \
-		js \
-		"${1:-}" \
-		"${2:-git,bash,sed,rg,jq,curl,node,npm,python3}" \
-		"${3:-package.json,CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" \
-		"${4:-required}"
+	run_preflight_profile js "${1:-}" "${2:-}" "${3:-}" "${4:-required}"
 }
 
 preflight_py() {
-	run_preflight_profile \
-		py \
-		"${1:-}" \
-		"${2:-git,bash,sed,rg,jq,curl,python3}" \
-		"${3:-pyproject.toml,CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" \
-		"${4:-required}"
+	run_preflight_profile py "${1:-}" "${2:-}" "${3:-}" "${4:-required}"
 }
 
 preflight_rust() {
-	run_preflight_profile \
-		rust \
-		"${1:-}" \
-		"${2:-git,bash,sed,rg,jq,curl,python3,cargo}" \
-		"${3:-Cargo.toml,CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" \
-		"${4:-required}"
+	run_preflight_profile rust "${1:-}" "${2:-}" "${3:-}" "${4:-required}"
 }
 
 preflight_repo_local_memory() {
-	preflight_repo "${1:-}" "${2:-git,bash,sed,rg,jq,curl,python3}" "${3:-CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" required
+	preflight_repo "${1:-}" "${2:-}" "${3:-}" required
 }
 
 main() {
