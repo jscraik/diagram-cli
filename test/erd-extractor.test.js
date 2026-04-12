@@ -1,6 +1,15 @@
 const { expect } = require('chai');
 const path = require('path');
-const { SOURCE_PRECEDENCE, extractErdModel } = require('../src/schema/erd-extractor');
+const { SOURCE_PRECEDENCE, extractErdModel, __test } = require('../src/schema/erd-extractor');
+
+const {
+  SCHEMA_PARSERS,
+  inferRelationshipsFromForeignKeyNames,
+  parsePrismaSchema,
+  parseSqlSchema,
+  relationshipKey,
+  splitSqlTypeAndRemainder,
+} = __test;
 
 function fixturePath(name) {
   return path.join(__dirname, 'fixtures', 'erd', name);
@@ -112,5 +121,55 @@ describe('erd extractor', () => {
     expect(extracted.terminalClass).to.equal('failed_parse');
     expect(extracted.model.entities).to.have.length(0);
     expect(extracted.diagnostics[0]).to.include('schema sources found but no ERD entities extracted');
+  });
+});
+
+describe('erd extractor helpers', () => {
+  describe('SCHEMA_PARSERS dispatch', () => {
+    it('maps prisma to parsePrismaSchema', () => {
+      expect(SCHEMA_PARSERS.prisma).to.equal(parsePrismaSchema);
+    });
+
+    it('maps sql to parseSqlSchema', () => {
+      expect(SCHEMA_PARSERS.sql).to.equal(parseSqlSchema);
+    });
+  });
+
+  describe('splitSqlTypeAndRemainder', () => {
+    it('preserves multi-word SQL types before constraints', () => {
+      const parsed = splitSqlTypeAndRemainder('TIMESTAMP WITH TIME ZONE NOT NULL');
+      expect(parsed.columnType).to.equal('TIMESTAMP WITH TIME ZONE');
+      expect(parsed.remainder).to.equal('NOT NULL');
+    });
+
+    it('does not split on constraint keywords inside quoted literals', () => {
+      const parsed = splitSqlTypeAndRemainder("ENUM('not null', 'active') DEFAULT 'active'");
+      expect(parsed.columnType).to.equal("ENUM('not null', 'active')");
+      expect(parsed.remainder).to.equal("DEFAULT 'active'");
+    });
+
+    it('respects parenthesis depth when scanning constraints', () => {
+      const parsed = splitSqlTypeAndRemainder('NUMERIC(10,2) NOT NULL');
+      expect(parsed.columnType).to.equal('NUMERIC(10,2)');
+      expect(parsed.remainder).to.equal('NOT NULL');
+    });
+  });
+
+  describe('relationship inference deduplication', () => {
+    it('returns stable keys for canonicalized entity pairs', () => {
+      const key1 = relationshipKey('users', 'ORDERS');
+      const key2 = relationshipKey('USERS', 'orders');
+      expect(key1).to.equal(key2);
+    });
+
+    it('skips inferred relationships when explicit relationships exist for the same pair', () => {
+      const entities = [
+        { name: 'orders', attributes: [{ name: 'id' }, { name: 'user_id' }] },
+        { name: 'users', attributes: [{ name: 'id' }] },
+      ];
+      const explicitRelationships = [{ fromEntity: 'ORDERS', toEntity: 'USERS', cardinality: '}o--||' }];
+      const inferred = inferRelationshipsFromForeignKeyNames(entities, explicitRelationships);
+      expect(inferred).to.have.length(0);
+    });
   });
 });

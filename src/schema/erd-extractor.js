@@ -477,4 +477,13 @@ function extractErdModel({ rootPath }) {
 module.exports = {
   SOURCE_PRECEDENCE,
   extractErdModel,
+  // Expose parser internals for focused unit coverage without duplicating logic.
+  __test: {
+    SCHEMA_PARSERS,
+    inferRelationshipsFromForeignKeyNames,
+    parsePrismaSchema,
+    parseSqlSchema,
+    relationshipKey,
+    splitSqlTypeAndRemainder,
+  },
 };
