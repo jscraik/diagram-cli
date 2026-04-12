@@ -115,6 +115,26 @@ describe('erd extractor', () => {
     expect(displayName.nullable).to.equal(false);
   });
 
+  it('parses quoted SQL column identifiers with spaces, hyphens, and leading digits', () => {
+    const extracted = extractErdModel({ rootPath: fixturePath('sql-quoted-identifiers') });
+
+    expect(extracted.terminalClass).to.equal('completed');
+    expect(extracted.model.entities.map((entity) => entity.name)).to.deep.equal(['SESSIONS', 'USERS']);
+
+    const users = extracted.model.entities.find((entity) => entity.name === 'USERS');
+    expect(users).to.exist;
+    expect(users.attributes.map((attribute) => attribute.name)).to.include('2fa_enabled');
+    expect(users.attributes.map((attribute) => attribute.name)).to.include('display_name');
+
+    const sessions = extracted.model.entities.find((entity) => entity.name === 'SESSIONS');
+    expect(sessions).to.exist;
+    const userId = sessions.attributes.find((attribute) => attribute.name === 'user_id');
+    expect(userId).to.exist;
+    expect(userId.keyFlags).to.include('FK');
+
+    expect(hasRelationship(extracted, 'SESSIONS', 'USERS')).to.equal(true);
+  });
+
   it('marks sources with no extractable entities as failed_parse', () => {
     const extracted = extractErdModel({ rootPath: fixturePath('sql-no-table') });
 

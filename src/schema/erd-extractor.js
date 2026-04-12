@@ -24,7 +24,7 @@ const SQL_TABLE_FOREIGN_KEY_RE = new RegExp(
   'i'
 );
 const SQL_TABLE_CONSTRAINT_LINE_RE = /^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i;
-const SQL_COLUMN_NAME_AND_BODY_RE = /^([`"]?[A-Za-z_][A-Za-z0-9_]*[`"]?)\s+([\s\S]+)$/i;
+const SQL_COLUMN_NAME_AND_BODY_RE = new RegExp(`^(${SQL_IDENTIFIER_SOURCE})\\s+([\\s\\S]+)$`, 'i');
 const SQL_COLUMN_CONSTRAINT_STARTERS = new Set([
   'constraint',
   'not',

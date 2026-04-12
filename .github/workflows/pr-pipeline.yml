@@ -319,14 +319,13 @@ jobs:
           fi
       - name: Run health drift gate
         if: steps.baseline-seed.outputs.seeded == 'true'
-        continue-on-error: true
         run: |
           bash scripts/harness-cli.sh drift-gate \
             --mode health \
             --json \
             --out artifacts/consistency-gate/health.json
       - name: Health guard (soft-fail)
-        if: steps.baseline-seed.outputs.seeded == 'true'
+        if: always()
         run: |
           if [[ ! -s artifacts/consistency-gate/health.json ]]; then
             echo "::warning::health report missing; writing fallback stub."
@@ -354,6 +353,8 @@ jobs:
             ]
           }
           JSON
+          else
+            exit 0
           fi
       - name: Bootstrap health warning (first-run)
         if: steps.baseline-seed.outputs.seeded != 'true'

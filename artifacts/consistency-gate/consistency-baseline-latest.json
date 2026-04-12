@@ -1,6 +1,5 @@
 {
   "schemaVersion": "1.0.0",
-  "generated_at": "2026-04-12T02:08:17.071Z",
   "findings": [
     {
       "rule_id": "command.surface.sources.missing",

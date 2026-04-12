@@ -56,10 +56,7 @@ if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
 		harness "$@"
 		harness_status=$?
 		set -e
-		if [[ $harness_status -eq 0 ]]; then
-			exit 0
-		fi
-		echo "Warning: harness on PATH failed; continuing fallback resolution." >&2
+		exit "$harness_status"
 	fi
 	if [[ "${CI:-}" == "true" ]]; then
 		if ! command -v npx >/dev/null 2>&1; then
