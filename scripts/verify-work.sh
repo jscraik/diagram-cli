@@ -165,39 +165,43 @@ run_hook_governance_checks() {
 		python3 "$inventory_script" --manifest "$scope_manifest" --out "$inventory_path"
 		inventory_ready=1
 	else
-		echo "[verify-work] skip hook-governance-inventory: inventory_repos.py or scope manifest not found"
+		echo "[verify-work] error: hook-governance inventory inputs missing: inventory_repos.py or scope manifest not found" >&2
+		return 1
 	fi
 
 	if [[ -f "$classify_script" && -f "$public_rules" && "$inventory_ready" -eq 1 ]]; then
 		print_stage "hook-governance-public-api-classification"
 		python3 "$classify_script" \
 			--inventory "$inventory_path" \
-			--rules "$public_rules" \
-			--out "$classification_path"
+		--rules "$public_rules" \
+		--out "$classification_path"
 		classification_ready=1
 	else
-		echo "[verify-work] skip hook-governance-public-api-classification: classifier script, rules, or inventory not found"
+		echo "[verify-work] error: hook-governance classification inputs missing: classifier script, rules, or inventory not found" >&2
+		return 1
 	fi
 
 	if [[ -f "$ratchet_script" && -f "$metrics_file" && "$classification_ready" -eq 1 ]]; then
 		print_stage "hook-governance-docstring-ratchet"
 		python3 "$ratchet_script" \
 			--classification "$classification_path" \
-			--metrics "$metrics_file" \
-			--window-days 14 \
-			--out "$ratchet_output"
+		--metrics "$metrics_file" \
+		--window-days 14 \
+		--out "$ratchet_output"
 	else
-		echo "[verify-work] skip hook-governance-docstring-ratchet: evaluator script, classification, or metrics not found"
+		echo "[verify-work] error: hook-governance docstring-ratchet inputs missing: evaluator script, classification, or metrics not found" >&2
+		return 1
 	fi
 
 	if [[ -f "$rollout_script" && "$inventory_ready" -eq 1 ]]; then
 		print_stage "hook-governance-rollout-check"
 		python3 "$rollout_script" \
-			--inventory "$inventory_path" \
-			--recovery-slo-hours 24 \
-			--out "$rollout_output"
+		--inventory "$inventory_path" \
+		--recovery-slo-hours 24 \
+		--out "$rollout_output"
 	else
-		echo "[verify-work] skip hook-governance-rollout-check: rollout_check.py or inventory not found"
+		echo "[verify-work] error: hook-governance rollout-check inputs missing: rollout_check.py or inventory not found" >&2
+		return 1
 	fi
 }
 
