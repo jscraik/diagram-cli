@@ -133,6 +133,38 @@ function addDependencyEdges(edgeSet, component, aliases = null) {
   }
 }
 
+function buildExistingComponentChange(filePath, baseComp, headComp, baseDeps, headDeps) {
+  const baseRoleTags = baseComp.roleTags || [];
+  const headRoleTags = headComp.roleTags || [];
+  const baseDepSet = new Set(baseDeps);
+  const headDepSet = new Set(headDeps);
+  return {
+    filePath,
+    name: headComp.name,
+    type: headComp.type,
+    roleTags: headRoleTags,
+    dependenciesAdded: [...headDepSet].filter((dep) => !baseDepSet.has(dep)),
+    dependenciesRemoved: [...baseDepSet].filter((dep) => !headDepSet.has(dep)),
+    roleTagsAdded: headRoleTags.filter((role) => !baseRoleTags.includes(role)),
+    roleTagsRemoved: baseRoleTags.filter((role) => !headRoleTags.includes(role)),
+  };
+}
+
+function buildNewComponentChange(filePath, headComp, headDependencies) {
+  const headRoleTags = headComp.roleTags || [];
+  return {
+    filePath,
+    name: headComp.name,
+    type: headComp.type,
+    roleTags: headRoleTags,
+    dependenciesAdded: headDependencies,
+    dependenciesRemoved: [],
+    roleTagsAdded: headRoleTags,
+    roleTagsRemoved: [],
+    isNew: true,
+  };
+}
+
 /**
  * Build a concise delta summary describing file, component and dependency changes between two analysis snapshots.
  *
@@ -185,37 +217,20 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
         const headDeps = normalizedDependencies(headComp, headAliases);
         const depsChanged = !arraysEqual(baseDeps, headDeps);
         const rolesChanged = !arraysEqual(
-          (baseComp.roleTags || []).sort(),
-          (headComp.roleTags || []).sort()
+          sortStringsDeterministically(baseComp.roleTags || []),
+          sortStringsDeterministically(headComp.roleTags || [])
         );
 
         if (depsChanged || rolesChanged) {
-          const baseDepSet = new Set(baseDeps);
-          const headDepSet = new Set(headDeps);
-          changedComponents.push({
-            filePath,
-            name: headComp.name,
-            type: headComp.type,
-            roleTags: headComp.roleTags,
-            dependenciesAdded: [...headDepSet].filter((dep) => !baseDepSet.has(dep)),
-            dependenciesRemoved: [...baseDepSet].filter((dep) => !headDepSet.has(dep)),
-            roleTagsAdded: (headComp.roleTags || []).filter(r => !(baseComp.roleTags || []).includes(r)),
-            roleTagsRemoved: (baseComp.roleTags || []).filter(r => !(headComp.roleTags || []).includes(r))
-          });
+          changedComponents.push(buildExistingComponentChange(filePath, baseComp, headComp, baseDeps, headDeps));
         }
       } else {
         // New file in head
-        changedComponents.push({
+        changedComponents.push(buildNewComponentChange(
           filePath,
-          name: headComp.name,
-          type: headComp.type,
-          roleTags: headComp.roleTags,
-          dependenciesAdded: normalizedDependencies(headComp, headAliases),
-          dependenciesRemoved: [],
-          roleTagsAdded: headComp.roleTags || [],
-          roleTagsRemoved: [],
-          isNew: true
-        });
+          headComp,
+          normalizedDependencies(headComp, headAliases)
+        ));
       }
     } else {
       // File changed but not modeled (e.g., config file, non-code)
@@ -234,8 +249,8 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
     addDependencyEdges(headEdges, c, headAliases);
   }
 
-  const edgesAdded = [...headEdges].filter(e => !baseEdges.has(e)).sort();
-  const edgesRemoved = [...baseEdges].filter(e => !headEdges.has(e)).sort();
+  const edgesAdded = sortStringsDeterministically([...headEdges].filter(e => !baseEdges.has(e)));
+  const edgesRemoved = sortStringsDeterministically([...baseEdges].filter(e => !headEdges.has(e)));
 
   return {
     changedComponents: changedComponents.sort((a, b) => compareStringsDeterministically(a.filePath, b.filePath)),

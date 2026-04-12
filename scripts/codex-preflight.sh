@@ -227,6 +227,45 @@ create_tmp_file() {
 	printf '%s\n' "${tmp_file}"
 }
 
+create_named_tmp_files() {
+	if (( $# == 0 )) || (( $# % 2 != 0 )); then
+		log_err 'create_named_tmp_files requires var/label pairs'
+		return 1
+	fi
+
+	local var_name=''
+	local label=''
+	local tmp_file=''
+	local -a created=()
+
+	while (( $# > 0 )); do
+		var_name="$1"
+		label="$2"
+		shift 2
+
+		if ! tmp_file="$(create_tmp_file "${label}")"; then
+			cleanup_tmp_files "${created[@]}"
+			return 1
+		fi
+		printf -v "${var_name}" '%s' "${tmp_file}"
+		created+=("${tmp_file}")
+	done
+
+	set_cleanup_trap "${created[@]}"
+}
+
+count_search_hits() {
+	local search_json="$1"
+	echo "${search_json}" | jq -r '
+		if type == "array" then length
+		elif .search_info.total_results != null then .search_info.total_results
+		elif .results then (.results | length)
+		elif .data.results then (.data.results | length)
+		elif .data then (.data | length)
+		else 0 end
+	'
+}
+
 post_json_to_file() {
 	local output_path="$1"
 	local url="$2"
@@ -461,41 +500,16 @@ preflight_local_memory_gold() {
 	local relate_output=''
 	local search_output=''
 
-	if ! malformed_output="$(create_tmp_file 'malformed payload response')"; then
+	if ! create_named_tmp_files \
+		malformed_output 'malformed payload response' \
+		dup_output_1 'duplicate response one' \
+		dup_output_2 'duplicate response two' \
+		observe_a_output 'observe response A' \
+		observe_b_output 'observe response B' \
+		relate_output 'relationship response' \
+		search_output 'search response'; then
 		return 1
 	fi
-	if ! dup_output_1="$(create_tmp_file 'duplicate response one')"; then
-		cleanup_tmp_files "${malformed_output}"
-		return 1
-	fi
-	if ! dup_output_2="$(create_tmp_file 'duplicate response two')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}"
-		return 1
-	fi
-	if ! observe_a_output="$(create_tmp_file 'observe response A')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
-		return 1
-	fi
-	if ! observe_b_output="$(create_tmp_file 'observe response B')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}" "${dup_output_2}" "${observe_a_output}"
-		return 1
-	fi
-	if ! relate_output="$(create_tmp_file 'relationship response')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}" "${dup_output_2}" "${observe_a_output}" "${observe_b_output}"
-		return 1
-	fi
-	if ! search_output="$(create_tmp_file 'search response')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}" "${dup_output_2}" "${observe_a_output}" "${observe_b_output}" "${relate_output}"
-		return 1
-	fi
-	set_cleanup_trap \
-		"${malformed_output}" \
-		"${dup_output_1}" \
-		"${dup_output_2}" \
-		"${observe_a_output}" \
-		"${observe_b_output}" \
-		"${relate_output}" \
-		"${search_output}"
 
 	local observe_a_payload
 	observe_a_payload="$(jq -nc --arg c "${content_a}" '{content:$c,domain:"coding-harness",source:"codex_preflight",tags:["preflight","local-memory"]}')"
@@ -582,14 +596,7 @@ preflight_local_memory_gold() {
 		local search_json_attempt
 		search_json_attempt="$(cat "${search_output}")"
 		local search_hits_attempt
-		search_hits_attempt="$(echo "${search_json_attempt}" | jq -r '
-			if type == "array" then length
-			elif .search_info.total_results != null then .search_info.total_results
-			elif .results then (.results | length)
-			elif .data.results then (.data.results | length)
-			elif .data then (.data | length)
-			else 0 end
-		')"
+		search_hits_attempt="$(count_search_hits "${search_json_attempt}")"
 		if [[ "${search_hits_attempt}" -ge 1 ]]; then
 			break
 		fi
@@ -599,14 +606,7 @@ preflight_local_memory_gold() {
 	local search_json
 	search_json="$(cat "${search_output}")"
 	local search_hits
-	search_hits="$(echo "${search_json}" | jq -r '
-		if type == "array" then length
-		elif .search_info.total_results != null then .search_info.total_results
-		elif .results then (.results | length)
-		elif .data.results then (.data.results | length)
-		elif .data then (.data | length)
-		else 0 end
-	')"
+	search_hits="$(count_search_hits "${search_json}")"
 	if [[ "${search_hits}" -lt 1 ]]; then
 		log_err "search returned no results for probe ${probe}"
 		return 1
