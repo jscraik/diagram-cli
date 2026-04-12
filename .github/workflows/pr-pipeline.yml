@@ -247,7 +247,7 @@ jobs:
           fi
       - name: Run advisory drift gate
         run: |
-          npm exec harness drift-gate -- \
+          bash scripts/harness-cli.sh drift-gate \
             --mode advisory \
             --json \
             --out artifacts/consistency-gate/consistency-drift-advisory-latest.json
@@ -319,7 +319,7 @@ jobs:
       - name: Run health drift gate
         if: steps.baseline-seed.outputs.seeded == 'true'
         run: |
-          npm exec harness drift-gate -- \
+          bash scripts/harness-cli.sh drift-gate \
             --mode health \
             --json \
             --out artifacts/consistency-gate/health.json
