@@ -37,6 +37,16 @@ function normalizeListOption(value, splitList) {
   return Array.isArray(value) ? value : splitList(value);
 }
 
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+function createVerboseLogger(enabled) {
+  return (...args) => {
+    if (enabled) console.log(...args);
+  };
+}
+
 function sortPrImpactResultDeterministically(result) {
   result.changedFiles = [...(result.changedFiles || [])].sort();
   result.renamedFiles = [...(result.renamedFiles || [])].sort((a, b) => {
@@ -129,6 +139,8 @@ function registerWorkflowCommands(program, deps) {
       );
       const formatStr = (options.format || 'text').toLowerCase();
       const isJson = formatStr === 'json';
+      const verboseOutput = !isJson && Boolean(options.verbose);
+      const logVerbose = createVerboseLogger(verboseOutput);
       if (!VALID_OUTPUT_FORMATS.includes(formatStr)) {
         console.error(chalk.red('❌ Invalid format:'), options.format);
         console.log(chalk.gray('Valid values:', VALID_OUTPUT_FORMATS.join(', ')));
@@ -175,9 +187,7 @@ function registerWorkflowCommands(program, deps) {
         const envRefs = detectPrRefsFromEnv();
         if (envRefs.base) {
           baseRef = envRefs.base;
-          if (options.verbose) {
-            console.log(chalk.gray('Auto-detected base ref from environment:', baseRef));
-          }
+          logVerbose(chalk.gray('Auto-detected base ref from environment:', baseRef));
         } else {
           // Prefer remote-tracking default branch refs for CI clones.
           try {
@@ -201,9 +211,7 @@ function registerWorkflowCommands(program, deps) {
             if (!baseRef) {
               throw new Error('No remote base branch available');
             }
-            if (options.verbose) {
-              console.log(chalk.gray(`Using default base ref: ${baseRef}`));
-            }
+            logVerbose(chalk.gray(`Using default base ref: ${baseRef}`));
           } catch {
             console.error(chalk.red('❌ No base ref provided and could not auto-detect.'));
             console.log(chalk.gray('Specify --base <ref> or run from a PR context.'));
@@ -228,7 +236,7 @@ function registerWorkflowCommands(program, deps) {
         process.exit(2);
       }
 
-      if (options.verbose) {
+      if (verboseOutput) {
         console.log(chalk.blue('📊 PR Impact Analysis'));
         console.log(chalk.gray('  Base:'), baseRef, '→', baseSha);
         console.log(chalk.gray('  Head:'), headRef, '→', headSha);
@@ -275,9 +283,7 @@ function registerWorkflowCommands(program, deps) {
       }
 
       // Phase 2: Git diff ingestion + snapshot preparation
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n📋 Step 1: Extracting changed files...'));
-      }
+      logVerbose(chalk.blue('\n📋 Step 1: Extracting changed files...'));
 
       let changedFiles;
       try {
@@ -287,12 +293,10 @@ function registerWorkflowCommands(program, deps) {
         process.exit(2);
       }
 
-      if (!isJson && options.verbose) {
-        console.log(chalk.gray('   Changed:'), changedFiles.changed.length);
-        console.log(chalk.gray('   Renamed:'), changedFiles.renamed.length);
-        console.log(chalk.gray('   Added:'), changedFiles.added.length);
-        console.log(chalk.gray('   Deleted:'), changedFiles.deleted.length);
-      }
+      logVerbose(chalk.gray('   Changed:'), changedFiles.changed.length);
+      logVerbose(chalk.gray('   Renamed:'), changedFiles.renamed.length);
+      logVerbose(chalk.gray('   Added:'), changedFiles.added.length);
+      logVerbose(chalk.gray('   Deleted:'), changedFiles.deleted.length);
 
       // Handle empty diff case
       if (hasNoChangedFiles(changedFiles)) {
@@ -358,9 +362,7 @@ function registerWorkflowCommands(program, deps) {
       }
 
       // Phase 2: Analyze snapshots at base and head refs
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n📊 Step 2: Analyzing codebase snapshots...'));
-      }
+      logVerbose(chalk.blue('\n📊 Step 2: Analyzing codebase snapshots...'));
 
       let baseAnalysis, headAnalysis;
       try {
@@ -375,56 +377,40 @@ function registerWorkflowCommands(program, deps) {
         };
 
         baseAnalysis = await analyzeAtRef(baseSha, root, analysisOptions);
-        if (!isJson && options.verbose) {
-          console.log(chalk.gray('   Base components:'), baseAnalysis.components.length);
-        }
+        logVerbose(chalk.gray('   Base components:'), baseAnalysis.components.length);
 
         headAnalysis = await analyzeAtRef(headSha, root, analysisOptions);
-        if (!isJson && options.verbose) {
-          console.log(chalk.gray('   Head components:'), headAnalysis.components.length);
-        }
+        logVerbose(chalk.gray('   Head components:'), headAnalysis.components.length);
       } catch (error) {
         console.error(chalk.red('❌ Analysis error:'), error.message);
         process.exit(2);
       }
 
       // Compute delta between snapshots
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n🔄 Step 3: Computing delta...'));
-      }
+      logVerbose(chalk.blue('\n🔄 Step 3: Computing delta...'));
 
       const delta = computeDelta(baseAnalysis, headAnalysis, changedFiles);
 
-      if (!isJson && options.verbose) {
-        console.log(chalk.gray('   Changed components:'), delta.changedComponents.length);
-        console.log(chalk.gray('   Unmodeled changes:'), delta.unmodeledChanges.length);
-        console.log(chalk.gray('   Edge delta:'), delta.dependencyEdgeDelta.count);
-      }
+      logVerbose(chalk.gray('   Changed components:'), delta.changedComponents.length);
+      logVerbose(chalk.gray('   Unmodeled changes:'), delta.unmodeledChanges.length);
+      logVerbose(chalk.gray('   Edge delta:'), delta.dependencyEdgeDelta.count);
 
       // Compute blast radius (Phase 3 - basic implementation)
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n💥 Step 4: Computing blast radius...'));
-      }
+      logVerbose(chalk.blue('\n💥 Step 4: Computing blast radius...'));
 
       const blastRadius = computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes);
 
-      if (!isJson && options.verbose) {
-        console.log(chalk.gray('   Impacted components:'), blastRadius.impactedComponents.length);
-        console.log(chalk.gray('   Truncated:'), blastRadius.truncated);
-      }
+      logVerbose(chalk.gray('   Impacted components:'), blastRadius.impactedComponents.length);
+      logVerbose(chalk.gray('   Truncated:'), blastRadius.truncated);
 
       // Compute risk score (Phase 4 - basic implementation)
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n⚠️  Step 5: Computing risk score...'));
-      }
+      logVerbose(chalk.blue('\n⚠️  Step 5: Computing risk score...'));
 
       const risk = computeRiskFromDelta(delta, blastRadius);
 
-      if (!isJson && options.verbose) {
-        console.log(chalk.gray('   Risk score:'), risk.score);
-        console.log(chalk.gray('   Risk level:'), risk.level);
-        console.log(chalk.gray('   Risk flags:'), risk.flags.join(', ') || 'none');
-      }
+      logVerbose(chalk.gray('   Risk score:'), risk.score);
+      logVerbose(chalk.gray('   Risk level:'), risk.level);
+      logVerbose(chalk.gray('   Risk flags:'), risk.flags.join(', ') || 'none');
 
       // Build final result
       const result = {
@@ -488,7 +474,7 @@ function registerWorkflowCommands(program, deps) {
 
         if (riskNum >= thresholdNum) {
           // Check for override
-          if (options.riskOverrideReason && options.riskOverrideReason.trim() !== '') {
+          if (isNonEmptyString(options.riskOverrideReason)) {
             result.risk.override.applied = true;
             console.log(chalk.yellow('\n⚠️  Risk threshold exceeded, but override applied'));
             console.log(chalk.gray('   Reason:'), options.riskOverrideReason);

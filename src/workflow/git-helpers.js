@@ -122,6 +122,10 @@ function runGitCommand(args, root, timeout = 30000) {
   }
 }
 
+function sortStrings(values) {
+  return [...values].sort((a, b) => String(a).localeCompare(String(b)));
+}
+
 /**
  * Get changed files between two refs with rename detection
  * @param {string} baseSha - Base commit SHA
@@ -152,37 +156,42 @@ function getChangedFiles(baseSha, headSha, root) {
     const parts = line.split('\t');
     const status = parts[0];
 
-    if (status === 'A') {
-      added.push(parts[1]);
-      changed.push(parts[1]);
-    } else if (status === 'D') {
-      deleted.push(parts[1]);
-    } else if (status === 'M') {
-      changed.push(parts[1]);
-    } else if (status.startsWith('R')) {
-      // Rename: R### old_path new_path (### = similarity 000–100)
-      // -M defaults to 50% threshold; handle all values not just ≥90%.
-      const similarity = parseInt(status.slice(1), 10);
-      renamed.push({ from: parts[1], to: parts[2], similarity });
-      changed.push(parts[2]); // track new path as changed
-    } else if (status.startsWith('C')) {
-      // Copy: C### old_path new_path
-      added.push(parts[2]);
-      changed.push(parts[2]);
-    } else {
-      // Unknown status (T=type-change, U=unmerged, X=unknown) — treat as changed
-      if (parts[1]) {
+    switch (status) {
+      case 'A':
+        added.push(parts[1]);
         changed.push(parts[1]);
-      }
+        break;
+      case 'D':
+        deleted.push(parts[1]);
+        break;
+      case 'M':
+        changed.push(parts[1]);
+        break;
+      default:
+        if (status.startsWith('R')) {
+          // Rename: R### old_path new_path (### = similarity 000–100)
+          // -M defaults to 50% threshold; handle all values not just ≥90%.
+          const similarity = parseInt(status.slice(1), 10);
+          renamed.push({ from: parts[1], to: parts[2], similarity });
+          changed.push(parts[2]); // track new path as changed
+        } else if (status.startsWith('C')) {
+          // Copy: C### old_path new_path
+          added.push(parts[2]);
+          changed.push(parts[2]);
+        } else if (parts[1]) {
+          // Unknown status (T=type-change, U=unmerged, X=unknown) — treat as changed
+          changed.push(parts[1]);
+        }
+        break;
     }
   }
 
   // Sort all arrays for deterministic output
   return {
-    changed: [...changed].sort(),
+    changed: sortStrings(changed),
     renamed: renamed.sort((a, b) => a.from.localeCompare(b.from)),
-    deleted: [...deleted].sort(),
-    added: [...added].sort()
+    deleted: sortStrings(deleted),
+    added: sortStrings(added)
   };
 }
 

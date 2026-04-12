@@ -24,6 +24,7 @@ const SQL_TABLE_FOREIGN_KEY_RE = new RegExp(
   'i'
 );
 const SQL_TABLE_CONSTRAINT_LINE_RE = /^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i;
+const SQL_COLUMN_DEFINITION_RE = /^([`"]?[A-Za-z_][A-Za-z0-9_]*[`"]?)\s+([A-Za-z0-9_()]+)([\s\S]*)$/;
 const SCHEMA_PARSERS = Object.freeze({
   prisma: parsePrismaSchema,
   sql: parseSqlSchema,
@@ -215,7 +216,7 @@ function parseSqlSchema(fileContent) {
         continue;
       }
 
-      const columnMatch = line.match(/^([`"]?[A-Za-z_][A-Za-z0-9_]*[`"]?)\s+([A-Za-z0-9_()]+)([\s\S]*)$/);
+      const columnMatch = line.match(SQL_COLUMN_DEFINITION_RE);
       if (!columnMatch) continue;
       const columnName = tableNameFromSql(columnMatch[1]);
       const columnType = columnMatch[2];
