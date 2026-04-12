@@ -4,6 +4,10 @@ const chalk = require('chalk');
 const { execFileSync } = require('child_process');
 const micromatch = require('picomatch');
 const {
+  compareStringsDeterministically,
+  sortStringsDeterministically,
+} = require('./sort-utils');
+const {
   detectLanguage,
   inferType,
   extractImportsWithPositions,
@@ -122,24 +126,6 @@ function runGitCommand(args, root, timeout = 30000) {
   }
 }
 
-function sortStrings(values) {
-  return [...values].sort((leftValue, rightValue) => {
-    const left = String(leftValue || '');
-    const right = String(rightValue || '');
-    if (left < right) return -1;
-    if (left > right) return 1;
-    return 0;
-  });
-}
-
-function compareStringsDeterministically(leftValue, rightValue) {
-  const left = String(leftValue || '');
-  const right = String(rightValue || '');
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
-}
-
 /**
  * Get changed files between two refs with rename detection
  * @param {string} baseSha - Base commit SHA
@@ -202,14 +188,14 @@ function getChangedFiles(baseSha, headSha, root) {
 
   // Sort all arrays for deterministic output
   return {
-    changed: sortStrings(changed),
+    changed: sortStringsDeterministically(changed),
     renamed: renamed.sort((a, b) => {
       const fromCmp = compareStringsDeterministically(a.from, b.from);
       if (fromCmp !== 0) return fromCmp;
       return compareStringsDeterministically(a.to, b.to);
     }),
-    deleted: sortStrings(deleted),
-    added: sortStrings(added)
+    deleted: sortStringsDeterministically(deleted),
+    added: sortStringsDeterministically(added)
   };
 }
 
@@ -479,9 +465,9 @@ function computeArchitectureDiff(base, head) {
       head: headLangs
     },
     components: {
-      added: added.sort((a, b) => a.filePath.localeCompare(b.filePath)),
-      removed: removed.sort((a, b) => a.filePath.localeCompare(b.filePath)),
-      changed: changed.sort((a, b) => a.filePath.localeCompare(b.filePath))
+      added: added.sort((a, b) => compareStringsDeterministically(a.filePath, b.filePath)),
+      removed: removed.sort((a, b) => compareStringsDeterministically(a.filePath, b.filePath)),
+      changed: changed.sort((a, b) => compareStringsDeterministically(a.filePath, b.filePath))
     }
   };
 }

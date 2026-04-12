@@ -1,5 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const {
+  compareStringsDeterministically,
+  sortStringsDeterministically,
+} = require('./sort-utils');
 
 /**
  * Compare two arrays for strict element-wise equality.
@@ -234,11 +238,11 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   const edgesRemoved = [...baseEdges].filter(e => !headEdges.has(e)).sort();
 
   return {
-    changedComponents: changedComponents.sort((a, b) => a.filePath.localeCompare(b.filePath)),
-    unmodeledChanges: unmodeledChanges.sort(),
+    changedComponents: changedComponents.sort((a, b) => compareStringsDeterministically(a.filePath, b.filePath)),
+    unmodeledChanges: sortStringsDeterministically(unmodeledChanges),
     renamedFiles: renamed,
-    deletedFiles: deleted.sort(),
-    addedFiles: added.sort(),
+    deletedFiles: sortStringsDeterministically(deleted),
+    addedFiles: sortStringsDeterministically(added),
     dependencyEdgeDelta: {
       added: edgesAdded,
       removed: edgesRemoved,
@@ -407,14 +411,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-function compareStringsDeterministically(leftValue, rightValue) {
-  const left = String(leftValue || '');
-  const right = String(rightValue || '');
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
-}
-
 /**
  * Group file paths by change status with stable sorting
  * @param {object} result - PR impact result
@@ -561,7 +557,7 @@ function generateHtmlExplainer(result) {
 
   // Sort changed components deterministically
   const sortedComponents = [...(result.changedComponents || [])].sort((a, b) =>
-    (a.name || '').localeCompare(b.name || '')
+    compareStringsDeterministically(a?.name, b?.name)
   );
 
   // Build changed components HTML
@@ -569,13 +565,13 @@ function generateHtmlExplainer(result) {
       <li class="component">
         <div class="component-name">${escapeHtml(comp.name)}</div>
         <div class="component-path">${escapeHtml(comp.filePath)}</div>
-        <div class="component-roles">${(comp.roleTags || []).sort().map(r => `<span class="role-tag">${escapeHtml(r)}</span>`).join(' ')}</div>
+        <div class="component-roles">${sortStringsDeterministically(comp.roleTags || []).map(r => `<span class="role-tag">${escapeHtml(r)}</span>`).join(' ')}</div>
         ${comp.isNew ? '<span class="badge new">NEW</span>' : ''}
       </li>
     `).join('');
 
   // Build blast radius HTML with sorted components
-  const sortedBlastRadius = [...(result.blastRadius?.impactedComponents || [])].sort();
+  const sortedBlastRadius = sortStringsDeterministically(result.blastRadius?.impactedComponents || []);
   const blastRadiusHtml = sortedBlastRadius.map(name => `
       <li>${escapeHtml(name)}</li>
     `).join('');

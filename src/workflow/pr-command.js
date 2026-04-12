@@ -1,5 +1,9 @@
 const chalk = require('chalk');
 const {
+  compareStringsDeterministically,
+  sortStringsDeterministically,
+} = require('./sort-utils');
+const {
   computeDelta,
   computeBlastRadiusFromDelta,
   computeRiskFromDelta,
@@ -23,18 +27,6 @@ const {
 const VALID_OUTPUT_FORMATS = Object.freeze(['text', 'json']);
 const VALID_RISK_THRESHOLDS = Object.freeze(['none', 'low', 'medium', 'high']);
 const RISK_LEVEL_SCORE = Object.freeze({ none: 0, low: 1, medium: 2, high: 3 });
-
-function compareStringsDeterministically(leftValue, rightValue) {
-  const left = String(leftValue || '');
-  const right = String(rightValue || '');
-  if (left < right) return -1;
-  if (left > right) return 1;
-  return 0;
-}
-
-function sortStringsDeterministically(values) {
-  return [...(values || [])].sort(compareStringsDeterministically);
-}
 
 function hasNoChangedFiles(changedFiles) {
   return (
