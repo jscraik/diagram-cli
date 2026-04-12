@@ -22,7 +22,7 @@ const {
 
 const VALID_OUTPUT_FORMATS = Object.freeze(['text', 'json']);
 const VALID_RISK_THRESHOLDS = Object.freeze(['none', 'low', 'medium', 'high']);
-const RISK_LEVEL_SCORE = Object.freeze({ low: 1, medium: 2, high: 3 });
+const RISK_LEVEL_SCORE = Object.freeze({ none: 0, low: 1, medium: 2, high: 3 });
 
 function compareStringsDeterministically(leftValue, rightValue) {
   const left = String(leftValue || '');
