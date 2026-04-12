@@ -38,7 +38,7 @@ hooks-pre-commit: ## Run local pre-commit gates before creating a commit
 	$(MAKE) related-tests
 
 hooks-pre-push: ## Run local pre-push governance gates before pushing
-	@bash ./scripts/verify-work.sh --fast
+	@bash ./scripts/verify-work.sh --fast --all
 
 secrets-staged: ## Scan staged content for secrets before committing
 	pnpm run secrets:staged

@@ -259,7 +259,6 @@ create_named_tmp_files() {
 		created+=("${tmp_file}")
 	done
 
-	set_cleanup_trap "${created[@]}"
 }
 
 count_search_hits() {
@@ -528,6 +527,14 @@ preflight_local_memory_gold() {
 		search_output 'search response'; then
 		return 1
 	fi
+	set_cleanup_trap \
+		"${malformed_output}" \
+		"${dup_output_1}" \
+		"${dup_output_2}" \
+		"${observe_a_output}" \
+		"${observe_b_output}" \
+		"${relate_output}" \
+		"${search_output}"
 
 	local observe_a_payload
 	observe_a_payload="$(jq -nc --arg c "${content_a}" '{content:$c,domain:"coding-harness",source:"codex_preflight",tags:["preflight","local-memory"]}')"
