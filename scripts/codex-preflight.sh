@@ -212,6 +212,14 @@ set_cleanup_trap() {
 	fi
 }
 
+clear_cleanup_trap() {
+	if [[ -n "${ZSH_VERSION:-}" ]]; then
+		trap - EXIT
+	else
+		trap - RETURN
+	fi
+}
+
 create_tmp_file() {
 	local label="$1"
 	local tmp_file=''
@@ -264,6 +272,16 @@ count_search_hits() {
 		elif .data then (.data | length)
 		else 0 end
 	'
+}
+
+extract_memory_id() {
+	local payload="$1"
+	echo "${payload}" | jq -r '.id // .data.id // .memory_id // .data.memory_id // empty'
+}
+
+extract_relationship_id() {
+	local payload="$1"
+	echo "${payload}" | jq -r '.id // .data.id // .relationship_id // .data.relationship_id // empty'
 }
 
 post_json_to_file() {
@@ -542,8 +560,8 @@ preflight_local_memory_gold() {
 
 	local id_a
 	local id_b
-	id_a="$(echo "${observe_a_json}" | jq -r '.id // .data.id // .memory_id // .data.memory_id // empty')"
-	id_b="$(echo "${observe_b_json}" | jq -r '.id // .data.id // .memory_id // .data.memory_id // empty')"
+	id_a="$(extract_memory_id "${observe_a_json}")"
+	id_b="$(extract_memory_id "${observe_b_json}")"
 	if [[ -z "${id_a}" || -z "${id_b}" ]]; then
 		log_err 'observe returned no memory IDs'
 		return 1
@@ -572,7 +590,7 @@ preflight_local_memory_gold() {
 	local relate_json
 	relate_json="$(cat "${relate_output}")"
 	local relationship_id
-	relationship_id="$(echo "${relate_json}" | jq -r '.id // .data.id // .relationship_id // .data.relationship_id // empty')"
+	relationship_id="$(extract_relationship_id "${relate_json}")"
 	local relate_ok
 	relate_ok="$(echo "${relate_json}" | jq -r '.success // true')"
 	if [[ "${relate_ok}" != 'true' ]]; then
@@ -616,7 +634,7 @@ preflight_local_memory_gold() {
 	local malformed_code
 	malformed_code="$(post_json_to_file "${malformed_output}" "${observe_url}" '{"level":"observation"}')"
 	if [[ "${malformed_code}" -lt 400 ]]; then
-		trap - RETURN
+		clear_cleanup_trap
 		rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
 		log_err "malformed payload did not return an error (HTTP ${malformed_code})"
 		return 1

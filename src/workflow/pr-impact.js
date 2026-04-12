@@ -71,6 +71,14 @@ function buildComponentAliasMap(components) {
   return aliases;
 }
 
+function indexComponentsByFilePath(components) {
+  const indexed = new Map();
+  for (const component of components || []) {
+    indexed.set(component.filePath, component);
+  }
+  return indexed;
+}
+
 /**
  * Resolve a component reference to its canonical identity using the provided alias map.
  * @param {Object} component - Object that may contain `filePath` and/or `name` properties.
@@ -99,7 +107,7 @@ function resolveIdentityFromComponent(component, aliases) {
  * @returns {string[]} Sorted array of canonical dependency identities; empty array if there are no normalisable dependencies.
  */
 function normalizedDependencies(component, aliases = null) {
-  return (component?.dependencies || [])
+  const normalized = (component?.dependencies || [])
     .map((dep) => {
       const normalized = normalizeDependency(dep);
       if (!normalized) return null;
@@ -111,8 +119,8 @@ function normalizedDependencies(component, aliases = null) {
       }
       return normalized;
     })
-    .filter(Boolean)
-    .sort();
+    .filter(Boolean);
+  return sortStringsDeterministically(normalized);
 }
 
 /**
@@ -191,15 +199,8 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   const headAliases = buildComponentAliasMap(headAnalysis.components || []);
 
   // Build component indexes by filePath
-  const baseByPath = new Map();
-  for (const c of baseAnalysis.components || []) {
-    baseByPath.set(c.filePath, c);
-  }
-
-  const headByPath = new Map();
-  for (const c of headAnalysis.components || []) {
-    headByPath.set(c.filePath, c);
-  }
+  const baseByPath = indexComponentsByFilePath(baseAnalysis.components || []);
+  const headByPath = indexComponentsByFilePath(headAnalysis.components || []);
 
   // Find changed components
   const changedComponents = [];
@@ -342,7 +343,7 @@ function computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes) {
   const omittedCount = Math.max(0, visited.size - maxNodes);
 
   return {
-    impactedComponents: [...impacted].sort(),
+    impactedComponents: sortStringsDeterministically([...impacted]),
     truncated,
     omittedCount
   };
@@ -510,7 +511,7 @@ function buildRiskNarrative(risk) {
   }
 
   // Sort reasons for deterministic output
-  narrative.reasons.sort();
+  narrative.reasons = sortStringsDeterministically(narrative.reasons);
 
   // Handle override
   if (risk?.override?.applied) {
@@ -648,9 +649,9 @@ function generateHtmlExplainer(result) {
   }
 
   // Sort action items for determinism
-  actionItems.sort();
+  const sortedActionItems = sortStringsDeterministically(actionItems);
 
-  const actionChecklistHtml = actionItems.map(item => `
+  const actionChecklistHtml = sortedActionItems.map(item => `
       <li>${escapeHtml(item)}</li>
     `).join('');
 
