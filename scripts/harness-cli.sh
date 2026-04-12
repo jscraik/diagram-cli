@@ -50,8 +50,8 @@ if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
 			echo "Error: npx is required for CI fallback when local harness package is missing." >&2
 			exit 1
 		fi
-		echo "Warning: local @brainwav/coding-harness missing; using npx harness fallback in CI." >&2
-		exec npx --yes @brainwav/coding-harness "$@"
+		echo "Warning: local @brainwav/coding-harness missing; using pinned npx package fallback in CI." >&2
+		exec npx --yes --package @brainwav/coding-harness harness "$@"
 	fi
 	echo "Error: local @brainwav/coding-harness could not be resolved from this repo." >&2
 	echo "This is a local install/bootstrap problem, not a harness command failure." >&2
