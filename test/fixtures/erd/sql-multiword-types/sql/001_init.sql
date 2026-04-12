@@ -1,0 +1,11 @@
+CREATE TABLE public.users (
+  id UUID PRIMARY KEY
+);
+
+CREATE TABLE public.orders (
+  id UUID PRIMARY KEY,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  amount DOUBLE PRECISION NOT NULL,
+  display_name CHARACTER VARYING(255) COLLATE "C" NOT NULL,
+  owner_id UUID REFERENCES public.users(id)
+);

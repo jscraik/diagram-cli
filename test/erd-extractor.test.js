@@ -87,6 +87,25 @@ describe('erd extractor', () => {
     expect(hasRelationship(extracted, 'COMMENTS', 'USERS')).to.equal(true);
   });
 
+  it('retains multi-word SQL types while splitting trailing constraints', () => {
+    const extracted = extractErdModel({ rootPath: fixturePath('sql-multiword-types') });
+
+    expect(extracted.terminalClass).to.equal('completed');
+    const orders = extracted.model.entities.find((entity) => entity.name === 'ORDERS');
+    expect(orders).to.exist;
+
+    const createdAt = orders.attributes.find((attribute) => attribute.name === 'created_at');
+    const amount = orders.attributes.find((attribute) => attribute.name === 'amount');
+    const displayName = orders.attributes.find((attribute) => attribute.name === 'display_name');
+
+    expect(createdAt.type).to.equal('timestamp_with_time_zone');
+    expect(createdAt.nullable).to.equal(false);
+    expect(amount.type).to.equal('double_precision');
+    expect(amount.nullable).to.equal(false);
+    expect(displayName.type).to.equal('character_varying_255_');
+    expect(displayName.nullable).to.equal(false);
+  });
+
   it('marks sources with no extractable entities as failed_parse', () => {
     const extracted = extractErdModel({ rootPath: fixturePath('sql-no-table') });
 

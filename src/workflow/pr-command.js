@@ -71,12 +71,23 @@ function sortPrImpactResultDeterministically(result) {
       roleTags: sortStringsDeterministically(component.roleTags),
     }))
     .sort((a, b) => compareStringsDeterministically(a?.filePath, b?.filePath));
-  result.dependencyEdgeDelta.added = sortStringsDeterministically(result.dependencyEdgeDelta.added);
-  result.dependencyEdgeDelta.removed = sortStringsDeterministically(result.dependencyEdgeDelta.removed);
-  result.blastRadius.impactedComponents = sortStringsDeterministically(result.blastRadius.impactedComponents);
-  result.risk.flags = sortStringsDeterministically(result.risk.flags);
-  result.agentSummary.riskReasons = sortStringsDeterministically(result.agentSummary.riskReasons);
-  result._meta.durationMs = 0;
+  result.dependencyEdgeDelta = {
+    ...(result.dependencyEdgeDelta || {}),
+    added: sortStringsDeterministically(result?.dependencyEdgeDelta?.added),
+    removed: sortStringsDeterministically(result?.dependencyEdgeDelta?.removed),
+  };
+  result.blastRadius = {
+    ...(result.blastRadius || {}),
+    impactedComponents: sortStringsDeterministically(result?.blastRadius?.impactedComponents),
+  };
+  result.risk = {
+    ...(result.risk || {}),
+    flags: sortStringsDeterministically(result?.risk?.flags),
+  };
+  result.agentSummary = {
+    ...(result.agentSummary || {}),
+    riskReasons: sortStringsDeterministically(result?.agentSummary?.riskReasons),
+  };
 }
 
 /**
@@ -462,7 +473,12 @@ function registerWorkflowCommands(program, deps) {
         },
       };
 
-      if (options.deterministic) sortPrImpactResultDeterministically(result);
+      if (options.deterministic) {
+        sortPrImpactResultDeterministically(result);
+        if (result._meta && typeof result._meta === 'object') {
+          result._meta.durationMs = 0;
+        }
+      }
 
       // Exit code logic
       // 0 = success, below threshold

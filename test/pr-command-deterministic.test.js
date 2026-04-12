@@ -23,7 +23,7 @@ describe("workflow pr deterministic helpers", () => {
     expect(compareStringsDeterministically("a", "a")).to.equal(0);
   });
 
-  it("sorts PR impact fields deterministically and zeroes duration", () => {
+  it("sorts PR impact fields deterministically without mutating duration", () => {
     const result = {
       changedFiles: ["z.js", "a.js"],
       renamedFiles: [
@@ -85,6 +85,6 @@ describe("workflow pr deterministic helpers", () => {
     expect(result.blastRadius.impactedComponents).to.deep.equal(["a-impact", "z-impact"]);
     expect(result.risk.flags).to.deep.equal(["a-flag", "z-flag"]);
     expect(result.agentSummary.riskReasons).to.deep.equal(["a-reason", "z-reason"]);
-    expect(result._meta.durationMs).to.equal(0);
+    expect(result._meta.durationMs).to.equal(1234);
   });
 });

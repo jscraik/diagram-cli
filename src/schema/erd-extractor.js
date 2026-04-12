@@ -24,8 +24,19 @@ const SQL_TABLE_FOREIGN_KEY_RE = new RegExp(
   'i'
 );
 const SQL_TABLE_CONSTRAINT_LINE_RE = /^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i;
-const SQL_COLUMN_DEFINITION_RE =
-  /^([`"]?[A-Za-z_][A-Za-z0-9_]*[`"]?)\s+(.+?)(?=\s+(?:constraint\b|not\b|null\b|default\b|references\b|primary\b|unique\b|check\b|generated\b)|$)([\s\S]*)$/i;
+const SQL_COLUMN_NAME_AND_BODY_RE = /^([`"]?[A-Za-z_][A-Za-z0-9_]*[`"]?)\s+([\s\S]+)$/i;
+const SQL_COLUMN_CONSTRAINT_STARTERS = new Set([
+  'constraint',
+  'not',
+  'null',
+  'default',
+  'references',
+  'primary',
+  'unique',
+  'check',
+  'generated',
+  'collate',
+]);
 const SCHEMA_PARSERS = Object.freeze({
   prisma: parsePrismaSchema,
   sql: parseSqlSchema,
@@ -195,6 +206,63 @@ function applyTableConstraint(line, tableName, attributeMap, relationships) {
   pushExplicitSqlRelationship(relationships, tableName, foreignKeyMatch[2]);
 }
 
+function splitSqlTypeAndRemainder(columnBody) {
+  const body = String(columnBody || '').trim();
+  if (!body) return { columnType: '', remainder: '' };
+
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inBacktickQuote = false;
+
+  for (let index = 0; index < body.length; index += 1) {
+    const char = body[index];
+    const prev = body[index - 1];
+
+    if (!inDoubleQuote && !inBacktickQuote && char === '\'' && prev !== '\\') {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+    if (!inSingleQuote && !inBacktickQuote && char === '"' && prev !== '\\') {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+    if (!inSingleQuote && !inDoubleQuote && char === '`' && prev !== '\\') {
+      inBacktickQuote = !inBacktickQuote;
+      continue;
+    }
+    if (inSingleQuote || inDoubleQuote || inBacktickQuote) continue;
+
+    if (char === '(') {
+      depth += 1;
+      continue;
+    }
+    if (char === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (!/\s/.test(char) || depth !== 0) continue;
+
+    let lookahead = index;
+    while (lookahead < body.length && /\s/.test(body[lookahead])) lookahead += 1;
+    if (lookahead >= body.length) break;
+
+    let wordEnd = lookahead;
+    while (wordEnd < body.length && /[A-Za-z_]/.test(body[wordEnd])) wordEnd += 1;
+    if (wordEnd === lookahead) continue;
+
+    const maybeConstraint = body.slice(lookahead, wordEnd).toLowerCase();
+    if (!SQL_COLUMN_CONSTRAINT_STARTERS.has(maybeConstraint)) continue;
+
+    return {
+      columnType: body.slice(0, index).trim(),
+      remainder: body.slice(index).trimStart(),
+    };
+  }
+
+  return { columnType: body, remainder: '' };
+}
+
 function parseSqlSchema(fileContent) {
   const entities = [];
   const relationships = [];
@@ -217,11 +285,13 @@ function parseSqlSchema(fileContent) {
         continue;
       }
 
-      const columnMatch = line.match(SQL_COLUMN_DEFINITION_RE);
+      const columnMatch = line.match(SQL_COLUMN_NAME_AND_BODY_RE);
       if (!columnMatch) continue;
       const columnName = tableNameFromSql(columnMatch[1]);
-      const columnType = String(columnMatch[2] || '').trim();
-      const remainder = columnMatch[3] || '';
+      const {
+        columnType,
+        remainder,
+      } = splitSqlTypeAndRemainder(columnMatch[2]);
       const remainderLower = remainder.toLowerCase();
       const keyFlags = [];
 
