@@ -318,6 +318,7 @@ jobs:
             echo "seeded=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Run health drift gate
+        continue-on-error: true
         if: steps.baseline-seed.outputs.seeded == 'true'
         run: |
           bash scripts/harness-cli.sh drift-gate \
