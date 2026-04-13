@@ -17,3 +17,7 @@ diagrams/
 .memory-metrics.json
 insights-*.png
 .codex/memory/
+
+# Python artifacts
+__pycache__/
+*.py[cod]

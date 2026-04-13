@@ -132,6 +132,23 @@ function resolveRootPathOrExit(targetPath) {
   return root;
 }
 
+function resolvePathViaExistingAncestor(targetPath) {
+  const pending = [];
+  let probe = targetPath;
+
+  while (!fs.existsSync(probe)) {
+    pending.unshift(path.basename(probe));
+    const parent = path.dirname(probe);
+    if (parent === probe) {
+      break;
+    }
+    probe = parent;
+  }
+
+  const canonicalBase = fs.realpathSync(probe);
+  return path.join(canonicalBase, ...pending);
+}
+
 /**
  * Validate and canonicalise an output path so it safely resides within a project root.
  *
@@ -167,25 +184,12 @@ function validateOutputPath(outputPath, rootPath) {
   const resolved = path.isAbsolute(outputPath)
     ? path.resolve(outputPath)
     : path.resolve(realRoot, outputPath);
-
-  const resolveViaExistingAncestor = (targetPath) => {
-    const pending = [];
-    let probe = targetPath;
-
-    while (!fs.existsSync(probe)) {
-      pending.unshift(path.basename(probe));
-      const parent = path.dirname(probe);
-      if (parent === probe) {
-        break;
-      }
-      probe = parent;
-    }
-
-    const canonicalBase = fs.realpathSync(probe);
-    return path.join(canonicalBase, ...pending);
-  };
-
-  const canonicalResolved = resolveViaExistingAncestor(resolved);
+  let canonicalResolved;
+  try {
+    canonicalResolved = resolvePathViaExistingAncestor(resolved);
+  } catch (_error) {
+    throw new Error(`Invalid path: cannot resolve "${outputPath}"`);
+  }
   const relative = path.relative(realRoot, canonicalResolved);
 
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
@@ -384,6 +388,7 @@ module.exports = {
   normalizeThemeOption,
   openPreviewUrl,
   resolveRootPathOrExit,
+  resolvePathViaExistingAncestor,
   runAnalysisPipeline,
   runMermaidCli,
   splitList,

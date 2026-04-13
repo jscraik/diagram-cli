@@ -212,6 +212,14 @@ set_cleanup_trap() {
 	fi
 }
 
+clear_cleanup_trap() {
+	if [[ -n "${ZSH_VERSION:-}" ]]; then
+		trap - EXIT
+	else
+		trap - RETURN
+	fi
+}
+
 create_tmp_file() {
 	local label="$1"
 	local tmp_file=''
@@ -225,6 +233,54 @@ create_tmp_file() {
 		return 1
 	fi
 	printf '%s\n' "${tmp_file}"
+}
+
+create_named_tmp_files() {
+	if (( $# == 0 )) || (( $# % 2 != 0 )); then
+		log_err 'create_named_tmp_files requires var/label pairs'
+		return 1
+	fi
+
+	local var_name=''
+	local label=''
+	local tmp_file=''
+	local -a created=()
+
+	while (( $# > 0 )); do
+		var_name="$1"
+		label="$2"
+		shift 2
+
+		if ! tmp_file="$(create_tmp_file "${label}")"; then
+			cleanup_tmp_files "${created[@]}"
+			return 1
+		fi
+		eval "${var_name}=\"\${tmp_file}\""
+		created+=("${tmp_file}")
+	done
+
+}
+
+count_search_hits() {
+	local search_json="$1"
+	echo "${search_json}" | jq -r '
+		if type == "array" then length
+		elif .search_info.total_results != null then .search_info.total_results
+		elif .results then (.results | length)
+		elif .data.results then (.data.results | length)
+		elif .data then (.data | length)
+		else 0 end
+	'
+}
+
+extract_memory_id() {
+	local payload="$1"
+	echo "${payload}" | jq -r '.id // .data.id // .memory_id // .data.memory_id // empty'
+}
+
+extract_relationship_id() {
+	local payload="$1"
+	echo "${payload}" | jq -r '.id // .data.id // .relationship_id // .data.relationship_id // empty'
 }
 
 post_json_to_file() {
@@ -461,31 +517,14 @@ preflight_local_memory_gold() {
 	local relate_output=''
 	local search_output=''
 
-	if ! malformed_output="$(create_tmp_file 'malformed payload response')"; then
-		return 1
-	fi
-	if ! dup_output_1="$(create_tmp_file 'duplicate response one')"; then
-		cleanup_tmp_files "${malformed_output}"
-		return 1
-	fi
-	if ! dup_output_2="$(create_tmp_file 'duplicate response two')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}"
-		return 1
-	fi
-	if ! observe_a_output="$(create_tmp_file 'observe response A')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
-		return 1
-	fi
-	if ! observe_b_output="$(create_tmp_file 'observe response B')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}" "${dup_output_2}" "${observe_a_output}"
-		return 1
-	fi
-	if ! relate_output="$(create_tmp_file 'relationship response')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}" "${dup_output_2}" "${observe_a_output}" "${observe_b_output}"
-		return 1
-	fi
-	if ! search_output="$(create_tmp_file 'search response')"; then
-		cleanup_tmp_files "${malformed_output}" "${dup_output_1}" "${dup_output_2}" "${observe_a_output}" "${observe_b_output}" "${relate_output}"
+	if ! create_named_tmp_files \
+		malformed_output 'malformed payload response' \
+		dup_output_1 'duplicate response one' \
+		dup_output_2 'duplicate response two' \
+		observe_a_output 'observe response A' \
+		observe_b_output 'observe response B' \
+		relate_output 'relationship response' \
+		search_output 'search response'; then
 		return 1
 	fi
 	set_cleanup_trap \
@@ -528,8 +567,8 @@ preflight_local_memory_gold() {
 
 	local id_a
 	local id_b
-	id_a="$(echo "${observe_a_json}" | jq -r '.id // .data.id // .memory_id // .data.memory_id // empty')"
-	id_b="$(echo "${observe_b_json}" | jq -r '.id // .data.id // .memory_id // .data.memory_id // empty')"
+	id_a="$(extract_memory_id "${observe_a_json}")"
+	id_b="$(extract_memory_id "${observe_b_json}")"
 	if [[ -z "${id_a}" || -z "${id_b}" ]]; then
 		log_err 'observe returned no memory IDs'
 		return 1
@@ -558,7 +597,7 @@ preflight_local_memory_gold() {
 	local relate_json
 	relate_json="$(cat "${relate_output}")"
 	local relationship_id
-	relationship_id="$(echo "${relate_json}" | jq -r '.id // .data.id // .relationship_id // .data.relationship_id // empty')"
+	relationship_id="$(extract_relationship_id "${relate_json}")"
 	local relate_ok
 	relate_ok="$(echo "${relate_json}" | jq -r '.success // true')"
 	if [[ "${relate_ok}" != 'true' ]]; then
@@ -582,14 +621,7 @@ preflight_local_memory_gold() {
 		local search_json_attempt
 		search_json_attempt="$(cat "${search_output}")"
 		local search_hits_attempt
-		search_hits_attempt="$(echo "${search_json_attempt}" | jq -r '
-			if type == "array" then length
-			elif .search_info.total_results != null then .search_info.total_results
-			elif .results then (.results | length)
-			elif .data.results then (.data.results | length)
-			elif .data then (.data | length)
-			else 0 end
-		')"
+		search_hits_attempt="$(count_search_hits "${search_json_attempt}")"
 		if [[ "${search_hits_attempt}" -ge 1 ]]; then
 			break
 		fi
@@ -599,14 +631,7 @@ preflight_local_memory_gold() {
 	local search_json
 	search_json="$(cat "${search_output}")"
 	local search_hits
-	search_hits="$(echo "${search_json}" | jq -r '
-		if type == "array" then length
-		elif .search_info.total_results != null then .search_info.total_results
-		elif .results then (.results | length)
-		elif .data.results then (.data.results | length)
-		elif .data then (.data | length)
-		else 0 end
-	')"
+	search_hits="$(count_search_hits "${search_json}")"
 	if [[ "${search_hits}" -lt 1 ]]; then
 		log_err "search returned no results for probe ${probe}"
 		return 1
@@ -616,7 +641,7 @@ preflight_local_memory_gold() {
 	local malformed_code
 	malformed_code="$(post_json_to_file "${malformed_output}" "${observe_url}" '{"level":"observation"}')"
 	if [[ "${malformed_code}" -lt 400 ]]; then
-		trap - RETURN
+		clear_cleanup_trap
 		rm -f "${malformed_output}" "${dup_output_1}" "${dup_output_2}"
 		log_err "malformed payload did not return an error (HTTP ${malformed_code})"
 		return 1
@@ -653,6 +678,16 @@ run_preflight_profile() {
 	local bins_csv="${3:-}"
 	local paths_csv="${4:-}"
 	local local_memory_mode="${5:-required}"
+
+	if [[ -z "${bins_csv}" ]]; then
+		# Keep the defaults here so direct run_preflight_profile calls still work even when main receives explicit flags.
+		bins_csv="$(stack_bins_csv "${stack}")"
+	fi
+	if [[ -z "${paths_csv}" ]]; then
+		# main has its own defaults; passing these through preserves the direct-call behavior above.
+		paths_csv="$(stack_paths_csv "${stack}")"
+	fi
+
 	local -a args=(
 		--stack "${stack}"
 		--mode "${local_memory_mode}"
@@ -672,43 +707,23 @@ run_preflight_profile() {
 }
 
 preflight_repo() {
-	run_preflight_profile \
-		repo \
-		"${1:-}" \
-		"${2:-git,bash,sed,rg,jq,curl,python3}" \
-		"${3:-CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" \
-		"${4:-required}"
+	run_preflight_profile repo "${1:-}" "${2:-}" "${3:-}" "${4:-required}"
 }
 
 preflight_js() {
-	run_preflight_profile \
-		js \
-		"${1:-}" \
-		"${2:-git,bash,sed,rg,jq,curl,node,npm,python3}" \
-		"${3:-package.json,CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" \
-		"${4:-required}"
+	run_preflight_profile js "${1:-}" "${2:-}" "${3:-}" "${4:-required}"
 }
 
 preflight_py() {
-	run_preflight_profile \
-		py \
-		"${1:-}" \
-		"${2:-git,bash,sed,rg,jq,curl,python3}" \
-		"${3:-pyproject.toml,CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" \
-		"${4:-required}"
+	run_preflight_profile py "${1:-}" "${2:-}" "${3:-}" "${4:-required}"
 }
 
 preflight_rust() {
-	run_preflight_profile \
-		rust \
-		"${1:-}" \
-		"${2:-git,bash,sed,rg,jq,curl,python3,cargo}" \
-		"${3:-Cargo.toml,CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" \
-		"${4:-required}"
+	run_preflight_profile rust "${1:-}" "${2:-}" "${3:-}" "${4:-required}"
 }
 
 preflight_repo_local_memory() {
-	preflight_repo "${1:-}" "${2:-git,bash,sed,rg,jq,curl,python3}" "${3:-CONTRIBUTING.md,Makefile,scripts,scripts/codex-preflight.sh,scripts/verify-work.sh}" required
+	preflight_repo "${1:-}" "${2:-}" "${3:-}" required
 }
 
 main() {

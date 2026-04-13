@@ -1,5 +1,9 @@
 const chalk = require('chalk');
 const {
+  compareStringsDeterministically,
+  sortStringsDeterministically,
+} = require('./sort-utils');
+const {
   computeDelta,
   computeBlastRadiusFromDelta,
   computeRiskFromDelta,
@@ -19,6 +23,72 @@ const {
   writeConfidenceReport,
   shouldFailStrictConfidence,
 } = require('../confidence/pipeline');
+
+const VALID_OUTPUT_FORMATS = Object.freeze(['text', 'json']);
+const VALID_RISK_THRESHOLDS = Object.freeze(['none', 'low', 'medium', 'high']);
+const RISK_LEVEL_SCORE = Object.freeze({ none: 0, low: 1, medium: 2, high: 3 });
+
+function hasNoChangedFiles(changedFiles) {
+  return (
+    (changedFiles?.changed?.length || 0) === 0 &&
+    (changedFiles?.renamed?.length || 0) === 0 &&
+    (changedFiles?.added?.length || 0) === 0 &&
+    (changedFiles?.deleted?.length || 0) === 0
+  );
+}
+
+function normalizeListOption(value, splitList) {
+  return Array.isArray(value) ? value : splitList(String(value || ''));
+}
+
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+function createVerboseLogger(enabled) {
+  return (...args) => {
+    if (enabled) console.log(...args);
+  };
+}
+
+function sortPrImpactResultDeterministically(result) {
+  result.changedFiles = sortStringsDeterministically(result.changedFiles);
+  result.renamedFiles = [...(result.renamedFiles || [])].sort((a, b) => {
+    const fromCmp = compareStringsDeterministically(a?.from, b?.from);
+    if (fromCmp !== 0) return fromCmp;
+    return compareStringsDeterministically(a?.to, b?.to);
+  });
+  result.deletedFiles = sortStringsDeterministically(result.deletedFiles);
+  result.addedFiles = sortStringsDeterministically(result.addedFiles);
+  result.unmodeledChanges = sortStringsDeterministically(result.unmodeledChanges);
+  result.changedComponents = [...(result.changedComponents || [])]
+    .map((component) => ({
+      ...component,
+      dependenciesAdded: sortStringsDeterministically(component.dependenciesAdded),
+      dependenciesRemoved: sortStringsDeterministically(component.dependenciesRemoved),
+      roleTagsAdded: sortStringsDeterministically(component.roleTagsAdded),
+      roleTagsRemoved: sortStringsDeterministically(component.roleTagsRemoved),
+      roleTags: sortStringsDeterministically(component.roleTags),
+    }))
+    .sort((a, b) => compareStringsDeterministically(a?.filePath, b?.filePath));
+  result.dependencyEdgeDelta = {
+    ...(result.dependencyEdgeDelta || {}),
+    added: sortStringsDeterministically(result?.dependencyEdgeDelta?.added),
+    removed: sortStringsDeterministically(result?.dependencyEdgeDelta?.removed),
+  };
+  result.blastRadius = {
+    ...(result.blastRadius || {}),
+    impactedComponents: sortStringsDeterministically(result?.blastRadius?.impactedComponents),
+  };
+  result.risk = {
+    ...(result.risk || {}),
+    flags: sortStringsDeterministically(result?.risk?.flags),
+  };
+  result.agentSummary = {
+    ...(result.agentSummary || {}),
+    riskReasons: sortStringsDeterministically(result?.agentSummary?.riskReasons),
+  };
+}
 
 /**
  * Register the `workflow pr` CLI command group and its action handler for computing
@@ -84,10 +154,11 @@ function registerWorkflowCommands(program, deps) {
       );
       const formatStr = (options.format || 'text').toLowerCase();
       const isJson = formatStr === 'json';
-      const validFormats = ['text', 'json'];
-      if (!validFormats.includes(formatStr)) {
+      const verboseOutput = !isJson && Boolean(options.verbose);
+      const logVerbose = createVerboseLogger(verboseOutput);
+      if (!VALID_OUTPUT_FORMATS.includes(formatStr)) {
         console.error(chalk.red('❌ Invalid format:'), options.format);
-        console.log(chalk.gray('Valid values:', validFormats.join(', ')));
+        console.log(chalk.gray('Valid values:', VALID_OUTPUT_FORMATS.join(', ')));
         process.exit(2);
       }
       const root = resolveRootPathOrExit(targetPath);
@@ -131,9 +202,7 @@ function registerWorkflowCommands(program, deps) {
         const envRefs = detectPrRefsFromEnv();
         if (envRefs.base) {
           baseRef = envRefs.base;
-          if (options.verbose) {
-            console.log(chalk.gray('Auto-detected base ref from environment:', baseRef));
-          }
+          logVerbose(chalk.gray('Auto-detected base ref from environment:', baseRef));
         } else {
           // Prefer remote-tracking default branch refs for CI clones.
           try {
@@ -157,9 +226,7 @@ function registerWorkflowCommands(program, deps) {
             if (!baseRef) {
               throw new Error('No remote base branch available');
             }
-            if (options.verbose) {
-              console.log(chalk.gray(`Using default base ref: ${baseRef}`));
-            }
+            logVerbose(chalk.gray(`Using default base ref: ${baseRef}`));
           } catch {
             console.error(chalk.red('❌ No base ref provided and could not auto-detect.'));
             console.log(chalk.gray('Specify --base <ref> or run from a PR context.'));
@@ -184,18 +251,17 @@ function registerWorkflowCommands(program, deps) {
         process.exit(2);
       }
 
-      if (options.verbose) {
+      if (verboseOutput) {
         console.log(chalk.blue('📊 PR Impact Analysis'));
         console.log(chalk.gray('  Base:'), baseRef, '→', baseSha);
         console.log(chalk.gray('  Head:'), headRef, '→', headSha);
       }
 
       // Validate risk threshold
-      const validThresholds = ['none', 'low', 'medium', 'high'];
       const threshold = (options.riskThreshold || 'none').toLowerCase();
-      if (!validThresholds.includes(threshold)) {
+      if (!VALID_RISK_THRESHOLDS.includes(threshold)) {
         console.error(chalk.red('❌ Invalid risk threshold:'), options.riskThreshold);
-        console.log(chalk.gray('Valid values:', validThresholds.join(', ')));
+        console.log(chalk.gray('Valid values:', VALID_RISK_THRESHOLDS.join(', ')));
         process.exit(2);
       }
 
@@ -232,9 +298,7 @@ function registerWorkflowCommands(program, deps) {
       }
 
       // Phase 2: Git diff ingestion + snapshot preparation
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n📋 Step 1: Extracting changed files...'));
-      }
+      logVerbose(chalk.blue('\n📋 Step 1: Extracting changed files...'));
 
       let changedFiles;
       try {
@@ -244,18 +308,13 @@ function registerWorkflowCommands(program, deps) {
         process.exit(2);
       }
 
-      if (!isJson && options.verbose) {
-        console.log(chalk.gray('   Changed:'), changedFiles.changed.length);
-        console.log(chalk.gray('   Renamed:'), changedFiles.renamed.length);
-        console.log(chalk.gray('   Added:'), changedFiles.added.length);
-        console.log(chalk.gray('   Deleted:'), changedFiles.deleted.length);
-      }
+      logVerbose(chalk.gray('   Changed:'), changedFiles.changed.length);
+      logVerbose(chalk.gray('   Renamed:'), changedFiles.renamed.length);
+      logVerbose(chalk.gray('   Added:'), changedFiles.added.length);
+      logVerbose(chalk.gray('   Deleted:'), changedFiles.deleted.length);
 
       // Handle empty diff case
-      if (changedFiles.changed.length === 0 &&
-          changedFiles.renamed.length === 0 &&
-          changedFiles.added.length === 0 &&
-          changedFiles.deleted.length === 0) {
+      if (hasNoChangedFiles(changedFiles)) {
         const emptyResult = {
           schemaVersion: '1.0',
           generatedAt: options.deterministic ? '1970-01-01T00:00:00.000Z' : new Date().toISOString(),
@@ -318,15 +377,13 @@ function registerWorkflowCommands(program, deps) {
       }
 
       // Phase 2: Analyze snapshots at base and head refs
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n📊 Step 2: Analyzing codebase snapshots...'));
-      }
+      logVerbose(chalk.blue('\n📊 Step 2: Analyzing codebase snapshots...'));
 
       let baseAnalysis, headAnalysis;
       try {
         const maxFilesAtRef = parseInt(options.maxFiles, 10) || 10000;
-        const patterns = Array.isArray(options.patterns) ? options.patterns : splitList(options.patterns);
-        const exclude = Array.isArray(options.exclude) ? options.exclude : splitList(options.exclude);
+        const patterns = normalizeListOption(options.patterns, splitList);
+        const exclude = normalizeListOption(options.exclude, splitList);
         const analysisOptions = {
           maxFiles: maxFilesAtRef,
           patterns,
@@ -335,56 +392,40 @@ function registerWorkflowCommands(program, deps) {
         };
 
         baseAnalysis = await analyzeAtRef(baseSha, root, analysisOptions);
-        if (!isJson && options.verbose) {
-          console.log(chalk.gray('   Base components:'), baseAnalysis.components.length);
-        }
+        logVerbose(chalk.gray('   Base components:'), baseAnalysis.components.length);
 
         headAnalysis = await analyzeAtRef(headSha, root, analysisOptions);
-        if (!isJson && options.verbose) {
-          console.log(chalk.gray('   Head components:'), headAnalysis.components.length);
-        }
+        logVerbose(chalk.gray('   Head components:'), headAnalysis.components.length);
       } catch (error) {
         console.error(chalk.red('❌ Analysis error:'), error.message);
         process.exit(2);
       }
 
       // Compute delta between snapshots
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n🔄 Step 3: Computing delta...'));
-      }
+      logVerbose(chalk.blue('\n🔄 Step 3: Computing delta...'));
 
       const delta = computeDelta(baseAnalysis, headAnalysis, changedFiles);
 
-      if (!isJson && options.verbose) {
-        console.log(chalk.gray('   Changed components:'), delta.changedComponents.length);
-        console.log(chalk.gray('   Unmodeled changes:'), delta.unmodeledChanges.length);
-        console.log(chalk.gray('   Edge delta:'), delta.dependencyEdgeDelta.count);
-      }
+      logVerbose(chalk.gray('   Changed components:'), delta.changedComponents.length);
+      logVerbose(chalk.gray('   Unmodeled changes:'), delta.unmodeledChanges.length);
+      logVerbose(chalk.gray('   Edge delta:'), delta.dependencyEdgeDelta.count);
 
       // Compute blast radius (Phase 3 - basic implementation)
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n💥 Step 4: Computing blast radius...'));
-      }
+      logVerbose(chalk.blue('\n💥 Step 4: Computing blast radius...'));
 
       const blastRadius = computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes);
 
-      if (!isJson && options.verbose) {
-        console.log(chalk.gray('   Impacted components:'), blastRadius.impactedComponents.length);
-        console.log(chalk.gray('   Truncated:'), blastRadius.truncated);
-      }
+      logVerbose(chalk.gray('   Impacted components:'), blastRadius.impactedComponents.length);
+      logVerbose(chalk.gray('   Truncated:'), blastRadius.truncated);
 
       // Compute risk score (Phase 4 - basic implementation)
-      if (!isJson && options.verbose) {
-        console.log(chalk.blue('\n⚠️  Step 5: Computing risk score...'));
-      }
+      logVerbose(chalk.blue('\n⚠️  Step 5: Computing risk score...'));
 
       const risk = computeRiskFromDelta(delta, blastRadius);
 
-      if (!isJson && options.verbose) {
-        console.log(chalk.gray('   Risk score:'), risk.score);
-        console.log(chalk.gray('   Risk level:'), risk.level);
-        console.log(chalk.gray('   Risk flags:'), risk.flags.join(', ') || 'none');
-      }
+      logVerbose(chalk.gray('   Risk score:'), risk.score);
+      logVerbose(chalk.gray('   Risk level:'), risk.level);
+      logVerbose(chalk.gray('   Risk flags:'), risk.flags.join(', ') || 'none');
 
       // Build final result
       const result = {
@@ -433,31 +474,10 @@ function registerWorkflowCommands(program, deps) {
       };
 
       if (options.deterministic) {
-        result.changedFiles = [...(result.changedFiles || [])].sort();
-        result.renamedFiles = [...(result.renamedFiles || [])].sort((a, b) => {
-          const fromCmp = String(a.from || '').localeCompare(String(b.from || ''));
-          if (fromCmp !== 0) return fromCmp;
-          return String(a.to || '').localeCompare(String(b.to || ''));
-        });
-        result.deletedFiles = [...(result.deletedFiles || [])].sort();
-        result.addedFiles = [...(result.addedFiles || [])].sort();
-        result.unmodeledChanges = [...(result.unmodeledChanges || [])].sort();
-        result.changedComponents = [...(result.changedComponents || [])]
-          .map((component) => ({
-            ...component,
-            dependenciesAdded: [...(component.dependenciesAdded || [])].sort(),
-            dependenciesRemoved: [...(component.dependenciesRemoved || [])].sort(),
-            roleTagsAdded: [...(component.roleTagsAdded || [])].sort(),
-            roleTagsRemoved: [...(component.roleTagsRemoved || [])].sort(),
-            roleTags: [...(component.roleTags || [])].sort(),
-          }))
-          .sort((a, b) => String(a.filePath || '').localeCompare(String(b.filePath || '')));
-        result.dependencyEdgeDelta.added = [...(result.dependencyEdgeDelta.added || [])].sort();
-        result.dependencyEdgeDelta.removed = [...(result.dependencyEdgeDelta.removed || [])].sort();
-        result.blastRadius.impactedComponents = [...(result.blastRadius.impactedComponents || [])].sort();
-        result.risk.flags = [...(result.risk.flags || [])].sort();
-        result.agentSummary.riskReasons = [...(result.agentSummary.riskReasons || [])].sort();
-        result._meta.durationMs = 0;
+        sortPrImpactResultDeterministically(result);
+        if (result._meta && typeof result._meta === 'object') {
+          result._meta.durationMs = 0;
+        }
       }
 
       // Exit code logic
@@ -469,15 +489,17 @@ function registerWorkflowCommands(program, deps) {
       // so the JSON reflects the override state correctly
       let exitCode = 0;
       if (options.failOnRisk && threshold !== 'none') {
-        const thresholdLevels = { low: 1, medium: 2, high: 3 };
-        const riskLevels = { low: 1, medium: 2, high: 3 };
+        const thresholdNum = RISK_LEVEL_SCORE[threshold];
+        const riskNum = RISK_LEVEL_SCORE[result.risk.level];
 
-        const thresholdNum = thresholdLevels[threshold] || 0;
-        const riskNum = riskLevels[result.risk.level] || 0;
+        if (typeof riskNum !== 'number') {
+          console.error(chalk.red('\n❌ Unknown computed risk level:'), result.risk.level);
+          process.exit(2);
+        }
 
         if (riskNum >= thresholdNum) {
           // Check for override
-          if (options.riskOverrideReason && options.riskOverrideReason.trim() !== '') {
+          if (isNonEmptyString(options.riskOverrideReason)) {
             result.risk.override.applied = true;
             console.log(chalk.yellow('\n⚠️  Risk threshold exceeded, but override applied'));
             console.log(chalk.gray('   Reason:'), options.riskOverrideReason);
@@ -558,4 +580,9 @@ function registerWorkflowCommands(program, deps) {
   return workflowCommand;
 }
 
-module.exports = { registerWorkflowCommands };
+module.exports = {
+  registerWorkflowCommands,
+  normalizeListOption,
+  compareStringsDeterministically,
+  sortPrImpactResultDeterministically,
+};

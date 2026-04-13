@@ -4,6 +4,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
+print_bootstrap_guidance() {
+	echo "Repair from the repo root with one of:" >&2
+	echo "  npm install" >&2
+	echo "  npm exec harness -- <command>" >&2
+	echo "After the package is installed, rerun:" >&2
+	echo "  bash scripts/harness-cli.sh <command>" >&2
+	echo "  npm exec harness -- <command>" >&2
+}
+
 if ! command -v node >/dev/null 2>&1; then
 	echo "Error: node is required to run scripts/harness-cli.sh." >&2
 	echo "Install Node.js and retry." >&2
@@ -43,33 +52,22 @@ set -e
 
 if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
 	if command -v harness >/dev/null 2>&1; then
-		exec harness "$@"
+		set +e
+		bash -lc 'harness "$@"' _ "$@"
+		harness_status=$?
+		set -e
+		exit "$harness_status"
 	fi
-	if [[ "${CI:-}" == "true" ]]; then
-		if ! command -v npx >/dev/null 2>&1; then
-			echo "Error: npx is required for CI fallback when local harness package is missing." >&2
-			exit 1
-		fi
-		echo "Warning: local @brainwav/coding-harness missing; using npx harness fallback in CI." >&2
-		exec npx --yes harness "$@"
-	fi
-	echo "Error: local @brainwav/coding-harness could not be resolved from this repo." >&2
+	echo "Error: local harness CLI could not be resolved from this repo." >&2
 	echo "This is a local install/bootstrap problem, not a harness command failure." >&2
-	echo "Repair from the repo root with one of:" >&2
-	echo "  npm install" >&2
-	echo "  npm install --save-dev @brainwav/coding-harness" >&2
-	echo "After the package is installed, rerun:" >&2
-	echo "  bash scripts/harness-cli.sh <command>" >&2
-	echo "  npm exec harness -- <command>" >&2
+	print_bootstrap_guidance
 	exit 1
 fi
 
 if [[ $resolution_status -ne 0 ]]; then
-	echo "Error: failed to resolve the local @brainwav/coding-harness CLI entrypoint." >&2
+	echo "Error: failed to resolve the local harness CLI entrypoint." >&2
 	echo "This indicates a local install/bootstrap problem, not a harness command failure." >&2
-	echo "Repair from the repo root with one of:" >&2
-	echo "  npm install" >&2
-	echo "  npm install --save-dev @brainwav/coding-harness" >&2
+	print_bootstrap_guidance
 	exit 1
 fi
 

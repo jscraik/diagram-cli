@@ -1,0 +1,85 @@
+{
+  "arbitration_decisions": [],
+  "artifact_generated_at": "2026-04-11T17:50:22Z",
+  "drift_flags": [
+    {
+      "detected_at": "2026-04-11T17:50:22Z",
+      "id": "mixed-framework-signals",
+      "severity": "medium",
+      "summary": "multiple hook framework markers are active"
+    },
+    {
+      "detected_at": "2026-04-11T17:50:22Z",
+      "id": "missing-arbitration-decisions",
+      "severity": "low",
+      "summary": "no arbitration decision records captured yet"
+    }
+  ],
+  "evaluated_at": "2026-04-11T17:50:22Z",
+  "evaluated_hook_config_digest": "f4c76b548d78adc6d4ece3dec62ae2f47ac158f460433b76eb4601955d00a2bc",
+  "frameworks_active": [
+    "prek",
+    "simple-git-hooks"
+  ],
+  "freshness_status": "fresh",
+  "hook_config_digest": "f4c76b548d78adc6d4ece3dec62ae2f47ac158f460433b76eb4601955d00a2bc",
+  "profile": "mixed-framework-transitional",
+  "repo_path": "/Users/jamiecraik/dev/diagram-cli",
+  "schema_version": "hook-conformance.v1",
+  "stages": [
+    {
+      "command": "make hooks-pre-commit",
+      "gate_id": "docstrings",
+      "owner_layer": "git_local",
+      "scope": "changed-files",
+      "severity_mode": "hard-block",
+      "stage": "pre-commit",
+      "timeout_seconds": 120
+    },
+    {
+      "command": "make hooks-pre-commit",
+      "gate_id": "formatting",
+      "owner_layer": "git_local",
+      "scope": "changed-files",
+      "severity_mode": "hard-block",
+      "stage": "pre-commit",
+      "timeout_seconds": 120
+    },
+    {
+      "command": "make hooks-pre-commit",
+      "gate_id": "lint",
+      "owner_layer": "git_local",
+      "scope": "changed-files",
+      "severity_mode": "hard-block",
+      "stage": "pre-commit",
+      "timeout_seconds": 120
+    },
+    {
+      "command": "make hooks-pre-commit",
+      "gate_id": "spelling",
+      "owner_layer": "git_local",
+      "scope": "changed-files",
+      "severity_mode": "hard-block",
+      "stage": "pre-commit",
+      "timeout_seconds": 120
+    },
+    {
+      "command": "make hooks-pre-commit",
+      "gate_id": "typecheck",
+      "owner_layer": "git_local",
+      "scope": "changed-files",
+      "severity_mode": "hard-block",
+      "stage": "pre-commit",
+      "timeout_seconds": 120
+    },
+    {
+      "command": "make hooks-pre-push",
+      "gate_id": "unit",
+      "owner_layer": "git_local",
+      "scope": "full-repo",
+      "severity_mode": "hard-block",
+      "stage": "pre-push",
+      "timeout_seconds": 300
+    }
+  ]
+}

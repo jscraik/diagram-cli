@@ -1,5 +1,9 @@
 const fs = require('fs');
 const path = require('path');
+const {
+  compareStringsDeterministically,
+  sortStringsDeterministically,
+} = require('./sort-utils');
 
 /**
  * Compare two arrays for strict element-wise equality.
@@ -67,6 +71,14 @@ function buildComponentAliasMap(components) {
   return aliases;
 }
 
+function indexComponentsByFilePath(components) {
+  const indexed = new Map();
+  for (const component of components || []) {
+    indexed.set(component.filePath, component);
+  }
+  return indexed;
+}
+
 /**
  * Resolve a component reference to its canonical identity using the provided alias map.
  * @param {Object} component - Object that may contain `filePath` and/or `name` properties.
@@ -95,7 +107,7 @@ function resolveIdentityFromComponent(component, aliases) {
  * @returns {string[]} Sorted array of canonical dependency identities; empty array if there are no normalisable dependencies.
  */
 function normalizedDependencies(component, aliases = null) {
-  return (component?.dependencies || [])
+  const normalized = (component?.dependencies || [])
     .map((dep) => {
       const normalized = normalizeDependency(dep);
       if (!normalized) return null;
@@ -107,8 +119,8 @@ function normalizedDependencies(component, aliases = null) {
       }
       return normalized;
     })
-    .filter(Boolean)
-    .sort();
+    .filter(Boolean);
+  return sortStringsDeterministically(normalized);
 }
 
 /**
@@ -119,6 +131,46 @@ function normalizedDependencies(component, aliases = null) {
  */
 function normalizedDependencySet(component, aliases = null) {
   return new Set(normalizedDependencies(component, aliases));
+}
+
+function addDependencyEdges(edgeSet, component, aliases = null) {
+  const fromPath = component?.filePath;
+  if (!fromPath) return;
+  for (const dep of normalizedDependencies(component, aliases)) {
+    edgeSet.add(`${fromPath}→${dep}`);
+  }
+}
+
+function buildExistingComponentChange(filePath, baseComp, headComp, baseDeps, headDeps) {
+  const baseRoleTags = baseComp.roleTags || [];
+  const headRoleTags = headComp.roleTags || [];
+  const baseDepSet = new Set(baseDeps);
+  const headDepSet = new Set(headDeps);
+  return {
+    filePath,
+    name: headComp.name,
+    type: headComp.type,
+    roleTags: headRoleTags,
+    dependenciesAdded: [...headDepSet].filter((dep) => !baseDepSet.has(dep)),
+    dependenciesRemoved: [...baseDepSet].filter((dep) => !headDepSet.has(dep)),
+    roleTagsAdded: headRoleTags.filter((role) => !baseRoleTags.includes(role)),
+    roleTagsRemoved: baseRoleTags.filter((role) => !headRoleTags.includes(role)),
+  };
+}
+
+function buildNewComponentChange(filePath, headComp, headDependencies) {
+  const headRoleTags = headComp.roleTags || [];
+  return {
+    filePath,
+    name: headComp.name,
+    type: headComp.type,
+    roleTags: headRoleTags,
+    dependenciesAdded: headDependencies,
+    dependenciesRemoved: [],
+    roleTagsAdded: headRoleTags,
+    roleTagsRemoved: [],
+    isNew: true,
+  };
 }
 
 /**
@@ -147,15 +199,8 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   const headAliases = buildComponentAliasMap(headAnalysis.components || []);
 
   // Build component indexes by filePath
-  const baseByPath = new Map();
-  for (const c of baseAnalysis.components || []) {
-    baseByPath.set(c.filePath, c);
-  }
-
-  const headByPath = new Map();
-  for (const c of headAnalysis.components || []) {
-    headByPath.set(c.filePath, c);
-  }
+  const baseByPath = indexComponentsByFilePath(baseAnalysis.components || []);
+  const headByPath = indexComponentsByFilePath(headAnalysis.components || []);
 
   // Find changed components
   const changedComponents = [];
@@ -173,37 +218,20 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
         const headDeps = normalizedDependencies(headComp, headAliases);
         const depsChanged = !arraysEqual(baseDeps, headDeps);
         const rolesChanged = !arraysEqual(
-          (baseComp.roleTags || []).sort(),
-          (headComp.roleTags || []).sort()
+          sortStringsDeterministically(baseComp.roleTags || []),
+          sortStringsDeterministically(headComp.roleTags || [])
         );
 
         if (depsChanged || rolesChanged) {
-          const baseDepSet = new Set(baseDeps);
-          const headDepSet = new Set(headDeps);
-          changedComponents.push({
-            filePath,
-            name: headComp.name,
-            type: headComp.type,
-            roleTags: headComp.roleTags,
-            dependenciesAdded: [...headDepSet].filter((dep) => !baseDepSet.has(dep)),
-            dependenciesRemoved: [...baseDepSet].filter((dep) => !headDepSet.has(dep)),
-            roleTagsAdded: (headComp.roleTags || []).filter(r => !(baseComp.roleTags || []).includes(r)),
-            roleTagsRemoved: (baseComp.roleTags || []).filter(r => !(headComp.roleTags || []).includes(r))
-          });
+          changedComponents.push(buildExistingComponentChange(filePath, baseComp, headComp, baseDeps, headDeps));
         }
       } else {
         // New file in head
-        changedComponents.push({
+        changedComponents.push(buildNewComponentChange(
           filePath,
-          name: headComp.name,
-          type: headComp.type,
-          roleTags: headComp.roleTags,
-          dependenciesAdded: normalizedDependencies(headComp, headAliases),
-          dependenciesRemoved: [],
-          roleTagsAdded: headComp.roleTags || [],
-          roleTagsRemoved: [],
-          isNew: true
-        });
+          headComp,
+          normalizedDependencies(headComp, headAliases)
+        ));
       }
     } else {
       // File changed but not modeled (e.g., config file, non-code)
@@ -214,27 +242,23 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
   // Compute dependency edge deltas
   const baseEdges = new Set();
   for (const c of baseAnalysis.components || []) {
-    for (const dep of normalizedDependencies(c, baseAliases)) {
-      baseEdges.add(`${c.filePath}→${dep}`);
-    }
+    addDependencyEdges(baseEdges, c, baseAliases);
   }
 
   const headEdges = new Set();
   for (const c of headAnalysis.components || []) {
-    for (const dep of normalizedDependencies(c, headAliases)) {
-      headEdges.add(`${c.filePath}→${dep}`);
-    }
+    addDependencyEdges(headEdges, c, headAliases);
   }
 
-  const edgesAdded = [...headEdges].filter(e => !baseEdges.has(e)).sort();
-  const edgesRemoved = [...baseEdges].filter(e => !headEdges.has(e)).sort();
+  const edgesAdded = sortStringsDeterministically([...headEdges].filter(e => !baseEdges.has(e)));
+  const edgesRemoved = sortStringsDeterministically([...baseEdges].filter(e => !headEdges.has(e)));
 
   return {
-    changedComponents: changedComponents.sort((a, b) => a.filePath.localeCompare(b.filePath)),
-    unmodeledChanges: unmodeledChanges.sort(),
+    changedComponents: changedComponents.sort((a, b) => compareStringsDeterministically(a.filePath, b.filePath)),
+    unmodeledChanges: sortStringsDeterministically(unmodeledChanges),
     renamedFiles: renamed,
-    deletedFiles: deleted.sort(),
-    addedFiles: added.sort(),
+    deletedFiles: sortStringsDeterministically(deleted),
+    addedFiles: sortStringsDeterministically(added),
     dependencyEdgeDelta: {
       added: edgesAdded,
       removed: edgesRemoved,
@@ -319,7 +343,7 @@ function computeBlastRadiusFromDelta(delta, headAnalysis, maxDepth, maxNodes) {
   const omittedCount = Math.max(0, visited.size - maxNodes);
 
   return {
-    impactedComponents: [...impacted].sort(),
+    impactedComponents: sortStringsDeterministically([...impacted]),
     truncated,
     omittedCount
   };
@@ -418,41 +442,32 @@ function groupChangePaths(result, maxPreview = 10) {
     unmodeled: { items: [], count: 0, truncated: false }
   };
 
-  // Process each file status array with stable sorting
-  const sortStrings = (arr) => [...arr].sort((a, b) => String(a).localeCompare(String(b)));
+  const buildSortedPreviewGroup = (items) => {
+    const sorted = [...(items || [])].sort(compareStringsDeterministically);
+    return {
+      count: sorted.length,
+      items: sorted.slice(0, maxPreview),
+      truncated: sorted.length > maxPreview,
+    };
+  };
+  const buildRenamedPreviewGroup = (items) => {
+    const sorted = [...(items || [])].sort((a, b) => {
+      const fromCmp = compareStringsDeterministically(a?.from, b?.from);
+      if (fromCmp !== 0) return fromCmp;
+      return compareStringsDeterministically(a?.to, b?.to);
+    });
+    return {
+      count: sorted.length,
+      items: sorted.slice(0, maxPreview),
+      truncated: sorted.length > maxPreview,
+    };
+  };
 
-  // Changed files
-  const changed = sortStrings(result.changedFiles || []);
-  groups.changed.count = changed.length;
-  groups.changed.items = changed.slice(0, maxPreview);
-  groups.changed.truncated = changed.length > maxPreview;
-
-  // Renamed files (array of { from, to } objects)
-  const renamed = result.renamedFiles || [];
-  const renamedSorted = [...renamed].sort((a, b) =>
-    (a.from || '').localeCompare(b.from || '')
-  );
-  groups.renamed.count = renamedSorted.length;
-  groups.renamed.items = renamedSorted.slice(0, maxPreview);
-  groups.renamed.truncated = renamedSorted.length > maxPreview;
-
-  // Added files
-  const added = sortStrings(result.addedFiles || []);
-  groups.added.count = added.length;
-  groups.added.items = added.slice(0, maxPreview);
-  groups.added.truncated = added.length > maxPreview;
-
-  // Deleted files
-  const deleted = sortStrings(result.deletedFiles || []);
-  groups.deleted.count = deleted.length;
-  groups.deleted.items = deleted.slice(0, maxPreview);
-  groups.deleted.truncated = deleted.length > maxPreview;
-
-  // Unmodeled changes
-  const unmodeled = sortStrings(result.unmodeledChanges || []);
-  groups.unmodeled.count = unmodeled.length;
-  groups.unmodeled.items = unmodeled.slice(0, maxPreview);
-  groups.unmodeled.truncated = unmodeled.length > maxPreview;
+  groups.changed = buildSortedPreviewGroup(result.changedFiles);
+  groups.renamed = buildRenamedPreviewGroup(result.renamedFiles);
+  groups.added = buildSortedPreviewGroup(result.addedFiles);
+  groups.deleted = buildSortedPreviewGroup(result.deletedFiles);
+  groups.unmodeled = buildSortedPreviewGroup(result.unmodeledChanges);
 
   return groups;
 }
@@ -496,7 +511,7 @@ function buildRiskNarrative(risk) {
   }
 
   // Sort reasons for deterministic output
-  narrative.reasons.sort();
+  narrative.reasons = sortStringsDeterministically(narrative.reasons);
 
   // Handle override
   if (risk?.override?.applied) {
@@ -558,7 +573,7 @@ function generateHtmlExplainer(result) {
 
   // Sort changed components deterministically
   const sortedComponents = [...(result.changedComponents || [])].sort((a, b) =>
-    (a.name || '').localeCompare(b.name || '')
+    compareStringsDeterministically(a?.name, b?.name)
   );
 
   // Build changed components HTML
@@ -566,13 +581,13 @@ function generateHtmlExplainer(result) {
       <li class="component">
         <div class="component-name">${escapeHtml(comp.name)}</div>
         <div class="component-path">${escapeHtml(comp.filePath)}</div>
-        <div class="component-roles">${(comp.roleTags || []).sort().map(r => `<span class="role-tag">${escapeHtml(r)}</span>`).join(' ')}</div>
+        <div class="component-roles">${sortStringsDeterministically(comp.roleTags || []).map(r => `<span class="role-tag">${escapeHtml(r)}</span>`).join(' ')}</div>
         ${comp.isNew ? '<span class="badge new">NEW</span>' : ''}
       </li>
     `).join('');
 
   // Build blast radius HTML with sorted components
-  const sortedBlastRadius = [...(result.blastRadius?.impactedComponents || [])].sort();
+  const sortedBlastRadius = sortStringsDeterministically(result.blastRadius?.impactedComponents || []);
   const blastRadiusHtml = sortedBlastRadius.map(name => `
       <li>${escapeHtml(name)}</li>
     `).join('');
@@ -634,9 +649,9 @@ function generateHtmlExplainer(result) {
   }
 
   // Sort action items for determinism
-  actionItems.sort();
+  const sortedActionItems = sortStringsDeterministically(actionItems);
 
-  const actionChecklistHtml = actionItems.map(item => `
+  const actionChecklistHtml = sortedActionItems.map(item => `
       <li>${escapeHtml(item)}</li>
     `).join('');
 

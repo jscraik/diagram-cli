@@ -4,6 +4,10 @@ const chalk = require('chalk');
 const { execFileSync } = require('child_process');
 const micromatch = require('picomatch');
 const {
+  compareStringsDeterministically,
+  sortStringsDeterministically,
+} = require('./sort-utils');
+const {
   detectLanguage,
   inferType,
   extractImportsWithPositions,
@@ -152,37 +156,46 @@ function getChangedFiles(baseSha, headSha, root) {
     const parts = line.split('\t');
     const status = parts[0];
 
-    if (status === 'A') {
-      added.push(parts[1]);
-      changed.push(parts[1]);
-    } else if (status === 'D') {
-      deleted.push(parts[1]);
-    } else if (status === 'M') {
-      changed.push(parts[1]);
-    } else if (status.startsWith('R')) {
-      // Rename: R### old_path new_path (### = similarity 000–100)
-      // -M defaults to 50% threshold; handle all values not just ≥90%.
-      const similarity = parseInt(status.slice(1), 10);
-      renamed.push({ from: parts[1], to: parts[2], similarity });
-      changed.push(parts[2]); // track new path as changed
-    } else if (status.startsWith('C')) {
-      // Copy: C### old_path new_path
-      added.push(parts[2]);
-      changed.push(parts[2]);
-    } else {
-      // Unknown status (T=type-change, U=unmerged, X=unknown) — treat as changed
-      if (parts[1]) {
+    switch (status) {
+      case 'A':
+        added.push(parts[1]);
         changed.push(parts[1]);
-      }
+        break;
+      case 'D':
+        deleted.push(parts[1]);
+        break;
+      case 'M':
+        changed.push(parts[1]);
+        break;
+      default:
+        if (status.startsWith('R')) {
+          // Rename: R### old_path new_path (### = similarity 000–100)
+          // -M defaults to 50% threshold; handle all values not just ≥90%.
+          const similarity = parseInt(status.slice(1), 10);
+          renamed.push({ from: parts[1], to: parts[2], similarity });
+          changed.push(parts[2]); // track new path as changed
+        } else if (status.startsWith('C')) {
+          // Copy: C### old_path new_path
+          added.push(parts[2]);
+          changed.push(parts[2]);
+        } else if (parts[1]) {
+          // Unknown status (T=type-change, U=unmerged, X=unknown) — treat as changed
+          changed.push(parts[1]);
+        }
+        break;
     }
   }
 
   // Sort all arrays for deterministic output
   return {
-    changed: [...changed].sort(),
-    renamed: renamed.sort((a, b) => a.from.localeCompare(b.from)),
-    deleted: [...deleted].sort(),
-    added: [...added].sort()
+    changed: sortStringsDeterministically(changed),
+    renamed: renamed.sort((a, b) => {
+      const fromCmp = compareStringsDeterministically(a.from, b.from);
+      if (fromCmp !== 0) return fromCmp;
+      return compareStringsDeterministically(a.to, b.to);
+    }),
+    deleted: sortStringsDeterministically(deleted),
+    added: sortStringsDeterministically(added)
   };
 }
 
@@ -358,6 +371,25 @@ async function analyzeAtRef(ref, root, options = {}) {
   };
 }
 
+function dependencyFilePathSet(dependencies) {
+  return new Set(
+    (dependencies || [])
+      .map((dependency) => (typeof dependency === 'object' ? dependency.filePath : dependency))
+      .filter(Boolean)
+  );
+}
+
+function countDependencyEdges(components) {
+  return components.reduce((sum, component) => sum + (component.dependencies || []).length, 0);
+}
+
+function buildTypeDistribution(components) {
+  return components.reduce((distribution, component) => {
+    distribution[component.type] = (distribution[component.type] || 0) + 1;
+    return distribution;
+  }, {});
+}
+
 /**
  * Compute architecture diff between two analysis results
  * @param {object} base - Base analysis result
@@ -378,12 +410,8 @@ function computeArchitectureDiff(base, head) {
       added.push({ filePath, name: comp.name, type: comp.type });
     } else {
       const baseComp = baseComponents.get(filePath);
-      // dependencies are stored as {name, filePath} objects by analyzeAtRef.
-      // Normalise to a Set of filePaths for comparison.
-      const toFilePaths = (deps) =>
-        new Set((deps || []).map(d => (typeof d === 'object' ? d.filePath : d)).filter(Boolean));
-      const baseDeps = toFilePaths(baseComp.dependencies);
-      const headDeps = toFilePaths(comp.dependencies);
+      const baseDeps = dependencyFilePathSet(baseComp.dependencies);
+      const headDeps = dependencyFilePathSet(comp.dependencies);
 
       const depsAdded = [...headDeps].filter(d => !baseDeps.has(d));
       const depsRemoved = [...baseDeps].filter(d => !headDeps.has(d));
@@ -407,18 +435,10 @@ function computeArchitectureDiff(base, head) {
   }
 
   // Count edges
-  const baseEdgeCount = base.components.reduce((sum, c) => sum + (c.dependencies || []).length, 0);
-  const headEdgeCount = head.components.reduce((sum, c) => sum + (c.dependencies || []).length, 0);
-
-  // Type distribution
-  const baseTypes = {};
-  const headTypes = {};
-  for (const c of base.components) {
-    baseTypes[c.type] = (baseTypes[c.type] || 0) + 1;
-  }
-  for (const c of head.components) {
-    headTypes[c.type] = (headTypes[c.type] || 0) + 1;
-  }
+  const baseEdgeCount = countDependencyEdges(base.components);
+  const headEdgeCount = countDependencyEdges(head.components);
+  const baseTypes = buildTypeDistribution(base.components);
+  const headTypes = buildTypeDistribution(head.components);
 
   // Language distribution
   const baseLangs = { ...base.languages };
@@ -445,9 +465,9 @@ function computeArchitectureDiff(base, head) {
       head: headLangs
     },
     components: {
-      added: added.sort((a, b) => a.filePath.localeCompare(b.filePath)),
-      removed: removed.sort((a, b) => a.filePath.localeCompare(b.filePath)),
-      changed: changed.sort((a, b) => a.filePath.localeCompare(b.filePath))
+      added: added.sort((a, b) => compareStringsDeterministically(a.filePath, b.filePath)),
+      removed: removed.sort((a, b) => compareStringsDeterministically(a.filePath, b.filePath)),
+      changed: changed.sort((a, b) => compareStringsDeterministically(a.filePath, b.filePath))
     }
   };
 }

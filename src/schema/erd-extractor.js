@@ -24,6 +24,23 @@ const SQL_TABLE_FOREIGN_KEY_RE = new RegExp(
   'i'
 );
 const SQL_TABLE_CONSTRAINT_LINE_RE = /^(?:constraint|foreign\s+key|primary\s+key|unique)\b/i;
+const SQL_COLUMN_NAME_AND_BODY_RE = new RegExp(`^(${SQL_IDENTIFIER_SOURCE})\\s+([\\s\\S]+)$`, 'i');
+const SQL_COLUMN_CONSTRAINT_STARTERS = new Set([
+  'constraint',
+  'not',
+  'null',
+  'default',
+  'references',
+  'primary',
+  'unique',
+  'check',
+  'generated',
+  'collate',
+]);
+const SCHEMA_PARSERS = Object.freeze({
+  prisma: parsePrismaSchema,
+  sql: parseSqlSchema,
+});
 
 function parsePrismaField(line) {
   const trimmed = line.trim();
@@ -189,6 +206,63 @@ function applyTableConstraint(line, tableName, attributeMap, relationships) {
   pushExplicitSqlRelationship(relationships, tableName, foreignKeyMatch[2]);
 }
 
+function splitSqlTypeAndRemainder(columnBody) {
+  const body = String(columnBody || '').trim();
+  if (!body) return { columnType: '', remainder: '' };
+
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inBacktickQuote = false;
+
+  for (let index = 0; index < body.length; index += 1) {
+    const char = body[index];
+    const prev = body[index - 1];
+
+    if (!inDoubleQuote && !inBacktickQuote && char === '\'' && prev !== '\\') {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+    if (!inSingleQuote && !inBacktickQuote && char === '"' && prev !== '\\') {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+    if (!inSingleQuote && !inDoubleQuote && char === '`' && prev !== '\\') {
+      inBacktickQuote = !inBacktickQuote;
+      continue;
+    }
+    if (inSingleQuote || inDoubleQuote || inBacktickQuote) continue;
+
+    if (char === '(') {
+      depth += 1;
+      continue;
+    }
+    if (char === ')') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (!/\s/.test(char) || depth !== 0) continue;
+
+    let lookahead = index;
+    while (lookahead < body.length && /\s/.test(body[lookahead])) lookahead += 1;
+    if (lookahead >= body.length) break;
+
+    let wordEnd = lookahead;
+    while (wordEnd < body.length && /[A-Za-z_]/.test(body[wordEnd])) wordEnd += 1;
+    if (wordEnd === lookahead) continue;
+
+    const maybeConstraint = body.slice(lookahead, wordEnd).toLowerCase();
+    if (!SQL_COLUMN_CONSTRAINT_STARTERS.has(maybeConstraint)) continue;
+
+    return {
+      columnType: body.slice(0, index).trim(),
+      remainder: body.slice(index).trimStart(),
+    };
+  }
+
+  return { columnType: body, remainder: '' };
+}
+
 function parseSqlSchema(fileContent) {
   const entities = [];
   const relationships = [];
@@ -211,11 +285,13 @@ function parseSqlSchema(fileContent) {
         continue;
       }
 
-      const columnMatch = line.match(/^([`"]?[A-Za-z_][A-Za-z0-9_]*[`"]?)\s+([A-Za-z0-9_()]+)([\s\S]*)$/);
+      const columnMatch = line.match(SQL_COLUMN_NAME_AND_BODY_RE);
       if (!columnMatch) continue;
       const columnName = tableNameFromSql(columnMatch[1]);
-      const columnType = columnMatch[2];
-      const remainder = columnMatch[3] || '';
+      const {
+        columnType,
+        remainder,
+      } = splitSqlTypeAndRemainder(columnMatch[2]);
       const remainderLower = remainder.toLowerCase();
       const keyFlags = [];
 
@@ -256,8 +332,8 @@ function parseSqlSchema(fileContent) {
 }
 
 function parseSchemaSource(source, content) {
-  if (source === 'prisma') return parsePrismaSchema(content);
-  if (source === 'sql') return parseSqlSchema(content);
+  const parser = SCHEMA_PARSERS[source];
+  if (parser) return parser(content);
   throw new Error(`unsupported schema source: ${source}`);
 }
 
@@ -266,14 +342,16 @@ function appendParseDiagnostics(diagnostics, parseErrors) {
   diagnostics.push(...parseErrors.map((error) => `${error.source}:${error.file}: ${error.message}`));
 }
 
+function relationshipKey(fromEntity, toEntity) {
+  // Deduplicate inferred links against explicit relationships at the entity-pair level.
+  // Cardinality differences are preserved later in erd-model relationship storage.
+  return `${canonicalEntityName(fromEntity)}|${canonicalEntityName(toEntity)}`;
+}
+
 function inferRelationshipsFromForeignKeyNames(entities, explicitRelationships) {
   const byEntity = new Map(entities.map((entity) => [canonicalEntityName(entity.name), entity]));
   const explicitKeys = new Set(
-    explicitRelationships.map((relationship) => {
-      const from = canonicalEntityName(relationship.fromEntity);
-      const to = canonicalEntityName(relationship.toEntity);
-      return `${from}|${to}`;
-    })
+    explicitRelationships.map((relationship) => relationshipKey(relationship.fromEntity, relationship.toEntity))
   );
 
   const inferred = [];
@@ -292,7 +370,7 @@ function inferRelationshipsFromForeignKeyNames(entities, explicitRelationships) 
 
       const target = candidates.find((candidate) => byEntity.has(candidate));
       if (!target) continue;
-      const key = `${from}|${target}`;
+      const key = relationshipKey(from, target);
       if (explicitKeys.has(key)) continue;
       explicitKeys.add(key);
       inferred.push({
@@ -399,4 +477,13 @@ function extractErdModel({ rootPath }) {
 module.exports = {
   SOURCE_PRECEDENCE,
   extractErdModel,
+  // Expose parser internals for focused unit coverage without duplicating logic.
+  __test: {
+    SCHEMA_PARSERS,
+    inferRelationshipsFromForeignKeyNames,
+    parsePrismaSchema,
+    parseSqlSchema,
+    relationshipKey,
+    splitSqlTypeAndRemainder,
+  },
 };

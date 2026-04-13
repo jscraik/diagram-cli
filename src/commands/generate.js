@@ -26,6 +26,17 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+function cleanupTempDirectory(tempDir) {
+  if (!tempDir || !fs.existsSync(tempDir)) return;
+  try {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  } catch (cleanupError) {
+    if (process.env.DEBUG) {
+      console.error(chalk.gray(`Temp cleanup failed for "${tempDir}": ${cleanupError.message}`));
+    }
+  }
+}
+
 /**
  * Validate Mermaid diagram text for common syntax issues and, when possible, via the Mermaid CLI.
  *
@@ -121,13 +132,7 @@ function validateMermaidSyntax(mermaid, theme = 'default', allowAutoInstall = fa
       console.error(chalk.gray('Mermaid CLI not available for validation, using basic checks only'));
     }
   } finally {
-    if (tempDir && fs.existsSync(tempDir)) {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch (_cleanupError) {
-        // Ignore cleanup errors.
-      }
-    }
+    cleanupTempDirectory(tempDir);
   }
 
   return result;
@@ -455,13 +460,7 @@ function registerGenerateCommand(program) {
             if (process.env.DEBUG) console.error(chalk.gray(error.message));
             process.exit(2);
           } finally {
-            if (tempDir && fs.existsSync(tempDir)) {
-              try {
-                fs.rmSync(tempDir, { recursive: true, force: true });
-              } catch (_cleanupError) {
-                // Ignore cleanup errors.
-              }
-            }
+            cleanupTempDirectory(tempDir);
           }
         }
       }
