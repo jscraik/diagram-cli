@@ -1,6 +1,6 @@
 # Getting Started
 
-Install and run `diagram-cli` locally from this repository.
+Install and run the canonical `archscope` command locally from this repository.
 
 ## Table of Contents
 
@@ -8,6 +8,7 @@ Install and run `diagram-cli` locally from this repository.
 - [Install](#install)
 - [First Run](#first-run)
 - [Machine Output Mode](#machine-output-mode)
+- [Compatibility Command](#compatibility-command)
 - [Verify Setup](#verify-setup)
 - [Troubleshooting](#troubleshooting)
 
@@ -34,11 +35,17 @@ npm link
 ## First Run
 
 ```bash
-diagram init .
-diagram doctor .
-diagram analyze .
-diagram generate-all . --output-dir .diagram --artifact-profile agent
-diagram context .
+archscope init .
+archscope doctor .
+archscope analyze .
+archscope generate-all . --output-dir .diagram --artifact-profile agent
+archscope context .
+archscope validate .
+```
+
+The compatibility command remains available for existing automation:
+
+```bash
 diagram validate .
 ```
 
@@ -55,13 +62,24 @@ node src/diagram.js validate .
 Prefer `--format json` for automation:
 
 ```bash
-diagram generate . --type architecture --format json --deterministic
-diagram workflow pr . --base origin/main --head HEAD --format json --deterministic
+archscope generate . --type architecture --format json --deterministic
+archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 ```
 
 Compatibility note:
 
 - `--json` is supported as an alias, but canonical usage is `--format json`.
+- Covered JSON commands emit the canonical machine envelope with `schemaVersion`,
+  `command`, `status`, `meta`, `data`, and `errors`.
+
+## Compatibility Command
+
+The package still installs `diagram` as a compatibility command while the
+migration state is `compatibility`. Existing scripts can continue to call
+`diagram`; new examples and automation should prefer `archscope`.
+
+The package name remains `@brainwav/diagram`. This delivery does not rename the
+npm package.
 
 ## Verify Setup
 
@@ -78,14 +96,13 @@ Expected results:
 
 ## Troubleshooting
 
-- Command not found (`diagram`):
+- Command not found (`archscope` or `diagram`):
   - Run `npm link` from the repo root.
 - SVG/PNG export fails:
-  - Run `diagram doctor .`.
+  - Run `archscope doctor .`.
   - Install Mermaid CLI if needed: `npm install -g @mermaid-js/mermaid-cli`.
-- `diagram generate-video` or `diagram generate-animated` fails:
+- `archscope generate-video` or `archscope generate-animated` fails:
   - Install Playwright runtime: `npx playwright install chromium`.
   - Install ffmpeg: `brew install ffmpeg` (macOS).
 - Large repositories produce oversized preview URLs:
   - Save output to file with `--output` and use artifact workflows instead.
-

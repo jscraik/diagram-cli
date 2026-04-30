@@ -3,7 +3,7 @@ const path = require('path');
 const chalk = require('chalk');
 const {
   SUPPORTED_DIAGRAM_TYPES,
-  generate,
+  generateDiagramArtifact,
   toManifestEntry,
 } = require('../core/analysis-generation');
 const {
@@ -68,10 +68,14 @@ function registerGenerateAllCommand(program) {
       if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
       const types = [...SUPPORTED_DIAGRAM_TYPES];
-      const generatedDiagrams = types.map((type) => ({
-        type,
-        mermaid: generate(data, type),
-      }));
+      const generatedDiagrams = types.map((type) => {
+        const artifact = generateDiagramArtifact(data, type);
+        return {
+          type,
+          mermaid: artifact.mermaid,
+          metadata: artifact.metadata,
+        };
+      });
       const budgeted = applyArtifactBudget(generatedDiagrams, artifactProfile);
 
       const staleMermaidFiles = fs
@@ -110,7 +114,7 @@ function registerGenerateAllCommand(program) {
       for (const entry of budgeted.included) {
         const file = path.join(outDir, `${entry.type}.mmd`);
         fs.writeFileSync(file, entry.mermaid);
-        const manifestEntry = toManifestEntry(entry.type, file, entry.mermaid, root);
+        const manifestEntry = toManifestEntry(entry.type, file, entry.mermaid, root, entry.metadata);
         if (entry.truncated) {
           manifestEntry.compacted = true;
           manifestEntry.sourceBytes = entry.originalBytes;

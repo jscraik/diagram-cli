@@ -23,6 +23,7 @@ const {
   writeConfidenceReport,
   shouldFailStrictConfidence,
 } = require('../confidence/pipeline');
+const { buildMachineEnvelope } = require('../commands/output');
 
 const VALID_OUTPUT_FORMATS = Object.freeze(['text', 'json']);
 const VALID_RISK_THRESHOLDS = Object.freeze(['none', 'low', 'medium', 'high']);
@@ -51,6 +52,29 @@ function createVerboseLogger(enabled) {
   return (...args) => {
     if (enabled) console.log(...args);
   };
+}
+
+function buildWorkflowPrEnvelope({
+  result,
+  rootPath,
+  deterministic = false,
+  status = 'success',
+  artifactPaths = null,
+  errors = [],
+}) {
+  return buildMachineEnvelope({
+    schemaVersion: '1.0',
+    command: 'workflow-pr',
+    rootPath,
+    status,
+    deterministic,
+    data: {
+      prImpact: result,
+      artifacts: artifactPaths,
+    },
+    errors,
+    agentSummary: result.agentSummary,
+  });
 }
 
 function sortPrImpactResultDeterministically(result) {
@@ -160,7 +184,7 @@ function registerWorkflowCommands(program, deps) {
       const logVerbose = createVerboseLogger(verboseOutput);
       if (!VALID_OUTPUT_FORMATS.includes(formatStr)) {
         console.error(chalk.red('❌ Invalid format:'), options.format);
-        console.log(chalk.gray('Valid values:', VALID_OUTPUT_FORMATS.join(', ')));
+        console.error(chalk.gray('Valid values:', VALID_OUTPUT_FORMATS.join(', ')));
         process.exit(2);
       }
       const root = resolveRootPathOrExit(targetPath);
@@ -185,13 +209,54 @@ function registerWorkflowCommands(program, deps) {
         });
         if (options.confidenceReport || options.strictConfidence) {
           const confidencePath = writeConfidenceReport(root, quickReport);
-          console.log(chalk.gray('Confidence report:'), confidencePath);
+          if (isJson) {
+            quickReport.artifactPath = confidencePath;
+          } else {
+            console.log(chalk.gray('Confidence report:'), confidencePath);
+          }
         }
         if (options.strictConfidence && shouldFailStrictConfidence(quickReport)) {
-          console.error(chalk.red('❌ Strict confidence check failed'));
+          if (!isJson) {
+            console.error(chalk.red('❌ Strict confidence check failed'));
+          } else {
+            const payload = buildMachineEnvelope({
+              schemaVersion: '1.0',
+              command: 'workflow-pr',
+              rootPath: root,
+              status: 'failed',
+              deterministic: Boolean(options.deterministic),
+              data: { confidenceReport: quickReport },
+              errors: [{
+                code: 'strict_confidence_failed',
+                message: 'Strict confidence check failed',
+              }],
+              agentSummary: {
+                changedComponents: 0,
+                riskReasons: ['strict_confidence_failed'],
+                suggestedReviewerChecks: ['Inspect confidence report before relying on PR impact output.'],
+              },
+            });
+            console.log(JSON.stringify(payload, null, 2));
+          }
           process.exit(1);
         }
-        console.log(chalk.green('✅ Capability check complete'));
+        if (isJson) {
+          const payload = buildMachineEnvelope({
+            schemaVersion: '1.0',
+            command: 'workflow-pr',
+            rootPath: root,
+            deterministic: Boolean(options.deterministic),
+            data: { confidenceReport: quickReport },
+            agentSummary: {
+              changedComponents: 0,
+              riskReasons: [],
+              suggestedReviewerChecks: ['Capability check completed without architecture analysis.'],
+            },
+          });
+          console.log(JSON.stringify(payload, null, 2));
+        } else {
+          console.log(chalk.green('✅ Capability check complete'));
+        }
         process.exit(0);
       }
 
@@ -231,7 +296,7 @@ function registerWorkflowCommands(program, deps) {
             logVerbose(chalk.gray(`Using default base ref: ${baseRef}`));
           } catch {
             console.error(chalk.red('❌ No base ref provided and could not auto-detect.'));
-            console.log(chalk.gray('Specify --base <ref> or run from a PR context.'));
+            console.error(chalk.gray('Specify --base <ref> or run from a PR context.'));
             process.exit(2);
           }
         }
@@ -240,7 +305,12 @@ function registerWorkflowCommands(program, deps) {
       // Check for shallow clone warning
       if (isShallowClone(root)) {
         console.warn(chalk.yellow('⚠️  Shallow clone detected. Base refs may be unavailable.'));
-        console.log(chalk.gray('   Use fetch-depth: 0 in CI or run: git fetch --unshallow'));
+        const shallowHint = chalk.gray('   Use fetch-depth: 0 in CI or run: git fetch --unshallow');
+        if (isJson) {
+          console.error(shallowHint);
+        } else {
+          console.log(shallowHint);
+        }
       }
 
       // Validate refs
@@ -263,7 +333,7 @@ function registerWorkflowCommands(program, deps) {
       const threshold = (options.riskThreshold || 'none').toLowerCase();
       if (!VALID_RISK_THRESHOLDS.includes(threshold)) {
         console.error(chalk.red('❌ Invalid risk threshold:'), options.riskThreshold);
-        console.log(chalk.gray('Valid values:', VALID_RISK_THRESHOLDS.join(', ')));
+        console.error(chalk.gray('Valid values:', VALID_RISK_THRESHOLDS.join(', ')));
         process.exit(2);
       }
 
@@ -368,7 +438,12 @@ function registerWorkflowCommands(program, deps) {
         };
 
         if (isJson) {
-          console.log(JSON.stringify(emptyResult, null, 2));
+          const payload = buildWorkflowPrEnvelope({
+            result: emptyResult,
+            rootPath: root,
+            deterministic: Boolean(options.deterministic),
+          });
+          console.log(JSON.stringify(payload, null, 2));
         } else {
           console.log(chalk.green('\n✅ No architecture changes detected'));
           console.log(chalk.cyan('\nNext steps:'));
@@ -503,8 +578,15 @@ function registerWorkflowCommands(program, deps) {
           // Check for override
           if (isNonEmptyString(options.riskOverrideReason)) {
             result.risk.override.applied = true;
-            console.log(chalk.yellow('\n⚠️  Risk threshold exceeded, but override applied'));
-            console.log(chalk.gray('   Reason:'), options.riskOverrideReason);
+            const overrideMessage = chalk.yellow('\n⚠️  Risk threshold exceeded, but override applied');
+            const overrideReason = `${chalk.gray('   Reason:')} ${options.riskOverrideReason}`;
+            if (isJson) {
+              console.error(overrideMessage);
+              console.error(overrideReason);
+            } else {
+              console.log(overrideMessage);
+              console.log(overrideReason);
+            }
             exitCode = 0;
           } else {
             console.error(chalk.red('\n❌ Risk threshold exceeded'));
@@ -560,7 +642,20 @@ function registerWorkflowCommands(program, deps) {
       }
 
       if (isJson) {
-        console.log(JSON.stringify(result, null, 2));
+        const payload = buildWorkflowPrEnvelope({
+          result,
+          rootPath: root,
+          deterministic: Boolean(options.deterministic),
+          status: exitCode === 0 ? 'success' : 'failed',
+          artifactPaths,
+          errors: exitCode === 0
+            ? []
+            : [{
+              code: 'risk_threshold_exceeded',
+              message: 'PR impact risk threshold exceeded',
+            }],
+        });
+        console.log(JSON.stringify(payload, null, 2));
       } else {
         console.log(chalk.green('\n✅ PR Impact Analysis Complete'));
         console.log(chalk.gray('   Duration:'), `${result._meta.durationMs}ms`);
@@ -587,4 +682,5 @@ module.exports = {
   normalizeListOption,
   compareStringsDeterministically,
   sortPrImpactResultDeterministically,
+  buildWorkflowPrEnvelope,
 };

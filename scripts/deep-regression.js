@@ -10,6 +10,7 @@ const {
   getNpxCommandCandidates,
   getFfmpegCommandCandidates
 } = require('../src/utils/commands');
+const packageJson = require('../package.json');
 
 const CLI_PATH = path.join(__dirname, '..', 'src', 'diagram.js');
 
@@ -155,6 +156,8 @@ function run() {
       getFfmpegCommandCandidates('win32', 'C:\\Users\\tester').some(candidate => candidate.endsWith('ffmpeg.exe')),
       'Windows ffmpeg candidates should include .exe paths'
     );
+    assert.strictEqual(packageJson.bin.archscope, 'src/diagram.js', 'package should expose canonical archscope bin');
+    assert.strictEqual(packageJson.bin.diagram, 'src/diagram.js', 'package should preserve diagram compatibility bin');
 
   // Packed artifact should include runtime files required by CLI commands
   const repoRoot = path.join(__dirname, '..');
@@ -171,6 +174,8 @@ function run() {
   const packInfo = parseJsonFromOutput(packDryRun.stdout, 'npm pack --dry-run --json');
   const packedFiles = new Set((packInfo[0]?.files || []).map((entry) => entry.path));
   const requiredRuntimeFiles = [
+    '.diagram/contracts/machine-command-coverage.json',
+    '.diagram/migration/finalization-policy.json',
     'src/diagram.js',
     'src/video.js',
     'src/utils/commands.js',
@@ -215,6 +220,22 @@ function run() {
     );
   }
 
+  const readinessValidation = spawnSync('node', ['scripts/validate-archscope-readiness.js'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: npmEnv,
+  });
+  assert.strictEqual(
+    readinessValidation.status,
+    0,
+    `archscope readiness validation failed: ${readinessValidation.stderr || readinessValidation.stdout}`
+  );
+  const readinessReport = parseJsonFromOutput(readinessValidation.stdout, 'validate-archscope-readiness');
+  assert.strictEqual(readinessReport.status, 'pass', 'archscope readiness validation should pass');
+  assert.strictEqual(readinessReport.machineContracts.status, 'pass', 'machine contract validation should pass');
+  assert.strictEqual(readinessReport.migrationArtifacts.status, 'pass', 'migration artifact validation should pass');
+  assert.strictEqual(readinessReport.finalizationReady, false, 'finalization should remain blocked without a promoted releaseId');
+
   // Integration checks with special characters/spaces in paths
   tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-regression-'));
   const workspace = path.join(tmpRoot, 'workspace with spaces [x] & chars');
@@ -258,6 +279,10 @@ function run() {
   fs.writeFileSync(path.join(workspace, '.architecture.yml'), `version: "1.0"\nrules:\n  - name: Require shared import\n    layer: "src/util.js"\n    must_import_from:\n      - src/shared/**\n`);
 
   console.log('\n--- 🧪 TEST 1: Analysis ---');
+  const help = runCLI(['--help'], workspace);
+  assert.strictEqual(help.status, 0, `archscope help expected success, got ${help.status}`);
+  assert.ok(help.stdout.includes('Usage: archscope'), 'help should advertise canonical archscope usage');
+
   const analysis = runCLI(['analyze', '.', '--format', 'json'], workspace);
   const parsed = parseJsonFromOutput(analysis.stdout, 'diagram analyze --format json');
   const analysisPayload = parsed?.data?.analysis || parsed;

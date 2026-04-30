@@ -8,7 +8,7 @@ const {
   writeConfidenceReport,
   shouldFailStrictConfidence,
 } = require('../confidence/pipeline');
-const { generate } = require('../core/analysis-generation');
+const { generateDiagramArtifact } = require('../core/analysis-generation');
 const {
   ALLOWED_THEMES,
   applyDiagramRcDefaults,
@@ -150,7 +150,7 @@ function registerGenerateCommand(program) {
   program
     .command('generate [path]')
     .description('Generate a diagram')
-    .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, user, events, auth, security, agent, c4context, rag', 'architecture')
+    .option('-t, --type <type>', 'Diagram type: architecture, sequence, dependency, class, flow, database, erd, user, events, auth, security, agent, c4context, rag', 'architecture')
     .option('-f, --focus <module>', 'Focus on specific module')
     .option('-o, --output <file>', 'Output file (SVG/PNG)')
     .option('--format <type>', 'Output format (text, json)', 'text')
@@ -261,7 +261,8 @@ function registerGenerateCommand(program) {
       const irPath = options.emitIr
         ? maybeWriteArchitectureIR(root, data, pipeline.analyzer, true)
         : null;
-      const mermaid = generate(data, options.type, options.focus);
+      const diagramArtifact = generateDiagramArtifact(data, options.type, options.focus);
+      const mermaid = diagramArtifact.mermaid;
       let validationResult = {
         enabled: Boolean(options.validate),
         valid: true,
@@ -363,6 +364,7 @@ function registerGenerateCommand(program) {
         data: {
           diagramType: options.type,
           mermaid,
+          diagramMetadata: diagramArtifact.metadata || null,
           previewUrl: url,
           previewTooLarge: large,
           analyzer: pipeline.analyzer,

@@ -53,6 +53,16 @@ describe('erd extractor', () => {
     expect(extracted.diagnostics[0]).to.include('no supported schema sources found');
   });
 
+  it('honors caller-provided ignore patterns when discovering schema sources', () => {
+    const extracted = extractErdModel({
+      rootPath: fixturePath('explicit-schema'),
+      ignore: ['prisma/**'],
+    });
+
+    expect(extracted.terminalClass).to.equal('failed_no_schema');
+    expect(extracted.sourceFiles).to.deep.equal([]);
+  });
+
   it('infers relationships from *_id fields when explicit FK constraints are absent', () => {
     const extracted = extractErdModel({ rootPath: fixturePath('inferred-heavy') });
 

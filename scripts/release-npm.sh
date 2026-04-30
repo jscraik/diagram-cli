@@ -48,10 +48,12 @@ EOF
 module.exports = { ok: true };
 EOF
 
+    ./node_modules/.bin/archscope --help >/dev/null
     ./node_modules/.bin/diagram --help >/dev/null
+    ./node_modules/.bin/archscope analyze workspace --format json >/dev/null
     ./node_modules/.bin/diagram analyze workspace --format json >/dev/null
-    ./node_modules/.bin/diagram generate workspace --type architecture --output workspace/architecture.mmd >/dev/null
-    ./node_modules/.bin/diagram validate workspace --init >/dev/null
+    ./node_modules/.bin/archscope generate workspace --type architecture --output workspace/architecture.mmd >/dev/null
+    ./node_modules/.bin/archscope validate workspace --init >/dev/null
     ./node_modules/.bin/diagram validate workspace >/dev/null
   )
 }
@@ -187,6 +189,9 @@ fi
 
 echo "Running test suite..."
 npm test
+
+echo "Validating migration artifacts..."
+npm run migration:readiness
 
 echo "Checking publish artifact..."
 npm pack --dry-run

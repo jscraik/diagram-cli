@@ -1,6 +1,7 @@
 const AGENT_DIAGRAM_PRIORITY = Object.freeze([
   'architecture',
   'dependency',
+  'erd',
   'database',
   'security',
   'auth',
@@ -151,6 +152,15 @@ function applyArtifactBudget(diagrams, profile) {
     const sourceBytes = byteLength(source);
     originalBytes += sourceBytes;
 
+    if (profile.name !== 'full' && diagram.metadata?.compactEligible === false) {
+      omitted.push({
+        type: diagram.type,
+        reason: 'low_confidence',
+        originalBytes: sourceBytes,
+      });
+      continue;
+    }
+
     if (profile.maxDiagrams && included.length >= profile.maxDiagrams) {
       omitted.push({
         type: diagram.type,
@@ -174,6 +184,7 @@ function applyArtifactBudget(diagrams, profile) {
     included.push({
       type: diagram.type,
       mermaid: compacted.content,
+      metadata: diagram.metadata,
       bytes: compacted.bytes,
       originalBytes: compacted.originalBytes,
       truncated: compacted.truncated,

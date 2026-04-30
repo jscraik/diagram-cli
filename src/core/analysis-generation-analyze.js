@@ -51,6 +51,8 @@ async function analyze(rootPath, options) {
     entryPoints,
     languages,
     directories,
+    patterns,
+    exclude,
     totalFilesFound,
     maxFilesApplied: maxFiles,
   };

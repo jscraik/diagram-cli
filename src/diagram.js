@@ -2,6 +2,7 @@
 
 const { Command } = require('commander');
 const chalk = require('chalk');
+const path = require('path');
 const packageJson = require('../package.json');
 const { loadDiagramRc } = require('./config/diagramrc');
 const { registerAnalyzeCommand } = require('./commands/analyze');
@@ -25,11 +26,16 @@ const {
   generateHtmlExplainer,
 } = require('./workflow/pr-impact');
 
+const CANONICAL_COMMAND_NAME = 'archscope';
+const COMPATIBILITY_COMMAND_NAME = 'diagram';
+const COMPATIBILITY_NOTICE =
+  `Compatibility notice: '${COMPATIBILITY_COMMAND_NAME}' remains supported during migration. Use '${CANONICAL_COMMAND_NAME}' for canonical usage.`;
+
 const program = new Command();
 
 program
-  .name('diagram')
-  .description('Generate architecture diagrams from code')
+  .name(CANONICAL_COMMAND_NAME)
+  .description('Inspect architecture, governance, and diagram workflows from code')
   .version(packageJson.version);
 
 registerAnalyzeCommand(program);
@@ -49,23 +55,37 @@ registerWorkflowPrCommand(program);
 program.on('command:*', function (operands) {
   console.error(chalk.red(`\n🤖 AI Agent Error: Unknown command '${operands[0]}'\n`));
   console.error(chalk.white('Use the canonical command set:\n'));
-  console.error(chalk.cyan('  diagram init [path]') + chalk.gray('            - Scaffold .architecture.yml, .diagramrc, and CI sample step'));
-  console.error(chalk.cyan('  diagram doctor [path]') + chalk.gray('          - Check local tooling and environment health'));
-  console.error(chalk.cyan('  diagram analyze [path]') + chalk.gray('         - Analyze codebase structure'));
-  console.error(chalk.cyan('  diagram generate [path]') + chalk.gray('        - Generate one diagram type'));
-  console.error(chalk.cyan('  diagram generate-all [path]') + chalk.gray('    - Generate all diagram types'));
-  console.error(chalk.cyan('  diagram changed [path]') + chalk.gray('         - Analyze only git-changed files'));
-  console.error(chalk.cyan('  diagram context [path]') + chalk.gray('         - Refresh AI context pack artifacts'));
-  console.error(chalk.cyan('  diagram explain <component> [path]') + chalk.gray(' - Explain a local dependency neighborhood'));
-  console.error(chalk.cyan('  diagram validate [path]') + chalk.gray('        - Validate architecture against .architecture.yml'));
-  console.error(chalk.cyan('  diagram workflow pr [path]') + chalk.gray('     - Compute PR blast-radius and risk score'));
-  console.error(chalk.cyan('  diagram diff <base> <head>') + chalk.gray('     - Compare architecture snapshots'));
-  console.error(chalk.cyan('  diagram generate-video [path]') + chalk.gray('  - Generate animated video output'));
-  console.error(chalk.cyan('  diagram generate-animated [path]') + chalk.gray(' - Generate animated SVG output\n'));
-  console.error(chalk.white(`Use ${chalk.cyan('diagram --help')} for full option details.`));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} init [path]`) + chalk.gray('            - Scaffold .architecture.yml, .diagramrc, and CI sample step'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} doctor [path]`) + chalk.gray('          - Check local tooling and environment health'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} analyze [path]`) + chalk.gray('         - Analyze codebase structure'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate [path]`) + chalk.gray('        - Generate one diagram type'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate-all [path]`) + chalk.gray('    - Generate all diagram types'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} changed [path]`) + chalk.gray('         - Analyze only git-changed files'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} context [path]`) + chalk.gray('         - Refresh AI context pack artifacts'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} explain <component> [path]`) + chalk.gray(' - Explain a local dependency neighborhood'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} validate [path]`) + chalk.gray('        - Validate architecture against .architecture.yml'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} workflow pr [path]`) + chalk.gray('     - Compute PR blast-radius and risk score'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} diff <base> <head>`) + chalk.gray('     - Compare architecture snapshots'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate-video [path]`) + chalk.gray('  - Generate animated video output'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate-animated [path]`) + chalk.gray(' - Generate animated SVG output\n'));
+  console.error(chalk.white(`Use ${chalk.cyan(`${CANONICAL_COMMAND_NAME} --help`)} for full option details.`));
   console.error(chalk.white(`Use ${chalk.cyan('--format json')} instead of ${chalk.cyan('--json')} for machine output.`));
   process.exit(1);
 });
+
+function getInvocationName(argv) {
+  return path.basename(argv[1] || '');
+}
+
+function isCompatibilityInvocation(argv) {
+  return getInvocationName(argv) === COMPATIBILITY_COMMAND_NAME;
+}
+
+function emitCompatibilityInvocationNotice(argv) {
+  if (isCompatibilityInvocation(argv)) {
+    console.error(chalk.yellow(COMPATIBILITY_NOTICE));
+  }
+}
 
 /**
  * Determine which top-level subcommand name is active from a CLI argument list.
@@ -170,15 +190,21 @@ if (require.main === module) {
   const diagramRc = loadDiagramRc(process.cwd());
   program.diagramContext = { diagramRc };
   const resolvedArgs = resolveAliasArgs(process.argv);
+  emitCompatibilityInvocationNotice(process.argv);
   program.parse(resolvedArgs);
 }
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    CANONICAL_COMMAND_NAME,
+    COMPATIBILITY_COMMAND_NAME,
+    COMPATIBILITY_NOTICE,
     generateHtmlExplainer,
+    getInvocationName,
     groupChangePaths,
     buildRiskNarrative,
     buildSummaryMeta,
     escapeHtml,
+    isCompatibilityInvocation,
   };
 }

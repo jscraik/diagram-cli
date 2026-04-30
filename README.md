@@ -1,6 +1,6 @@
-# diagram-cli
+# archscope
 
-Generate architecture diagrams, validation reports, and PR impact artifacts from source code.
+Inspect architecture, governance, and diagram workflows from source code.
 
 ## Table of Contents
 
@@ -10,15 +10,20 @@ Generate architecture diagrams, validation reports, and PR impact artifacts from
 - [Human Workflows](#human-workflows)
 - [AI Agent Workflows](#ai-agent-workflows)
 - [Machine Output Contracts](#machine-output-contracts)
+- [Migration State](#migration-state)
 - [Documentation Index](#documentation-index)
 - [Development](#development)
 - [Distribution](#distribution)
 
 ## Overview
 
-`diagram-cli` scans your repository and produces:
+`archscope` is the canonical CLI identity for the `@brainwav/diagram` package.
+The compatibility command `diagram` remains available during the migration
+window for existing scripts.
 
-- Mermaid diagrams (`generate`, `generate-all`)
+The CLI scans your repository and produces:
+
+- Mermaid diagrams (`generate`, `generate-all`), including schema-backed ERD output
 - Architecture policy validation (`validate`)
 - PR architecture impact reports (`workflow pr`)
 - AI-context artifacts (`context`)
@@ -40,18 +45,19 @@ npm install
 npm link
 ```
 
-Without `npm link`, run commands with `node src/diagram.js ...`.
+After `npm link`, use `archscope ...` for new workflows. Without `npm link`, run
+commands with `node src/diagram.js ...`.
 
 ## Opinionated Starter Path
 
 Use this path for new repositories:
 
 ```bash
-diagram init .
-diagram doctor .
-diagram validate .
-diagram generate-all . --output-dir .diagram --artifact-profile agent
-diagram context .
+archscope init .
+archscope doctor .
+archscope validate .
+archscope generate-all . --output-dir .diagram --artifact-profile agent
+archscope context .
 ```
 
 What this gives you:
@@ -66,49 +72,70 @@ What this gives you:
 
 ```bash
 # Analyze repository structure
-diagram analyze .
+archscope analyze .
 
 # Generate one diagram and open preview
-diagram generate . --type architecture --open
+archscope generate . --type architecture --open
 
 # Analyze only changed files in your branch
-diagram changed . --base origin/main --head HEAD
+archscope changed . --base origin/main --head HEAD
 
 # Explain a local dependency neighborhood
-diagram explain auth-service .
+archscope explain auth-service .
 
 # PR risk/blast-radius report
-diagram workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
+archscope workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
 ```
 
 ## AI Agent Workflows
 
 ```bash
 # Stable machine outputs
-diagram generate . --type architecture --format json --deterministic
-diagram workflow pr . --base origin/main --head HEAD --format json --deterministic
+archscope generate . --type architecture --format json --deterministic
+archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 
 # Compact context pack for agent token budgets
-diagram generate-all . --output-dir .diagram --artifact-profile agent
-diagram context .
+archscope generate-all . --output-dir .diagram --artifact-profile agent
+archscope context .
 ```
 
 ## Machine Output Contracts
 
 - Use `--format json` for machine output.
 - `--json` is a compatibility alias and is normalized to `--format json`.
-- Command outputs include explicit `schemaVersion` values.
+- Covered command outputs use the canonical machine envelope with `schemaVersion`,
+  `command`, `status`, `meta`, `data`, `errors`, and optional `agentSummary`.
 - Use `--deterministic` for stable ordering/timestamps in machine payloads.
-- PR impact JSON includes `agentSummary` with:
+- JSON-capable command coverage is tracked in
+  `.diagram/contracts/machine-command-coverage.json`.
+- PR impact JSON nests its analytical payload under `data.prImpact` and includes
+  `agentSummary` with:
   - `changedComponents`
   - `riskReasons`
   - `suggestedReviewerChecks`
+
+## Migration State
+
+Current migration state: `compatibility`.
+
+- Canonical command: `archscope`
+- Compatibility command: `diagram`
+- Package name: `@brainwav/diagram`
+- Finalization policy: `.diagram/migration/finalization-policy.json`
+- Release readiness evidence: `.diagram/migration/releases/<releaseId>/migration-readiness.json`
+- Latest readiness pointer: `.diagram/migration/migration-readiness.json`
+- Append-only readiness ledger: `.diagram/migration/releases/ledger.json`
+
+Do not treat the package as renamed or the compatibility command as removable
+until the finalization policy and release evidence prove the required migration
+window. See [Archscope compatibility migration](docs/migration/archscope-compatibility.md).
 
 ## Documentation Index
 
 - [CLI reference](docs/cli-reference.md)
 - [Getting started](docs/getting-started.md)
 - [Architecture testing](docs/architecture-testing.md)
+- [Archscope compatibility migration](docs/migration/archscope-compatibility.md)
 - [Migration from dependency-cruiser](docs/migration-from-dependency-cruiser.md)
 - [Maintainer docs index](docs/README.md)
 
@@ -118,6 +145,7 @@ diagram context .
 npm install
 npm test
 npm run test:deep
+npm run migration:readiness
 node src/diagram.js --help
 ```
 

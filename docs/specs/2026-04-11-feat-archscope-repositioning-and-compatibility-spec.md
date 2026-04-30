@@ -1,12 +1,13 @@
 ---
+schema_version: 1
 title: Archscope Repositioning and Compatibility Contract
 type: feat
-status: draft
+status: active
 date: 2026-04-11
-deepened: 2026-04-11
+deepened: 2026-04-30
 origin: docs/brainstorms/2026-04-11-architecture-intelligence-cli-repositioning-requirements.md
 risk: medium
-spec_depth: lite
+spec_depth: full
 ui_required: false
 ---
 
@@ -14,15 +15,16 @@ ui_required: false
 
 ## Enhancement Summary
 
-**Deepened on:** 2026-04-11
+**Deepened on:** 2026-04-30
 **Mode:** targeted-confidence
-**Key areas improved:** boundaries, lifecycle, failures, observability, validation
+**Key areas improved:** boundaries, lifecycle, failures, observability, validation, interface shape
 
 - Added explicit migration state model (`compatibility` -> `finalized`) with entry/exit rules and blocked transitions.
 - Tightened machine-contract interface to a single envelope shape for all machine-mode commands, including PR workflow parity requirements.
 - Expanded failure handling, observability, and acceptance criteria so release readiness is evidence-driven and auditable.
 - Closed adversarial gaps around command-coverage scope, JSON output-channel safety, parser invariants, and immutable release-cycle evidence.
 - Added explicit release-candidate window semantics (RC tag format, `releaseId` format, source of truth, and consecutiveness rule) so finalization eligibility is contract-auditable.
+- Added domain-consistency notes and interface-shape decisions so planning does not need to rediscover command identity, machine-output, or migration-evidence boundaries.
 
 ## Table of Contents
 - [Enhancement Summary](#enhancement-summary)
@@ -31,6 +33,8 @@ ui_required: false
 - [Non-Goals](#non-goals)
 - [System Boundary](#system-boundary)
 - [Core Domain Model](#core-domain-model)
+- [Domain Consistency Pass](#domain-consistency-pass)
+- [Interface Shape Decisions](#interface-shape-decisions)
 - [Migration Lifecycle States](#migration-lifecycle-states)
 - [Main Flow and Lifecycle](#main-flow-and-lifecycle)
 - [Interfaces and Dependencies](#interfaces-and-dependencies)
@@ -39,6 +43,7 @@ ui_required: false
 - [Observability](#observability)
 - [Acceptance and Test Matrix](#acceptance-and-test-matrix)
 - [Open Questions](#open-questions)
+- [Planning and Implementation Handoff](#planning-and-implementation-handoff)
 - [Definition of Done](#definition-of-done)
 
 ## Problem Statement
@@ -80,7 +85,7 @@ Out of scope:
   - `migration_state`: `compatibility` or `finalized`.
   - `alias_notice_policy`: compatibility aliases must emit an explicit runtime note indicating canonical replacement while still executing successfully; in machine mode (`--format json`), notices must be emitted on `stderr` only.
 - `MachineContract`
-  - `schema_version`: explicit version on machine responses.
+  - `schemaVersion`: explicit version on machine responses; runtime JSON uses camelCase, while this spec's YAML frontmatter uses `schema_version`.
   - `envelope_shape`: required top-level fields and deterministic behavior expectations.
   - `command_coverage_manifest`: `.diagram/contracts/machine-command-coverage.json` is the source of truth for covered machine-mode commands.
   - `coverage_completeness_rule`: `command_coverage_manifest` must be an exhaustive inventory of all CLI commands that currently support `--format json`; completeness validation fails on omissions or unexpected entries.
@@ -94,6 +99,68 @@ Out of scope:
   - `rc_source_of_truth`: git tags matching `rc_tag_format`.
   - `consecutive_rc_rule`: two or more RCs for the same base `<major>.<minor>.<patch>` with sequential `n` values and no gaps.
   - `window_clock`: UTC timestamps, with day-count measured from `compatibilityDeclaredAtUtc`.
+
+## Domain Consistency Pass
+- Canonical product identity: `archscope`.
+- Compatibility command identity: `diagram`.
+- Legacy repository/package identity: `diagram-cli` and `@brainwav/diagram`.
+- Compatibility state means the canonical product/CLI posture is `archscope`, while existing `diagram` command consumers remain supported and tested.
+- Package-level rename is not part of this contract; do not use `archscope` as a package-name requirement until a later package migration spec is approved.
+- Machine mode means `--format json` with parser-safe `stdout`; compatibility, alias, and deprecation notices belong on `stderr`.
+- Release candidate evidence is derived from git tags matching `MigrationWindow.rc_tag_format`, not from mutable local files or ad hoc release notes.
+- Avoided aliases: `diagram-cli` as the primary product name, `diagram` as the canonical command, and package rename language that implies immediate npm cutover.
+
+## Interface Shape Decisions
+### CLI Identity Interface
+Viable shapes considered:
+- Shape A: dual-bin single package.
+  - Call shape: `archscope validate .` for canonical usage; `diagram validate .` remains compatibility usage.
+  - Hidden complexity: commander bootstrap naming, package `bin` exposure, alias notices, and parity tests live behind one implementation path.
+  - Tradeoff: lowest consumer migration risk, but docs/help must be disciplined so `diagram` does not keep reading as primary.
+- Shape B: wrapper package.
+  - Call shape: a new `archscope` package delegates to the existing `diagram` binary/package.
+  - Hidden complexity: npm package relationship, release sequencing, wrapper versioning, and support for two installation paths.
+  - Tradeoff: clean external naming at the cost of premature package churn and extra release risk.
+- Shape C: immediate package and command rename.
+  - Call shape: only `archscope` is documented and shipped as the active command/package.
+  - Hidden complexity: migration support is pushed to users and CI owners.
+  - Tradeoff: maximum clarity but violates the non-breaking compatibility requirement.
+
+Selected contract: Shape A. The compatibility cycle must expose `archscope` as canonical while keeping `diagram` behaviorally equivalent. Both command paths must share one execution implementation, preserve exit-code semantics, and emit compatibility notices to `stderr` only when machine-mode `stdout` must remain parseable.
+
+### Machine Output Interface
+Viable shapes considered:
+- Shape A: canonical envelope at the JSON root.
+  - Call shape: every covered `--format json` command returns `schemaVersion`, `command`, `status`, `meta`, `data`, `errors`, and optional `agentSummary`.
+  - Hidden complexity: command-specific payloads are nested under `data`; deterministic sorting and timestamp stripping are centralized.
+  - Tradeoff: one parser for agents and CI, with a one-time payload nesting migration for outlier commands.
+- Shape B: command-specific roots plus shared field names.
+  - Call shape: each command keeps its existing root shape but includes `schemaVersion` and similar metadata.
+  - Hidden complexity: consumers still need command-specific parsers and drift detection remains weak.
+  - Tradeoff: least disruptive internally, but fails the agent-integration goal.
+- Shape C: sidecar contract files only.
+  - Call shape: commands keep current output while manifest files describe how to parse them.
+  - Hidden complexity: consumers must reconcile runtime output with separate contract metadata.
+  - Tradeoff: useful as documentation but insufficient as the runtime machine contract.
+
+Selected contract: Shape A. `buildMachineEnvelope` is the preferred contract boundary for covered machine-mode commands. `workflow pr` must move its current custom JSON root under `data`, keep its analytical semantics intact, and expose the same parser invariants as other manifest-covered commands.
+
+### Migration Evidence Interface
+Viable shapes considered:
+- Shape A: immutable release records with latest pointer and append-only ledger.
+  - Call shape: validators read `.diagram/migration/releases/<releaseId>/migration-readiness.json`, `.diagram/migration/migration-readiness.json`, and `.diagram/migration/releases/ledger.json`.
+  - Hidden complexity: canonical hash calculation, pointer integrity, ledger immutability, and RC-window semantics.
+  - Tradeoff: strongest auditability, but requires explicit promotion of release evidence.
+- Shape B: mutable latest-only readiness file.
+  - Call shape: validators read one `.diagram/migration/migration-readiness.json` file.
+  - Hidden complexity: historical evidence is overwritten or reconstructed from git history.
+  - Tradeoff: simpler to implement but too weak for finalization governance.
+- Shape C: release notes or checklist-only evidence.
+  - Call shape: maintainers manually attest readiness in docs or PR checklists.
+  - Hidden complexity: no machine-verifiable integrity or append-only guarantee.
+  - Tradeoff: readable for humans but not a reliable gate input.
+
+Selected contract: Shape A. Generated candidate evidence may be produced in ignored paths during release preparation, but finalized readiness evidence must be promoted into immutable tracked release records only at an explicit evidence-commit boundary.
 
 ## Migration Lifecycle States
 State model:
@@ -244,6 +311,13 @@ None. Resolved decisions in this revision:
 - D1. Package-level rename occurs in a separate migration window after CLI identity transition reaches `finalized`.
 - D2. Minimum compatibility window is two consecutive release candidates and 30 calendar days from compatibility declaration.
 - D3. Wave-2+ command additions are governed by `coverage_expansion_criteria` and must be recorded in immutable release evidence.
+
+## Planning and Implementation Handoff
+- Paired plan: `docs/plans/2026-04-11-feat-archscope-repositioning-and-compatibility-plan.md`.
+- Current execution slice: P0 / Unit 1, command identity baseline and compatibility plumbing.
+- First implementation boundary: establish `archscope` as canonical CLI identity while preserving `diagram` compatibility behavior, exit semantics, and machine-mode output-channel safety.
+- Deferred scope guardrail: do not plan package-level rename, hard-cut alias removal, or net-new analysis capabilities as part of this contract.
+- Downstream planning constraint: reuse the paired active plan unless this contract changes; do not create a duplicate plan for the same SA1-SA14 acceptance surface.
 
 ## Definition of Done
 - All required sections in this spec are complete and internally consistent.

@@ -14,7 +14,12 @@ const {
 const { inferRoleTags } = require('./analysis-generation-role-tags');
 const { SUPPORTED_DIAGRAM_TYPES, ROLE_COLOURS } = require('./analysis-generation-constants');
 const { analyze } = require('./analysis-generation-analyze');
-const { generate, isPlaceholderDiagram, toManifestEntry } = require('./analysis-generation-diagrams');
+const {
+  generate,
+  generateDiagramArtifact,
+  isPlaceholderDiagram,
+  toManifestEntry,
+} = require('./analysis-generation-diagrams');
 
 module.exports = {
   detectLanguage,
@@ -33,6 +38,7 @@ module.exports = {
   ROLE_COLOURS,
   analyze,
   generate,
+  generateDiagramArtifact,
   isPlaceholderDiagram,
   toManifestEntry,
 };

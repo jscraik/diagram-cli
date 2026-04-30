@@ -7,14 +7,7 @@ const ExitCodes = {
   CONFIG_ERROR: 2
 };
 
-/**
- * Format results as JSON
- * @param {Object} results - Validation results
- * @param {Object} options - Output options
- * @param {number} startTime - Start timestamp for duration calculation
- * @returns {number} Exit code
- */
-function formatJSON(results, options = {}, startTime = Date.now()) {
+function buildJSONOutput(results, startTime = Date.now()) {
   if (!Number.isFinite(startTime)) {
     startTime = Date.now();
   }
@@ -49,7 +42,7 @@ function formatJSON(results, options = {}, startTime = Date.now()) {
     ? Math.max(summary.violations, computed.violations)
     : computed.violations;
   
-  const output = {
+  return {
     version: '1.0.0',
     schema: 'https://diagram-cli.dev/schemas/output-v1.json',
     summary: {
@@ -82,6 +75,17 @@ function formatJSON(results, options = {}, startTime = Date.now()) {
       };
     })
   };
+}
+
+/**
+ * Format results as JSON
+ * @param {Object} results - Validation results
+ * @param {Object} options - Output options
+ * @param {number} startTime - Start timestamp for duration calculation
+ * @returns {number} Exit code
+ */
+function formatJSON(results, options = {}, startTime = Date.now()) {
+  const output = buildJSONOutput(results, startTime);
 
   const json = JSON.stringify(output, null, 2);
 
@@ -103,7 +107,7 @@ function formatJSON(results, options = {}, startTime = Date.now()) {
     console.log(json);
   }
 
-  return failed > 0 ? ExitCodes.VALIDATION_FAILED : ExitCodes.SUCCESS;
+  return output.summary.exitCode;
 }
 
-module.exports = { formatJSON, ExitCodes };
+module.exports = { buildJSONOutput, formatJSON, ExitCodes };

@@ -1,6 +1,7 @@
 # Documentation
 
-Maintainer and contributor documentation for `diagram-cli`.
+Maintainer and contributor documentation for the `archscope` CLI in the
+`diagram-cli` repository.
 
 ## Table of Contents
 
@@ -11,8 +12,11 @@ Maintainer and contributor documentation for `diagram-cli`.
 
 - [Getting started](getting-started.md) - Local setup, first commands, and
   quick verification.
-- [Architecture testing](architecture-testing.md) - `diagram validate` rules,
+- [Architecture testing](architecture-testing.md) - `archscope validate` rules,
   formats, and CI usage.
+- [Archscope compatibility migration](migration/archscope-compatibility.md) -
+  canonical command identity, compatibility command behavior, and migration
+  evidence artifacts.
 - [Confidence pipeline](confidence-pipeline.md) - confidence artifact contract,
   strict confidence mode, and fallback semantics.
 - [Migration from dependency-cruiser](migration-from-dependency-cruiser.md) -

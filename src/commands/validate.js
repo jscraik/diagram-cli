@@ -7,6 +7,7 @@ const { RulesEngine } = require('../rules');
 const { ComponentGraph } = require('../graph');
 const { RuleFactory } = require('../rules/factory');
 const { formatResults } = require('../formatters/index');
+const { buildJSONOutput } = require('../formatters/json');
 const { validateConfig, getDefaultConfig } = require('../schema/rules-schema');
 const {
   applyDiagramRcDefaults,
@@ -14,6 +15,7 @@ const {
   resolveRootPathOrExit,
   validateOutputPath,
 } = require('./shared');
+const { buildMachineEnvelope } = require('./output');
 
 /**
  * Apply configured baselines to validation results and optionally persist updated baselines to the config file.
@@ -273,6 +275,36 @@ function registerValidateCommand(program) {
           console.error(chalk.red('❌ Output path error:'), error.message);
           process.exit(2);
         }
+      }
+
+      if (format === 'json' && !safeOutput) {
+        const validationOutput = buildJSONOutput(results, options.deterministic ? Date.now() : startTime);
+        const exitCode = validationOutput.summary.exitCode;
+        const payload = buildMachineEnvelope({
+          schemaVersion: '1.0',
+          command: 'validate',
+          rootPath: root,
+          status: exitCode === 0 ? 'success' : 'failed',
+          deterministic: Boolean(options.deterministic),
+          data: {
+            validation: validationOutput,
+          },
+          errors: exitCode === 0
+            ? []
+            : [{
+              code: 'architecture_validation_failed',
+              message: 'Architecture validation failed',
+            }],
+          agentSummary: {
+            changedComponents: 0,
+            riskReasons: exitCode === 0 ? [] : ['architecture_validation_failed'],
+            suggestedReviewerChecks: exitCode === 0
+              ? ['Architecture rules passed for this workspace.']
+              : ['Review failed architecture rules before merging.'],
+          },
+        });
+        console.log(JSON.stringify(payload, null, 2));
+        process.exit(exitCode);
       }
 
       const exitCode = formatResults(results, format, {
