@@ -24,6 +24,18 @@ function runCLI(args, cwd, envOverrides = {}) {
   });
 }
 
+function createIsolatedNpmEnv() {
+  const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-npm-cache-'));
+  return {
+    cacheDir,
+    env: {
+      ...process.env,
+      NPM_CONFIG_CACHE: cacheDir,
+      npm_config_cache: cacheDir,
+    },
+  };
+}
+
 function extractJsonSegment(text, startIndex) {
   const opening = text[startIndex];
   if (opening !== '{' && opening !== '[') {
@@ -120,31 +132,36 @@ function parseJsonFromOutput(rawOutput, commandLabel) {
  * The temporary workspace is removed before completion. Test failures surface via assertions.
  */
 function run() {
-  // Cross-platform command selection tests
-  assert.deepStrictEqual(getOpenCommand('https://example.com', 'darwin'), {
-    cmd: 'open',
-    args: ['https://example.com']
-  });
-  assert.deepStrictEqual(getOpenCommand('https://example.com', 'win32'), {
-    cmd: 'explorer.exe',
-    args: ['https://example.com']
-  });
-  assert.deepStrictEqual(getOpenCommand('https://example.com', 'linux'), {
-    cmd: 'xdg-open',
-    args: ['https://example.com']
-  });
-  assert.deepStrictEqual(getNpxCommandCandidates('win32'), ['npx.cmd', 'npx']);
-  assert.deepStrictEqual(getNpxCommandCandidates('linux'), ['npx']);
-  assert.ok(
-    getFfmpegCommandCandidates('win32', 'C:\\Users\\tester').some(candidate => candidate.endsWith('ffmpeg.exe')),
-    'Windows ffmpeg candidates should include .exe paths'
-  );
+  const { cacheDir: npmCacheDir, env: npmEnv } = createIsolatedNpmEnv();
+  let tmpRoot = null;
+
+  try {
+    // Cross-platform command selection tests
+    assert.deepStrictEqual(getOpenCommand('https://example.com', 'darwin'), {
+      cmd: 'open',
+      args: ['https://example.com']
+    });
+    assert.deepStrictEqual(getOpenCommand('https://example.com', 'win32'), {
+      cmd: 'explorer.exe',
+      args: ['https://example.com']
+    });
+    assert.deepStrictEqual(getOpenCommand('https://example.com', 'linux'), {
+      cmd: 'xdg-open',
+      args: ['https://example.com']
+    });
+    assert.deepStrictEqual(getNpxCommandCandidates('win32'), ['npx.cmd', 'npx']);
+    assert.deepStrictEqual(getNpxCommandCandidates('linux'), ['npx']);
+    assert.ok(
+      getFfmpegCommandCandidates('win32', 'C:\\Users\\tester').some(candidate => candidate.endsWith('ffmpeg.exe')),
+      'Windows ffmpeg candidates should include .exe paths'
+    );
 
   // Packed artifact should include runtime files required by CLI commands
   const repoRoot = path.join(__dirname, '..');
   const packDryRun = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
     cwd: repoRoot,
-    encoding: 'utf8'
+    encoding: 'utf8',
+    env: npmEnv,
   });
   assert.strictEqual(
     packDryRun.status,
@@ -199,7 +216,7 @@ function run() {
   }
 
   // Integration checks with special characters/spaces in paths
-  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-regression-'));
+  tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-regression-'));
   const workspace = path.join(tmpRoot, 'workspace with spaces [x] & chars');
   fs.mkdirSync(path.join(workspace, 'src'), { recursive: true });
 
@@ -467,9 +484,13 @@ function run() {
   assert.ok(securityText.includes('classDef securityNode'), 'security diagram should define securityNode class style');
   assert.match(securityText, /class\s+.+\s+securityNode/, 'security diagram should assign securityNode class');
 
-  fs.rmSync(tmpRoot, { recursive: true, force: true });
-
-  console.log('deep-regression: OK');
+    console.log('deep-regression: OK');
+  } finally {
+    if (tmpRoot) {
+      fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
+    fs.rmSync(npmCacheDir, { recursive: true, force: true });
+  }
 }
 
 try {

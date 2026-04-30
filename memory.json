@@ -1,6 +1,6 @@
 {
-  "repo": "replace-with-repo-name",
-  "session_id": "bootstrap/init",
+  "repo": "diagram-cli",
+  "session_id": "pr-triage/75",
   "preamble": {
     "bootstrap": true,
     "search": true
@@ -8,20 +8,20 @@
   "entries": [
     {
       "level": "observation",
-      "content": "Harness memory baseline initialized. Replace with task-specific observations.",
+      "content": "PR #75 triage confirmed local unit tests pass, deep regression was blocked by npm cache ownership, and harness:check requires current closeout metadata.",
       "tags": [
-        "repo:unknown",
-        "area:bootstrap",
-        "type:setup"
+        "repo:diagram-cli",
+        "area:validation",
+        "type:triage"
       ],
-      "session_id": "bootstrap/init",
-      "source": "harness init",
-      "observed_at": "2026-01-01T00:00:00.000Z"
+      "session_id": "pr-triage/75",
+      "source": "codex",
+      "observed_at": "2026-04-30T23:40:00.000Z"
     }
   ],
   "closeout": {
-    "forjamie_updated": false,
-    "date": "2026-01-01T00:00:00.000Z"
+    "forjamie_updated": true,
+    "date": "2026-04-30T00:00:00.000Z"
   },
   "meta": {
     "created_at": "2026-01-01T00:00:00.000Z",
