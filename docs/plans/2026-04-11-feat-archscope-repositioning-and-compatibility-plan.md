@@ -174,8 +174,8 @@ Execution posture for all units:
 - Machine mode with alias/deprecation notices emits valid JSON payload only on `stdout`.
 
 **Verification:**
-- `npm test` passes with new identity/alias tests.
-- `npm run test:deep` confirms packaged binary ergonomics remain functional.
+- `./scripts/verify-work.sh --fast` passes with the canonical repo-local gate coverage.
+- `./scripts/verify-work.sh --all` confirms packaged binary ergonomics remain functional before final sign-off.
 - Evidence artifact: ledger entry references deep-regression assertion output proving canonical + compatibility invocation parity and dual-bin package availability.
 
 **Exit criteria:**
@@ -361,8 +361,8 @@ Execution posture for all units:
 - Rollback drill simulates a failed compatibility release and validates alias behavior, machine-contract conformance, and migration-state evidence integrity after rollback.
 
 **Verification:**
-- `npm test`
-- `npm run test:deep`
+- `./scripts/verify-work.sh --fast`
+- `./scripts/verify-work.sh --all`
 - targeted migration validation scripts introduced in P1/P2.
 - Evidence artifact: release-readiness report ties each AC item to explicit test/validation output and release candidate context.
 - Evidence artifact: rollback drill report and post-rollback contract checks linked to AC10.

@@ -206,8 +206,10 @@ set_cleanup_trap() {
 		trap_cmd+=" $(printf '%q' "${path}")"
 	done
 	if [[ -n "${ZSH_VERSION:-}" ]]; then
+		# shellcheck disable=SC2064
 		trap "${trap_cmd}" EXIT
 	else
+		# shellcheck disable=SC2064
 		trap "${trap_cmd}" RETURN
 	fi
 }

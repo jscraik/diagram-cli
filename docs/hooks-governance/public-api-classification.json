@@ -1,0 +1,10 @@
+{
+  "repositories": [
+    {
+      "files": [],
+      "repo_name": "diagram-cli",
+      "repo_path": "."
+    }
+  ],
+  "schema_version": "public-api-classification.v1"
+}

@@ -107,7 +107,7 @@ function resolveIdentityFromComponent(component, aliases) {
  * @returns {string[]} Sorted array of canonical dependency identities; empty array if there are no normalisable dependencies.
  */
 function normalizedDependencies(component, aliases = null) {
-  const normalized = (component?.dependencies || [])
+  const normalized = new Set((component?.dependencies || [])
     .map((dep) => {
       const normalized = normalizeDependency(dep);
       if (!normalized) return null;
@@ -119,8 +119,8 @@ function normalizedDependencies(component, aliases = null) {
       }
       return normalized;
     })
-    .filter(Boolean);
-  return sortStringsDeterministically(normalized);
+    .filter(Boolean));
+  return sortStringsDeterministically([...normalized]);
 }
 
 /**
@@ -173,6 +173,64 @@ function buildNewComponentChange(filePath, headComp, headDependencies) {
   };
 }
 
+function buildPathListHtml(items, label) {
+  if (items.length === 0) return '';
+  return `
+      <div class="path-group">
+        <h4>${label}</h4>
+        <ul class="file-list">
+          ${items.map((p) => `<li><code>${escapeHtml(p)}</code></li>`).join('')}
+        </ul>
+      </div>
+    `;
+}
+
+function buildRenamedListHtml(items) {
+  if (items.length === 0) return '';
+  return `
+      <div class="path-group">
+        <h4>Renamed Files</h4>
+        <ul class="file-list">
+          ${items.map((r) => `<li><code>${escapeHtml(r.from)}</code> → <code>${escapeHtml(r.to)}</code></li>`).join('')}
+        </ul>
+      </div>
+    `;
+}
+
+function buildActionItems(summary, riskNarrative) {
+  const items = [];
+
+  if (riskNarrative.level === 'high') {
+    items.push('Review all changes carefully - high risk detected');
+  }
+  if (riskNarrative.reasons.some((r) => r.includes('authentication'))) {
+    items.push('Verify authentication flow is not compromised');
+    items.push('Test all auth-related endpoints');
+  }
+  if (riskNarrative.reasons.some((r) => r.includes('security'))) {
+    items.push('Review security implications of boundary changes');
+    items.push('Check for potential privilege escalation');
+  }
+  if (riskNarrative.reasons.some((r) => r.includes('database'))) {
+    items.push('Review database schema changes');
+    items.push('Verify migration safety if applicable');
+  }
+  if (summary.blastRadiusSize >= 5) {
+    items.push('Review impact on downstream components');
+  }
+  if (summary.unmodeledCount > 0) {
+    items.push('Review unmodeled file changes');
+  }
+  if (riskNarrative.override?.applied) {
+    items.push(`Risk gate overridden: ${riskNarrative.override.reason}`);
+  }
+  if (items.length === 0) {
+    items.push('Standard review - no elevated risk factors detected');
+  }
+
+  return sortStringsDeterministically(items);
+}
+
 /**
  * Build a concise delta summary describing file, component and dependency changes between two analysis snapshots.
  *
@@ -208,34 +266,31 @@ function computeDelta(baseAnalysis, headAnalysis, changedFiles) {
 
   for (const filePath of changed) {
     const headComp = headByPath.get(filePath);
-    const baseComp = baseByPath.get(filePath);
-
-    if (headComp) {
-      // File exists in head
-      if (baseComp) {
-        // File exists in both - check if dependencies or roleTags changed
-        const baseDeps = normalizedDependencies(baseComp, baseAliases);
-        const headDeps = normalizedDependencies(headComp, headAliases);
-        const depsChanged = !arraysEqual(baseDeps, headDeps);
-        const rolesChanged = !arraysEqual(
-          sortStringsDeterministically(baseComp.roleTags || []),
-          sortStringsDeterministically(headComp.roleTags || [])
-        );
-
-        if (depsChanged || rolesChanged) {
-          changedComponents.push(buildExistingComponentChange(filePath, baseComp, headComp, baseDeps, headDeps));
-        }
-      } else {
-        // New file in head
-        changedComponents.push(buildNewComponentChange(
-          filePath,
-          headComp,
-          normalizedDependencies(headComp, headAliases)
-        ));
-      }
-    } else {
-      // File changed but not modeled (e.g., config file, non-code)
+    if (!headComp) {
       unmodeledChanges.push(filePath);
+      continue;
+    }
+
+    const baseComp = baseByPath.get(filePath);
+    if (!baseComp) {
+      changedComponents.push(buildNewComponentChange(
+        filePath,
+        headComp,
+        normalizedDependencies(headComp, headAliases)
+      ));
+      continue;
+    }
+
+    const baseDeps = normalizedDependencies(baseComp, baseAliases);
+    const headDeps = normalizedDependencies(headComp, headAliases);
+    const depsChanged = !arraysEqual(baseDeps, headDeps);
+    const rolesChanged = !arraysEqual(
+      sortStringsDeterministically(baseComp.roleTags || []),
+      sortStringsDeterministically(headComp.roleTags || [])
+    );
+
+    if (depsChanged || rolesChanged) {
+      changedComponents.push(buildExistingComponentChange(filePath, baseComp, headComp, baseDeps, headDeps));
     }
   }
 
@@ -463,7 +518,13 @@ function groupChangePaths(result, maxPreview = 10) {
     };
   };
 
-  groups.changed = buildSortedPreviewGroup(result.changedFiles);
+  const renamedTargets = new Set((result.renamedFiles || []).map((item) => item?.to).filter(Boolean));
+  const addedPaths = new Set(result.addedFiles || []);
+  const modifiedOnly = (result.changedFiles || []).filter(
+    (filePath) => !addedPaths.has(filePath) && !renamedTargets.has(filePath)
+  );
+
+  groups.changed = buildSortedPreviewGroup(modifiedOnly);
   groups.renamed = buildRenamedPreviewGroup(result.renamedFiles);
   groups.added = buildSortedPreviewGroup(result.addedFiles);
   groups.deleted = buildSortedPreviewGroup(result.deletedFiles);
@@ -591,65 +652,7 @@ function generateHtmlExplainer(result) {
   const blastRadiusHtml = sortedBlastRadius.map(name => `
       <li>${escapeHtml(name)}</li>
     `).join('');
-
-  // Build path group HTML for Change Story section
-  const buildPathList = (items, label) => {
-    if (items.length === 0) return '';
-    return `
-      <div class="path-group">
-        <h4>${label}</h4>
-        <ul class="file-list">
-          ${items.map(p => `<li><code>${escapeHtml(p)}</code></li>`).join('')}
-        </ul>
-      </div>
-    `;
-  };
-
-  const buildRenamedList = (items) => {
-    if (items.length === 0) return '';
-    return `
-      <div class="path-group">
-        <h4>Renamed Files</h4>
-        <ul class="file-list">
-          ${items.map(r => `<li><code>${escapeHtml(r.from)}</code> → <code>${escapeHtml(r.to)}</code></li>`).join('')}
-        </ul>
-      </div>
-    `;
-  };
-
-  // Build action checklist based on risk and changes
-  const actionItems = [];
-
-  if (riskNarrative.level === 'high') {
-    actionItems.push('Review all changes carefully - high risk detected');
-  }
-  if (riskNarrative.reasons.some(r => r.includes('authentication'))) {
-    actionItems.push('Verify authentication flow is not compromised');
-    actionItems.push('Test all auth-related endpoints');
-  }
-  if (riskNarrative.reasons.some(r => r.includes('security'))) {
-    actionItems.push('Review security implications of boundary changes');
-    actionItems.push('Check for potential privilege escalation');
-  }
-  if (riskNarrative.reasons.some(r => r.includes('database'))) {
-    actionItems.push('Review database schema changes');
-    actionItems.push('Verify migration safety if applicable');
-  }
-  if (summary.blastRadiusSize >= 5) {
-    actionItems.push('Review impact on downstream components');
-  }
-  if (summary.unmodeledCount > 0) {
-    actionItems.push('Review unmodeled file changes');
-  }
-  if (riskNarrative.override?.applied) {
-    actionItems.push(`Risk gate overridden: ${riskNarrative.override.reason}`);
-  }
-  if (actionItems.length === 0) {
-    actionItems.push('Standard review - no elevated risk factors detected');
-  }
-
-  // Sort action items for determinism
-  const sortedActionItems = sortStringsDeterministically(actionItems);
+  const sortedActionItems = buildActionItems(summary, riskNarrative);
 
   const actionChecklistHtml = sortedActionItems.map(item => `
       <li>${escapeHtml(item)}</li>
@@ -747,15 +750,15 @@ function generateHtmlExplainer(result) {
     </div>
     ` : ''}
 
-    <section aria-labelledby="change-story-heading">
-      <h2 id="change-story-heading">Change Story</h2>
-      ${pathGroups.changed.count > 0 ? buildPathList(pathGroups.changed.items, `Modified Files (${pathGroups.changed.count})`) + (pathGroups.changed.truncated ? `<p class="truncation-note">+ ${pathGroups.changed.count - pathGroups.changed.items.length} more modified files</p>` : '') : ''}
-      ${pathGroups.renamed.count > 0 ? buildRenamedList(pathGroups.renamed.items) + (pathGroups.renamed.truncated ? `<p class="truncation-note">+ ${pathGroups.renamed.count - pathGroups.renamed.items.length} more renamed files</p>` : '') : ''}
-      ${pathGroups.added.count > 0 ? buildPathList(pathGroups.added.items, `Added Files (${pathGroups.added.count})`) + (pathGroups.added.truncated ? `<p class="truncation-note">+ ${pathGroups.added.count - pathGroups.added.items.length} more added files</p>` : '') : ''}
-      ${pathGroups.deleted.count > 0 ? buildPathList(pathGroups.deleted.items, `Deleted Files (${pathGroups.deleted.count})`) + (pathGroups.deleted.truncated ? `<p class="truncation-note">+ ${pathGroups.deleted.count - pathGroups.deleted.items.length} more deleted files</p>` : '') : ''}
-      ${pathGroups.unmodeled.count > 0 ? buildPathList(pathGroups.unmodeled.items, `Unmodeled Changes (${pathGroups.unmodeled.count})`) + (pathGroups.unmodeled.truncated ? `<p class="truncation-note">+ ${pathGroups.unmodeled.count - pathGroups.unmodeled.items.length} more unmodeled files</p>` : '') : ''}
-      ${summary.totalFilesChanged === 0 ? '<p class="empty">No file changes detected</p>' : ''}
-    </section>
+	    <section aria-labelledby="change-story-heading">
+	      <h2 id="change-story-heading">Change Story</h2>
+	      ${pathGroups.changed.count > 0 ? buildPathListHtml(pathGroups.changed.items, `Modified Files (${pathGroups.changed.count})`) + (pathGroups.changed.truncated ? `<p class="truncation-note">+ ${pathGroups.changed.count - pathGroups.changed.items.length} more modified files</p>` : '') : ''}
+	      ${pathGroups.renamed.count > 0 ? buildRenamedListHtml(pathGroups.renamed.items) + (pathGroups.renamed.truncated ? `<p class="truncation-note">+ ${pathGroups.renamed.count - pathGroups.renamed.items.length} more renamed files</p>` : '') : ''}
+	      ${pathGroups.added.count > 0 ? buildPathListHtml(pathGroups.added.items, `Added Files (${pathGroups.added.count})`) + (pathGroups.added.truncated ? `<p class="truncation-note">+ ${pathGroups.added.count - pathGroups.added.items.length} more added files</p>` : '') : ''}
+	      ${pathGroups.deleted.count > 0 ? buildPathListHtml(pathGroups.deleted.items, `Deleted Files (${pathGroups.deleted.count})`) + (pathGroups.deleted.truncated ? `<p class="truncation-note">+ ${pathGroups.deleted.count - pathGroups.deleted.items.length} more deleted files</p>` : '') : ''}
+	      ${pathGroups.unmodeled.count > 0 ? buildPathListHtml(pathGroups.unmodeled.items, `Unmodeled Changes (${pathGroups.unmodeled.count})`) + (pathGroups.unmodeled.truncated ? `<p class="truncation-note">+ ${pathGroups.unmodeled.count - pathGroups.unmodeled.items.length} more unmodeled files</p>` : '') : ''}
+	      ${summary.totalFilesChanged === 0 ? '<p class="empty">No file changes detected</p>' : ''}
+	    </section>
 
     ${sortedComponents.length > 0 ? `
     <section aria-labelledby="components-heading">

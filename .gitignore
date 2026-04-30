@@ -21,3 +21,4 @@ insights-*.png
 # Python artifacts
 __pycache__/
 *.py[cod]
+.codex/config.toml

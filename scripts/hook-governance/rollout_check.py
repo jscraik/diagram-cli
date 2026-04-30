@@ -130,7 +130,7 @@ def _evaluate_repo(
 
     if not artifact_path.is_file():
         issues.append(
-            f"repo '{repo_name}' missing conformance artifact: {artifact_path}"
+            f"repo '{repo_name}' missing conformance artifact: {portable_artifact_path}"
         )
         return _repo_summary(
             repo_name=repo_name,
@@ -207,7 +207,10 @@ def _evaluate_repo(
         flag_id = flag.get("id")
         detected_at = flag.get("detected_at")
         if not isinstance(flag_id, str) or not flag_id:
-            flag_id = "unknown-flag"
+            issues.append(
+                f"repo '{repo_name}' high-severity drift flag is missing id"
+            )
+            continue
         if not isinstance(detected_at, str) or not detected_at:
             issues.append(
                 f"repo '{repo_name}' high-severity drift flag '{flag_id}' is missing detected_at"
@@ -281,9 +284,11 @@ def evaluate_rollout(
     repo_summaries: list[dict[str, object]] = []
     blocking_issues: list[str] = []
     warnings: list[str] = []
-    for repo in repositories:
+    for idx, repo in enumerate(repositories):
         if not isinstance(repo, dict):
-            continue
+            raise RolloutCheckError(
+                f"inventory.repositories[{idx}] must be an object"
+            )
         summary = _evaluate_repo(
             repo=repo,
             required_gate_ids=required_gate_ids,

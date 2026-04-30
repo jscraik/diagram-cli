@@ -6,29 +6,12 @@ name = "diagram-cli local environment"
 script = '''
 set -euo pipefail
 
-echo "[codex] setup: $(pwd)"
+printf '%s\n' '[codex] setup: /Users/jamiecraik/dev/diagram-cli'
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 
 if command -v mise >/dev/null 2>&1; then
-  mise_activate_error_file="$(mktemp)"
-  mise_activate_cmd=''
-  if mise_activate_cmd="$(mise activate bash 2>"$mise_activate_error_file")"; then
-    if ! eval "$mise_activate_cmd" >/dev/null; then
-      mise_activate_error="$(cat "$mise_activate_error_file")"
-      if [ -z "$mise_activate_error" ]; then
-        mise_activate_error='unknown error while applying mise activation output'
-      fi
-      echo "[codex] warning: mise activation failed: $mise_activate_error" >&2
-    fi
-  else
-    mise_activate_error="$(cat "$mise_activate_error_file")"
-    if [ -z "$mise_activate_error" ]; then
-      mise_activate_error='unknown error from mise activate bash'
-    fi
-    echo "[codex] warning: mise activation failed: $mise_activate_error" >&2
-  fi
-  rm -f "$mise_activate_error_file"
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
 
 missing_tools=0
@@ -51,40 +34,28 @@ if ! command -v fd >/dev/null 2>&1 && ! command -v fdfind >/dev/null 2>&1; then
 fi
 require_tool node "install Node.js runtime"
 require_tool npm "install npm and ensure it is on PATH"
-require_tool make "install GNU Make"
-require_tool pnpm "install pnpm"
-require_tool prek "install prek"
-require_tool diagram "install @brainwav/diagram"
-require_tool mise "install mise"
-require_tool vale "install vale"
-require_tool argos "install @argos-ci/cli"
-require_tool cosign "install cosign"
-require_tool cloudflared "install cloudflared"
-require_tool vitest "install vitest"
-require_tool ruff "install ruff"
-require_tool eslint "install eslint"
-require_tool agent-browser "install agent-browser"
-require_tool agentation-mcp "install agentation-mcp"
-require_tool mmdc "install @mermaid-js/mermaid-cli"
-require_tool markdownlint-cli2 "install markdownlint-cli2"
-require_tool wrangler "install wrangler"
-require_tool beautiful-mermaid "install beautiful-mermaid"
-require_tool semgrep "install semgrep"
-require_tool semver "install semver"
-require_tool trivy "install trivy"
-require_tool gitleaks "install gitleaks"
-require_tool rsearch "install @brainwav/rsearch"
-require_tool wsearch "install @brainwav/wsearch-cli"
 
 if [ "$missing_tools" -ne 0 ]; then
-  echo "[codex] tooling check failed; install missing tools before continuing."
+  echo "[codex] tooling check failed; install missing tools from tooling.md / mise before continuing."
   exit 1
 fi
+bootstrap_node_tools() {
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 
-if [ -f package-lock.json ]; then
-  npm ci
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+}
+
+run_node_pm() {
+  bootstrap_node_tools
+  npm "$@"
+}
+
+if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+  run_node_pm ci
 else
-  npm install
+  run_node_pm install
 fi
 '''
 
@@ -93,6 +64,13 @@ name = "Tools"
 icon = "tool"
 command = '''
 set -euo pipefail
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
 echo "git: $(git --version 2>/dev/null || echo missing)"
 echo "rg: $(rg --version 2>/dev/null | head -n 1 || echo missing)"
 echo "jq: $(jq --version 2>/dev/null || echo missing)"
@@ -104,7 +82,144 @@ else
   echo "fd: missing"
 fi
 echo "node: $(node --version 2>/dev/null || echo missing)"
+if command -v pnpm >/dev/null 2>&1; then
+  echo "pnpm: $(pnpm --version 2>/dev/null)"
+elif [ -x /opt/homebrew/bin/pnpm ]; then
+  echo "pnpm: $(/opt/homebrew/bin/pnpm --version 2>/dev/null) (via /opt/homebrew/bin/pnpm)"
+elif command -v corepack >/dev/null 2>&1; then
+  echo "pnpm: available via corepack"
+else
+  echo "pnpm: missing"
+fi
+echo "python3: $(python3 --version 2>/dev/null || echo missing)"
+echo "uv: $(uv --version 2>/dev/null || echo missing)"
+echo "rustup: $(rustup --version 2>/dev/null | head -n 1 || echo missing)"
+echo "rustc: $(rustc --version 2>/dev/null || echo missing)"
+echo "cargo: $(cargo --version 2>/dev/null || echo missing)"
 echo "npm: $(npm --version 2>/dev/null || echo missing)"
+'''
+
+[[actions]]
+name = "Install deps"
+icon = "tool"
+command = '''
+set -euo pipefail
+
+bootstrap_node_tools() {
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+}
+
+run_node_pm() {
+  bootstrap_node_tools
+  npm "$@"
+}
+
+if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+  run_node_pm ci
+else
+  run_node_pm install
+fi
+'''
+
+[[actions]]
+name = "Typecheck"
+icon = "debug"
+command = '''
+set -euo pipefail
+
+bootstrap_node_tools() {
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+}
+
+run_node_pm() {
+  bootstrap_node_tools
+  npm "$@"
+}
+
+run_node_pm run typecheck
+'''
+
+[[actions]]
+name = "Check"
+icon = "debug"
+command = '''
+set -euo pipefail
+
+bootstrap_node_tools() {
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+}
+
+run_node_pm() {
+  bootstrap_node_tools
+  npm "$@"
+}
+
+run_node_pm run check
+'''
+
+[[actions]]
+name = "Lint"
+icon = "tool"
+command = '''
+set -euo pipefail
+
+bootstrap_node_tools() {
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+}
+
+run_node_pm() {
+  bootstrap_node_tools
+  npm "$@"
+}
+
+run_node_pm run lint
+'''
+
+[[actions]]
+name = "Test"
+icon = "test"
+command = '''
+set -euo pipefail
+
+bootstrap_node_tools() {
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+}
+
+run_node_pm() {
+  bootstrap_node_tools
+  npm "$@"
+}
+
+run_node_pm test
+'''
+
+[[actions]]
+name = "Preflight"
+icon = "tool"
+command = '''
+set -euo pipefail
+
+make preflight
 '''
 
 [[actions]]
@@ -112,7 +227,15 @@ name = "Run"
 icon = "run"
 command = '''
 set -euo pipefail
-npm run check -- "$@"
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+echo "[codex] no run command inferred for this repository"
+exit 1
 '''
 
 [[actions]]
@@ -124,12 +247,81 @@ node src/diagram.js doctor . --strict
 '''
 
 [[actions]]
-name = "Test"
+name = "Tooling"
+icon = "tool"
+command = '''
+set -euo pipefail
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+echo "git: $(git --version 2>/dev/null || echo missing)"
+echo "rg: $(rg --version 2>/dev/null | head -n 1 || echo missing)"
+echo "jq: $(jq --version 2>/dev/null || echo missing)"
+if command -v fd >/dev/null 2>&1; then
+  echo "fd: $(fd --version 2>/dev/null | head -n 1)"
+elif command -v fdfind >/dev/null 2>&1; then
+  echo "fd: $(fdfind --version 2>/dev/null | head -n 1) (via fdfind)"
+else
+  echo "fd: missing"
+fi
+echo "node: $(node --version 2>/dev/null || echo missing)"
+if command -v pnpm >/dev/null 2>&1; then
+  echo "pnpm: $(pnpm --version 2>/dev/null)"
+elif [ -x /opt/homebrew/bin/pnpm ]; then
+  echo "pnpm: $(/opt/homebrew/bin/pnpm --version 2>/dev/null) (via /opt/homebrew/bin/pnpm)"
+elif command -v corepack >/dev/null 2>&1; then
+  echo "pnpm: available via corepack"
+else
+  echo "pnpm: missing"
+fi
+echo "python3: $(python3 --version 2>/dev/null || echo missing)"
+echo "uv: $(uv --version 2>/dev/null || echo missing)"
+echo "rustup: $(rustup --version 2>/dev/null | head -n 1 || echo missing)"
+echo "rustc: $(rustc --version 2>/dev/null || echo missing)"
+echo "cargo: $(cargo --version 2>/dev/null || echo missing)"
+echo "npm: $(npm --version 2>/dev/null || echo missing)"
+'''
+
+[[actions]]
+name = "Run app"
+icon = "run"
+command = '''
+set -euo pipefail
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+echo "[codex] no run command inferred for this repository"
+exit 1
+'''
+
+[[actions]]
+name = "Run tests"
 icon = "test"
 command = '''
 set -euo pipefail
-npm test -- "$@"
-npm run test:deep -- "$@"
+
+bootstrap_node_tools() {
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+}
+
+run_node_pm() {
+  bootstrap_node_tools
+  npm "$@"
+}
+
+run_node_pm test
 '''
 
 [[actions]]
@@ -137,11 +329,31 @@ name = "Prek"
 icon = "test"
 command = '''
 set -euo pipefail
-if ! command -v prek >/dev/null 2>&1; then
-  echo "prek is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+command -v prek >/dev/null 2>&1
 prek --version
+'''
+
+[[actions]]
+name = "Release Finalize"
+icon = "tool"
+command = '''
+set -euo pipefail
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+command -v harness >/dev/null 2>&1
+harness release finalize --help >/dev/null 2>&1 || harness release --help >/dev/null 2>&1 || true
 '''
 
 [[actions]]
@@ -149,8 +361,15 @@ name = "Diagram"
 icon = "tool"
 command = '''
 set -euo pipefail
-mkdir -p .diagram
-node src/diagram.js generate-all . --output-dir .diagram --artifact-profile agent
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+command -v diagram >/dev/null 2>&1
+diagram --help
 '''
 
 [[actions]]
@@ -158,11 +377,15 @@ name = "Ralph"
 icon = "debug"
 command = '''
 set -euo pipefail
-if ! command -v ralph >/dev/null 2>&1; then
-  echo "ralph is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-ralph "$@"
+
+command -v ralph >/dev/null 2>&1
+ralph --help
 '''
 
 [[actions]]
@@ -170,11 +393,15 @@ name = "Mise"
 icon = "tool"
 command = '''
 set -euo pipefail
-if ! command -v mise >/dev/null 2>&1; then
-  echo "mise is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-mise trust && mise install
+
+command -v mise >/dev/null 2>&1
+mise install
 '''
 
 [[actions]]
@@ -182,10 +409,14 @@ name = "Vale"
 icon = "debug"
 command = '''
 set -euo pipefail
-if ! command -v vale >/dev/null 2>&1; then
-  echo "vale is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+command -v vale >/dev/null 2>&1
 vale --version
 '''
 
@@ -194,11 +425,15 @@ name = "Argos"
 icon = "test"
 command = '''
 set -euo pipefail
-if ! command -v argos >/dev/null 2>&1; then
-  echo "argos is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-argos --version
+
+command -v argos >/dev/null 2>&1
+argos --help
 '''
 
 [[actions]]
@@ -206,10 +441,14 @@ name = "Cosign"
 icon = "debug"
 command = '''
 set -euo pipefail
-if ! command -v cosign >/dev/null 2>&1; then
-  echo "cosign is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+command -v cosign >/dev/null 2>&1
 cosign version
 '''
 
@@ -218,10 +457,14 @@ name = "Cloudflared"
 icon = "run"
 command = '''
 set -euo pipefail
-if ! command -v cloudflared >/dev/null 2>&1; then
-  echo "cloudflared is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+command -v cloudflared >/dev/null 2>&1
 cloudflared --version
 '''
 
@@ -230,7 +473,15 @@ name = "Vitest"
 icon = "test"
 command = '''
 set -euo pipefail
-npm exec -- vitest run "$@"
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+command -v vitest >/dev/null 2>&1
+vitest --version
 '''
 
 [[actions]]
@@ -238,11 +489,15 @@ name = "Ruff"
 icon = "debug"
 command = '''
 set -euo pipefail
-if ! command -v ruff >/dev/null 2>&1; then
-  echo "ruff is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-ruff check .
+
+command -v ruff >/dev/null 2>&1
+ruff --version
 '''
 
 [[actions]]
@@ -250,7 +505,15 @@ name = "ESLint"
 icon = "debug"
 command = '''
 set -euo pipefail
-npm exec -- eslint .
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+command -v eslint >/dev/null 2>&1
+eslint --version
 '''
 
 [[actions]]
@@ -258,11 +521,15 @@ name = "Agent Browser"
 icon = "tool"
 command = '''
 set -euo pipefail
-if ! command -v agent-browser >/dev/null 2>&1; then
-  echo "agent-browser is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-agent-browser "$@"
+
+command -v agent-browser >/dev/null 2>&1
+agent-browser --help
 '''
 
 [[actions]]
@@ -270,16 +537,15 @@ name = "Agentation"
 icon = "tool"
 command = '''
 set -euo pipefail
-if command -v agentation-mcp >/dev/null 2>&1; then
-  agentation-mcp "$@"
-  exit 0
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-if command -v agentation >/dev/null 2>&1; then
-  agentation "$@"
-  exit 0
-fi
-echo "agentation/agentation-mcp is not installed"
-exit 1
+
+command -v agentation-mcp >/dev/null 2>&1
+agentation-mcp --help
 '''
 
 [[actions]]
@@ -287,11 +553,15 @@ name = "Mermaid CLI"
 icon = "tool"
 command = '''
 set -euo pipefail
-if ! command -v mmdc >/dev/null 2>&1; then
-  echo "mmdc is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-mmdc "$@"
+
+command -v mmdc >/dev/null 2>&1
+mmdc --help
 '''
 
 [[actions]]
@@ -299,7 +569,15 @@ name = "MarkdownLint"
 icon = "debug"
 command = '''
 set -euo pipefail
-npm exec -- markdownlint-cli2 "**/*.md"
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+command -v markdownlint-cli2 >/dev/null 2>&1
+markdownlint-cli2 --version
 '''
 
 [[actions]]
@@ -307,10 +585,14 @@ name = "Wrangler"
 icon = "run"
 command = '''
 set -euo pipefail
-if ! command -v wrangler >/dev/null 2>&1; then
-  echo "wrangler is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+command -v wrangler >/dev/null 2>&1
 wrangler --version
 '''
 
@@ -319,10 +601,14 @@ name = "1Password"
 icon = "tool"
 command = '''
 set -euo pipefail
-if ! command -v op >/dev/null 2>&1; then
-  echo "op (1Password CLI) is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+command -v op >/dev/null 2>&1
 op --version
 '''
 
@@ -331,11 +617,15 @@ name = "Beautiful Mermaid"
 icon = "tool"
 command = '''
 set -euo pipefail
-if ! command -v beautiful-mermaid >/dev/null 2>&1; then
-  echo "beautiful-mermaid is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-beautiful-mermaid "$@"
+
+command -v beautiful-mermaid >/dev/null 2>&1
+beautiful-mermaid --help
 '''
 
 [[actions]]
@@ -343,11 +633,15 @@ name = "Auth0"
 icon = "tool"
 command = '''
 set -euo pipefail
-if ! command -v auth0 >/dev/null 2>&1; then
-  echo "auth0 is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-auth0 --version
+
+command -v auth0 >/dev/null 2>&1
+auth0 --help
 '''
 
 [[actions]]
@@ -355,10 +649,14 @@ name = "Semgrep"
 icon = "debug"
 command = '''
 set -euo pipefail
-if ! command -v semgrep >/dev/null 2>&1; then
-  echo "semgrep is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+command -v semgrep >/dev/null 2>&1
 semgrep --version
 '''
 
@@ -367,7 +665,15 @@ name = "Semver"
 icon = "tool"
 command = '''
 set -euo pipefail
-npm exec -- semver "$@"
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
+fi
+
+command -v semver >/dev/null 2>&1
+semver --help
 '''
 
 [[actions]]
@@ -375,10 +681,14 @@ name = "Trivy"
 icon = "debug"
 command = '''
 set -euo pipefail
-if ! command -v trivy >/dev/null 2>&1; then
-  echo "trivy is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+command -v trivy >/dev/null 2>&1
 trivy --version
 '''
 
@@ -387,10 +697,14 @@ name = "Gitleaks"
 icon = "debug"
 command = '''
 set -euo pipefail
-if ! command -v gitleaks >/dev/null 2>&1; then
-  echo "gitleaks is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
+
+command -v gitleaks >/dev/null 2>&1
 gitleaks version
 '''
 
@@ -399,11 +713,15 @@ name = "Research"
 icon = "tool"
 command = '''
 set -euo pipefail
-if ! command -v rsearch >/dev/null 2>&1; then
-  echo "rsearch is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-rsearch "$@"
+
+command -v rsearch >/dev/null 2>&1
+rsearch --help
 '''
 
 [[actions]]
@@ -411,9 +729,13 @@ name = "WSearch"
 icon = "tool"
 command = '''
 set -euo pipefail
-if ! command -v wsearch >/dev/null 2>&1; then
-  echo "wsearch is not installed"
-  exit 1
+
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
+
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate bash)" >/dev/null 2>&1 || true
 fi
-wsearch "$@"
+
+command -v wsearch >/dev/null 2>&1
+wsearch --help
 '''

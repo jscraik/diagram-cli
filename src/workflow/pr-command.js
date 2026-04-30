@@ -38,7 +38,9 @@ function hasNoChangedFiles(changedFiles) {
 }
 
 function normalizeListOption(value, splitList) {
-  return Array.isArray(value) ? value : splitList(String(value || ''));
+  if (Array.isArray(value)) return value;
+  if (value === undefined) return undefined;
+  return splitList(String(value || ''));
 }
 
 function isNonEmptyString(value) {

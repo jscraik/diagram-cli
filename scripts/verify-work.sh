@@ -71,7 +71,7 @@ detect_stack() {
 
 preflight_bins_csv() {
 	case "$1" in
-		js) echo 'git,bash,sed,rg,jq,curl,node,python3,pnpm' ;;
+		js) echo 'git,bash,sed,rg,jq,curl,node,npm,python3' ;;
 		py) echo 'git,bash,sed,rg,jq,curl,python3' ;;
 		rust) echo 'git,bash,sed,rg,jq,curl,python3,cargo' ;;
 		repo) echo 'git,bash,sed,rg,jq,curl,python3' ;;
@@ -148,56 +148,60 @@ run_hook_governance_checks() {
 
 	if [[ "$hook_governance_scope" == "project-local" ]]; then
 		new_temp_json scope_manifest "verify-work-hook-scope"
-		new_temp_json inventory_path "verify-work-repo-profile-matrix"
-		new_temp_json classification_path "verify-work-public-api-classification"
 		new_temp_json rollout_output "verify-work-rollout-check-report"
 		new_temp_json ratchet_output "verify-work-docstring-ratchet-report"
 		build_project_local_manifest "$scope_manifest" "$workspace_root" "$current_repo_name"
 		echo "[verify-work] hook-governance scope: project-local (repo=$current_repo_name)"
 	else
 		echo "[verify-work] hook-governance scope: workspace"
-		[[ -f "$inventory_path" ]] && inventory_ready=1
-		[[ -f "$classification_path" ]] && classification_ready=1
 	fi
 
-	if [[ -f "$inventory_script" && -f "$scope_manifest" ]]; then
+	if [[ -f "$inventory_path" ]]; then
+		inventory_ready=1
+	elif [[ -f "$inventory_script" && -f "$scope_manifest" ]]; then
 		print_stage "hook-governance-inventory"
 		python3 "$inventory_script" --manifest "$scope_manifest" --out "$inventory_path"
 		inventory_ready=1
 	else
-		echo "[verify-work] skip hook-governance-inventory: inventory_repos.py or scope manifest not found"
+		echo "[verify-work] error: hook-governance inventory inputs missing: inventory_repos.py or scope manifest not found" >&2
+		return 1
 	fi
 
-	if [[ -f "$classify_script" && -f "$public_rules" && "$inventory_ready" -eq 1 ]]; then
+	if [[ -f "$classification_path" ]]; then
+		classification_ready=1
+	elif [[ -f "$classify_script" && -f "$public_rules" && "$inventory_ready" -eq 1 ]]; then
 		print_stage "hook-governance-public-api-classification"
 		python3 "$classify_script" \
 			--inventory "$inventory_path" \
-			--rules "$public_rules" \
-			--out "$classification_path"
+		--rules "$public_rules" \
+		--out "$classification_path"
 		classification_ready=1
 	else
-		echo "[verify-work] skip hook-governance-public-api-classification: classifier script, rules, or inventory not found"
+		echo "[verify-work] error: hook-governance classification inputs missing: classifier script, rules, or inventory not found" >&2
+		return 1
 	fi
 
 	if [[ -f "$ratchet_script" && -f "$metrics_file" && "$classification_ready" -eq 1 ]]; then
 		print_stage "hook-governance-docstring-ratchet"
 		python3 "$ratchet_script" \
 			--classification "$classification_path" \
-			--metrics "$metrics_file" \
-			--window-days 14 \
-			--out "$ratchet_output"
+		--metrics "$metrics_file" \
+		--window-days 14 \
+		--out "$ratchet_output"
 	else
-		echo "[verify-work] skip hook-governance-docstring-ratchet: evaluator script, classification, or metrics not found"
+		echo "[verify-work] error: hook-governance docstring-ratchet inputs missing: evaluator script, classification, or metrics not found" >&2
+		return 1
 	fi
 
 	if [[ -f "$rollout_script" && "$inventory_ready" -eq 1 ]]; then
 		print_stage "hook-governance-rollout-check"
 		python3 "$rollout_script" \
-			--inventory "$inventory_path" \
-			--recovery-slo-hours 24 \
-			--out "$rollout_output"
+		--inventory "$inventory_path" \
+		--recovery-slo-hours 24 \
+		--out "$rollout_output"
 	else
-		echo "[verify-work] skip hook-governance-rollout-check: rollout_check.py or inventory not found"
+		echo "[verify-work] error: hook-governance rollout-check inputs missing: rollout_check.py or inventory not found" >&2
+		return 1
 	fi
 }
 
@@ -267,21 +271,21 @@ bash "$repo_root/scripts/codex-preflight.sh" \
 
 if [[ "$fast_mode" -eq 0 ]]; then
 	print_stage "check"
-	pnpm check
+	npm run check
 	run_hook_governance_checks
 	exit 0
 fi
 
 print_stage "lint"
-pnpm lint
+npm run lint
 
 print_stage "typecheck"
-pnpm typecheck
+npm run typecheck
 
 if [[ "$changed_only" -eq 1 ]]; then
 	if has_package_script "test:related"; then
 		print_stage "test:related"
-		pnpm test:related
+		npm run test:related
 	else
 		if [[ "$strict_mode" -eq 1 ]]; then
 			echo "[verify-work] missing package script: test:related" >&2
@@ -289,11 +293,11 @@ if [[ "$changed_only" -eq 1 ]]; then
 		fi
 		echo "[verify-work] test:related unavailable; falling back to full test run"
 		print_stage "test"
-		pnpm test
+		npm test
 	fi
 else
 	print_stage "test"
-	pnpm test
+	npm test
 fi
 
 run_hook_governance_checks

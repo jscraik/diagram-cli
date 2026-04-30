@@ -15,16 +15,16 @@
 ## Status
 
 <!-- STATUS_START — agents update this block -->
-**Last updated:** 2026-04-07
+**Last updated:** 2026-04-30
 **Production status:** LIVE
-**Overall health:** 🟢 All CI green — PR #56 ready to merge
+**Overall health:** 🟡 PR #75 triage in progress — local gate recovery underway
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Build / CI | ✅ | All checks green — PR #56 ready to squash-merge |
-| Tests | ✅ | 52/52 passing |
-| Open PRs | 1 | #56 ci: full CI pipeline hardening (auth, node 24, lock file, scripts) |
-| Blockers | None | |
+| Build / CI | 🟡 | PR #75 still needs final PR readiness pass and CodeRabbit to settle |
+| Tests | 🟡 | `npm test` green; deep regression and harness gates being rerun |
+| Open PRs | 1 | #75 [codex] Align governance scope defaults |
+| Blockers | 2 | Deep regression hit npm cache ownership drift; harness closeout metadata was stale |
 <!-- STATUS_END -->
 
 ## What this project does
@@ -60,6 +60,10 @@ gantt
 ## Recent changes
 
 <!-- CHANGES_START — agents prepend entries here, newest first -->
+
+### 2026-04-30
+
+- **PR #75 triage pass:** Re-ran local validation for `[codex] Align governance scope defaults`; `npm test` passed, `npm run test:deep` exposed an npm cache ownership dependency inside `scripts/deep-regression.js`, and `harness:check` surfaced stale closeout metadata in `memory.json` / `FORJAMIE.md`.
 
 ### 2026-04-07
 
@@ -97,9 +101,9 @@ project: diagram-cli
 repo: ~/dev/diagram-cli
 status: LIVE
 health: green
-last_updated: 2026-04-07
+last_updated: 2026-04-30
 open_prs: 1
-blockers: none
-next_milestone: Merge PR #56 CI hardening
-next_milestone_date: 2026-04-07
+blockers: local gate recovery in progress for PR #75
+next_milestone: Clear deep regression and harness gate blockers for PR #75
+next_milestone_date: 2026-04-30
 MACHINE_READABLE_END -->

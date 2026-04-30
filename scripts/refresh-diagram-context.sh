@@ -98,11 +98,13 @@ if ! ls "$TMP_DIR/diagrams"/*.mmd >/dev/null 2>&1; then
 fi
 
 MANIFEST_PATH="$TMP_DIR/diagrams/manifest.json"
+# shellcheck disable=SC2097,SC2098
 ROOT_DIR="$ROOT_DIR" TMP_DIR="$TMP_DIR" MANIFEST_PATH="$MANIFEST_PATH" \
 	node "$ROOT_DIR/src/context/normalize-diagram-manifest.js"
 
 TMP_CONTEXT="$TMP_DIR/diagram-context.md"
 TMP_CONTEXT_META="$TMP_DIR/diagram-context.meta.json"
+# shellcheck disable=SC2097,SC2098,SC2034
 ROOT_DIR="$ROOT_DIR" \
 TMP_DIR="$TMP_DIR" \
 CONTEXT_MAX_BYTES="$CONTEXT_MAX_BYTES" \
@@ -114,6 +116,7 @@ CONTEXT_META_OUTPUT_PATH="$TMP_CONTEXT_META" \
 
 CONTEXT_SHA="$(shasum -a 256 "$TMP_CONTEXT" | awk '{print $1}')"
 GIT_HEAD="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+# shellcheck disable=SC2012
 DIAGRAM_COUNT="$(ls "$TMP_DIR/diagrams"/*.mmd | wc -l | tr -d ' ')"
 CHANGED=true
 

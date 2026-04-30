@@ -34,7 +34,7 @@ These defaults are mandatory when an agent is asked to implement changes:
 - Default scope is `project-local`.
 - `--project-governance` keeps local-only checks.
 - `--workspace-governance` enables cross-repo checks from `docs/hooks-governance/repo-scope.manifest.json`.
-- In project-local mode, generated governance artifacts are written to temp files.
+- In project-local mode, the wrapper uses tracked single-repo governance inputs and writes report outputs to temp files.
 
 2. `scripts/hook-governance/rollout_check.py`
 - `--inventory` is now required.

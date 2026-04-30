@@ -13,7 +13,7 @@ help: ## Show this help message
 # === Setup ===
 
 install: ## Install dependencies
-	pnpm install
+	npm install
 
 setup: install hooks ## Full setup: install deps and configure git hooks
 
@@ -30,9 +30,9 @@ hooks: ## Setup git hooks
 	node scripts/setup-git-hooks.js
 
 hooks-pre-commit: ## Run local pre-commit gates before creating a commit
-	pnpm lint
-	pnpm docs:lint
-	pnpm typecheck
+	npm run lint
+	npm run docs:lint
+	npm run typecheck
 	$(MAKE) secrets-staged
 	$(MAKE) docs-style-changed
 	$(MAKE) related-tests
@@ -41,16 +41,16 @@ hooks-pre-push: ## Run local pre-push governance gates before pushing
 	@bash ./scripts/verify-work.sh --fast --all
 
 secrets-staged: ## Scan staged content for secrets before committing
-	pnpm run secrets:staged
+	npm run secrets:staged
 
 docs-style-changed: ## Run Vale on staged authoritative docs only
-	pnpm run docs:style:changed
+	npm run docs:style:changed
 
 related-tests: ## Run Vitest related mode for staged src implementation files
-	pnpm run test:related
+	npm run test:related
 
 semgrep-changed: ## Run narrow Semgrep rules against changed src implementation files
-	pnpm run semgrep:changed
+	npm run semgrep:changed
 
 diagrams-check: ## Refresh architecture diagrams when sensitive paths change and fail on drift
 	@bash ./scripts/check-diagram-freshness.sh
@@ -58,35 +58,35 @@ diagrams-check: ## Refresh architecture diagrams when sensitive paths change and
 # === Development ===
 
 dev: ## Start development server
-	pnpm dev
+	node src/diagram.js --help
 
 build: ## Build for production
-	pnpm build
+	npm pack --dry-run
 
 # === Quality ===
 
 lint: ## Run linter
-	pnpm lint
+	npm run lint
 
 docs-lint: ## Lint markdown/docs
-	pnpm docs:lint
+	npm run docs:lint
 
 fmt: ## Format code
-	pnpm fmt
+	@echo 'No formatter configured (plain JS project)'
 
 typecheck: ## Run TypeScript type checking
-	pnpm typecheck
+	npm run typecheck
 
 test: ## Run tests
-	pnpm test
+	npm test
 
 check: ## Run all required quality gates
-	pnpm check
+	npm run check
 
 # === Security ===
 
 audit: ## Run security audit
-	pnpm audit
+	npm audit
 
 secrets: ## Scan for secrets with gitleaks
 	@gitleaks detect --source . --verbose || (echo "Install gitleaks: brew install gitleaks" && exit 1)
@@ -100,12 +100,12 @@ clean: ## Clean build artifacts and caches
 	rm -rf node_modules/.cache
 
 reset: clean ## Full reset: clean and reinstall
-	pnpm install
+	npm install
 
 # === CI ===
 
 ci: ## Run CI-equivalent local checks
-	pnpm check
+	npm run check
 
 # === Diagrams ===
 

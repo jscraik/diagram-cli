@@ -1,0 +1,9 @@
+{
+  "repositories": [
+    {
+      "profile_type": "mixed-framework-transitional",
+      "repo_name": "diagram-cli",
+      "repo_path": "."
+    }
+  ]
+}

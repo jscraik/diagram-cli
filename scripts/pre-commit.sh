@@ -5,6 +5,7 @@
 echo "Running tests..."
 npm test
 
+# shellcheck disable=SC2181
 if [ $? -ne 0 ]; then
   echo ""
   echo "❌ Tests failed. Commit aborted."

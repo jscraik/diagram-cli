@@ -3,14 +3,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+FALLBACK_DRIFT_GATE="$SCRIPT_DIR/fallback-drift-gate.js"
 
 print_bootstrap_guidance() {
 	echo "Repair from the repo root with one of:" >&2
 	echo "  npm install" >&2
-	echo "  npm exec harness -- <command>" >&2
+	echo "  npm exec --package @brainwav/coding-harness -- harness -- <command>" >&2
 	echo "After the package is installed, rerun:" >&2
 	echo "  bash scripts/harness-cli.sh <command>" >&2
-	echo "  npm exec harness -- <command>" >&2
+	echo "  npm exec --package @brainwav/coding-harness -- harness -- <command>" >&2
 }
 
 if ! command -v node >/dev/null 2>&1; then
@@ -52,11 +53,10 @@ set -e
 
 if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
 	if command -v harness >/dev/null 2>&1; then
-		set +e
-		bash -lc 'harness "$@"' _ "$@"
-		harness_status=$?
-		set -e
-		exit "$harness_status"
+		exec harness "$@"
+	fi
+	if [[ "${1:-}" == "drift-gate" && -f "$FALLBACK_DRIFT_GATE" ]]; then
+		exec node "$FALLBACK_DRIFT_GATE" "$@"
 	fi
 	echo "Error: local harness CLI could not be resolved from this repo." >&2
 	echo "This is a local install/bootstrap problem, not a harness command failure." >&2
