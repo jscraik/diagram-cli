@@ -7,10 +7,10 @@ REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 print_bootstrap_guidance() {
 	echo "Repair from the repo root with one of:" >&2
 	echo "  npm install" >&2
-	echo "  npm exec harness -- <command>" >&2
+	echo "  npm exec --package @brainwav/coding-harness -- harness -- <command>" >&2
 	echo "After the package is installed, rerun:" >&2
 	echo "  bash scripts/harness-cli.sh <command>" >&2
-	echo "  npm exec harness -- <command>" >&2
+	echo "  npm exec --package @brainwav/coding-harness -- harness -- <command>" >&2
 }
 
 if ! command -v node >/dev/null 2>&1; then
@@ -55,7 +55,7 @@ if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
 		exec harness "$@"
 	fi
 	if command -v npm >/dev/null 2>&1; then
-		exec npm exec harness -- "$@"
+		exec npm exec --yes --package @brainwav/coding-harness -- harness -- "$@"
 	fi
 	echo "Error: local harness CLI could not be resolved from this repo." >&2
 	echo "This is a local install/bootstrap problem, not a harness command failure." >&2
