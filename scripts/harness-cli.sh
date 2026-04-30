@@ -54,6 +54,9 @@ if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
 	if command -v harness >/dev/null 2>&1; then
 		exec harness "$@"
 	fi
+	if command -v npm >/dev/null 2>&1; then
+		exec npm exec harness -- "$@"
+	fi
 	echo "Error: local harness CLI could not be resolved from this repo." >&2
 	echo "This is a local install/bootstrap problem, not a harness command failure." >&2
 	print_bootstrap_guidance
