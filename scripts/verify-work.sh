@@ -118,78 +118,6 @@ out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="u
 PY
 }
 
-build_project_local_inventory() {
-	local out_path="$1"
-	local repo_path="$2"
-	local repo_name="$3"
-	python3 - "$out_path" "$repo_path" "$repo_name" <<'PY'
-import json
-import sys
-
-out_path, repo_path, repo_name = sys.argv[1:4]
-payload = {
-    "repositories": [
-        {
-            "repo_name": repo_name,
-            "repo_path": repo_path,
-            "profile_type": "mixed-framework-transitional",
-        }
-    ]
-}
-with open(out_path, "w", encoding="utf-8") as fh:
-    json.dump(payload, fh, indent=2, sort_keys=True)
-    fh.write("\n")
-PY
-}
-
-build_project_local_classification() {
-	local out_path="$1"
-	local repo_path="$2"
-	local repo_name="$3"
-	python3 - "$out_path" "$repo_path" "$repo_name" <<'PY'
-import json
-import sys
-
-out_path, repo_path, repo_name = sys.argv[1:4]
-payload = {
-    "schema_version": "public-api-classification.v1",
-    "repositories": [
-        {
-            "repo_name": repo_name,
-            "repo_path": repo_path,
-            "files": [],
-        }
-    ],
-}
-with open(out_path, "w", encoding="utf-8") as fh:
-    json.dump(payload, fh, indent=2, sort_keys=True)
-    fh.write("\n")
-PY
-}
-
-build_project_local_metrics() {
-	local out_path="$1"
-	local repo_name="$2"
-	python3 - "$out_path" "$repo_name" <<'PY'
-import json
-import sys
-
-out_path, repo_name = sys.argv[1:3]
-payload = {
-    "schema_version": "docstring-ratchet-metrics.v1",
-    "repositories": {
-        repo_name: {
-            "false_positive_rate_weekly": [0.0, 0.0],
-            "unresolved_high_conf_suppressions_over_7d": 0,
-        }
-    },
-}
-with open(out_path, "w", encoding="utf-8") as fh:
-    json.dump(payload, fh, indent=2, sort_keys=True)
-    fh.write("\n")
-PY
-}
-
 run_hook_governance_checks() {
 	local hook_root="$repo_root/scripts/hook-governance"
 	if [[ ! -d "$hook_root" ]]; then
@@ -220,23 +148,15 @@ run_hook_governance_checks() {
 
 	if [[ "$hook_governance_scope" == "project-local" ]]; then
 		new_temp_json scope_manifest "verify-work-hook-scope"
-		new_temp_json inventory_path "verify-work-repo-profile-matrix"
-		new_temp_json classification_path "verify-work-public-api-classification"
-		new_temp_json metrics_file "verify-work-docstring-ratchet-metrics"
 		new_temp_json rollout_output "verify-work-rollout-check-report"
 		new_temp_json ratchet_output "verify-work-docstring-ratchet-report"
 		build_project_local_manifest "$scope_manifest" "$workspace_root" "$current_repo_name"
-		build_project_local_inventory "$inventory_path" "$current_git_root" "$current_repo_name"
-		build_project_local_classification "$classification_path" "$current_git_root" "$current_repo_name"
-		build_project_local_metrics "$metrics_file" "$current_repo_name"
 		echo "[verify-work] hook-governance scope: project-local (repo=$current_repo_name)"
 	else
 		echo "[verify-work] hook-governance scope: workspace"
-		[[ -f "$inventory_path" ]] && inventory_ready=1
-		[[ -f "$classification_path" ]] && classification_ready=1
 	fi
 
-	if [[ "$hook_governance_scope" == "project-local" ]]; then
+	if [[ -f "$inventory_path" ]]; then
 		inventory_ready=1
 	elif [[ -f "$inventory_script" && -f "$scope_manifest" ]]; then
 		print_stage "hook-governance-inventory"
@@ -247,7 +167,7 @@ run_hook_governance_checks() {
 		return 1
 	fi
 
-	if [[ "$hook_governance_scope" == "project-local" ]]; then
+	if [[ -f "$classification_path" ]]; then
 		classification_ready=1
 	elif [[ -f "$classify_script" && -f "$public_rules" && "$inventory_ready" -eq 1 ]]; then
 		print_stage "hook-governance-public-api-classification"

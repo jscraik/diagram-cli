@@ -58,10 +58,10 @@ diagrams-check: ## Refresh architecture diagrams when sensitive paths change and
 # === Development ===
 
 dev: ## Start development server
-	npm run dev
+	node src/diagram.js --help
 
 build: ## Build for production
-	npm run build
+	npm pack --dry-run
 
 # === Quality ===
 
@@ -72,7 +72,7 @@ docs-lint: ## Lint markdown/docs
 	npm run docs:lint
 
 fmt: ## Format code
-	npm run fmt
+	@echo 'No formatter configured (plain JS project)'
 
 typecheck: ## Run TypeScript type checking
 	npm run typecheck

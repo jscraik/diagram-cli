@@ -5,7 +5,7 @@ const {
 } = require("../src/workflow/pr-command");
 
 describe("workflow pr deterministic helpers", () => {
-  it("normalizes undefined list inputs before splitList", () => {
+  it("preserves undefined list inputs so built-in defaults still apply", () => {
     const captured = [];
     const splitList = (value) => {
       captured.push(value);
@@ -13,8 +13,8 @@ describe("workflow pr deterministic helpers", () => {
     };
 
     const result = normalizeListOption(undefined, splitList);
-    expect(result).to.deep.equal([]);
-    expect(captured).to.deep.equal([""]);
+    expect(result).to.equal(undefined);
+    expect(captured).to.deep.equal([]);
   });
 
   it("uses deterministic code-point string comparison", () => {

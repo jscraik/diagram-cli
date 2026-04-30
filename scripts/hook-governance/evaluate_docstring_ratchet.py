@@ -167,7 +167,7 @@ def evaluate_docstring_ratchet(
     metrics_path: Path,
     window_days: int,
 ) -> dict[str, object]:
-    working_dir = Path.home()
+    working_dir = Path.cwd()
     if window_days <= 0:
         raise DocstringRatchetError("--window-days must be greater than zero")
 

@@ -1,0 +1,9 @@
+{
+  "workspace_root": ".",
+  "repos": {
+    "excluded": [],
+    "in_scope": [
+      "diagram-cli"
+    ]
+  }
+}

@@ -48,8 +48,8 @@ describe('analysis generation core utils', () => {
 
     expect(extractImports(content, 'go')).to.deep.equal(['fmt', 'os']);
     expect(extractImportsWithPositions(content, 'go')).to.deep.equal([
-      { path: 'fmt', line: 2 },
-      { path: 'os', line: 3 },
+      { path: 'fmt', line: 3 },
+      { path: 'os', line: 4 },
     ]);
   });
 });

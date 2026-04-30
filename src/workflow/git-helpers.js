@@ -380,7 +380,10 @@ function dependencyFilePathSet(dependencies) {
 }
 
 function countDependencyEdges(components) {
-  return components.reduce((sum, component) => sum + (component.dependencies || []).length, 0);
+  return components.reduce(
+    (sum, component) => sum + dependencyFilePathSet(component.dependencies).size,
+    0
+  );
 }
 
 function buildTypeDistribution(components) {

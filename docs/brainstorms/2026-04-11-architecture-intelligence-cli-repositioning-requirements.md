@@ -102,9 +102,9 @@ Working shortlist for naming exploration:
   - Primary candidate: `archscope`.
 
 ### Deferred to Planning
-- [Affects R6][Technical] What deprecation/alias window is acceptable before any hard rename of command/package surfaces?
-- [Affects R9, R10][Technical] Which canonical machine-output schema should become the compatibility contract across all commands?
-- [Affects R2, R3][Execution] Which documentation entrypoints should move first to maximize clarity with minimal churn?
+- **[Affects R6][Technical]** What deprecation/alias window is acceptable before any hard rename of command/package surfaces?
+- **[Affects R9, R10][Technical]** Which canonical machine-output schema should become the compatibility contract across all commands?
+- **[Affects R2, R3][Execution]** Which documentation entrypoints should move first to maximize clarity with minimal churn?
 
 ## Next Steps
 `Resolve Before Planning` is empty.

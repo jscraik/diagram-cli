@@ -107,7 +107,7 @@ function resolveIdentityFromComponent(component, aliases) {
  * @returns {string[]} Sorted array of canonical dependency identities; empty array if there are no normalisable dependencies.
  */
 function normalizedDependencies(component, aliases = null) {
-  const normalized = (component?.dependencies || [])
+  const normalized = new Set((component?.dependencies || [])
     .map((dep) => {
       const normalized = normalizeDependency(dep);
       if (!normalized) return null;
@@ -119,8 +119,8 @@ function normalizedDependencies(component, aliases = null) {
       }
       return normalized;
     })
-    .filter(Boolean);
-  return sortStringsDeterministically(normalized);
+    .filter(Boolean));
+  return sortStringsDeterministically([...normalized]);
 }
 
 /**
@@ -518,7 +518,13 @@ function groupChangePaths(result, maxPreview = 10) {
     };
   };
 
-  groups.changed = buildSortedPreviewGroup(result.changedFiles);
+  const renamedTargets = new Set((result.renamedFiles || []).map((item) => item?.to).filter(Boolean));
+  const addedPaths = new Set(result.addedFiles || []);
+  const modifiedOnly = (result.changedFiles || []).filter(
+    (filePath) => !addedPaths.has(filePath) && !renamedTargets.has(filePath)
+  );
+
+  groups.changed = buildSortedPreviewGroup(modifiedOnly);
   groups.renamed = buildRenamedPreviewGroup(result.renamedFiles);
   groups.added = buildSortedPreviewGroup(result.addedFiles);
   groups.deleted = buildSortedPreviewGroup(result.deletedFiles);

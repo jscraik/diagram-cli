@@ -51,13 +51,9 @@ resolution_status=$?
 set -e
 
 if [[ $resolution_status -eq 42 || -z "$CLI_PATH" ]]; then
-		if command -v harness >/dev/null 2>&1; then
-			set +e
-			zsh -lc 'harness "$@"' _ "$@"
-			harness_status=$?
-			set -e
-			exit "$harness_status"
-		fi
+	if command -v harness >/dev/null 2>&1; then
+		exec harness "$@"
+	fi
 	echo "Error: local harness CLI could not be resolved from this repo." >&2
 	echo "This is a local install/bootstrap problem, not a harness command failure." >&2
 	print_bootstrap_guidance

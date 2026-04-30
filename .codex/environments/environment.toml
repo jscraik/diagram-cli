@@ -52,7 +52,11 @@ run_node_pm() {
   npm "$@"
 }
 
-run_node_pm ci || run_node_pm install
+if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+  run_node_pm ci
+else
+  run_node_pm install
+fi
 '''
 
 [[actions]]
@@ -114,7 +118,11 @@ run_node_pm() {
   npm "$@"
 }
 
-run_node_pm ci || run_node_pm install
+if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+  run_node_pm ci
+else
+  run_node_pm install
+fi
 '''
 
 [[actions]]

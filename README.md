@@ -12,6 +12,7 @@ Generate architecture diagrams, validation reports, and PR impact artifacts from
 - [Machine Output Contracts](#machine-output-contracts)
 - [Documentation Index](#documentation-index)
 - [Development](#development)
+- [Distribution](#distribution)
 
 ## Overview
 

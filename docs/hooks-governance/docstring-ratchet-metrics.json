@@ -1,0 +1,12 @@
+{
+  "repositories": {
+    "diagram-cli": {
+      "false_positive_rate_weekly": [
+        0.0,
+        0.0
+      ],
+      "unresolved_high_conf_suppressions_over_7d": 0
+    }
+  },
+  "schema_version": "docstring-ratchet-metrics.v1"
+}

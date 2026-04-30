@@ -168,13 +168,16 @@ function extractGoImportsWithPositions(content) {
     const block = blockMatch[1];
     if (!block) continue;
     const blockStart = typeof blockMatch.index === 'number' ? blockMatch.index : 0;
+    const blockOffsetInMatch = blockMatch[0].indexOf(block);
 
     // Extract individual imports from the block
     const pathPattern = /"([^"]+)"/g;
     for (const pathMatch of block.matchAll(pathPattern)) {
       const importPath = pathMatch[1];
       if (!importPath) continue;
-      const pathIndex = blockStart + (typeof pathMatch.index === 'number' ? pathMatch.index : 0);
+      const pathIndex = blockStart
+        + Math.max(0, blockOffsetInMatch)
+        + (typeof pathMatch.index === 'number' ? pathMatch.index : 0);
       imports.push({
         path: importPath,
         line: lineNumberForIndex(lineStarts, pathIndex),
