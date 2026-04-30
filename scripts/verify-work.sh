@@ -71,7 +71,7 @@ detect_stack() {
 
 preflight_bins_csv() {
 	case "$1" in
-		js) echo 'git,bash,sed,rg,jq,curl,node,python3,pnpm' ;;
+		js) echo 'git,bash,sed,rg,jq,curl,node,npm,python3' ;;
 		py) echo 'git,bash,sed,rg,jq,curl,python3' ;;
 		rust) echo 'git,bash,sed,rg,jq,curl,python3,cargo' ;;
 		repo) echo 'git,bash,sed,rg,jq,curl,python3' ;;
@@ -118,6 +118,78 @@ out.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="u
 PY
 }
 
+build_project_local_inventory() {
+	local out_path="$1"
+	local repo_path="$2"
+	local repo_name="$3"
+	python3 - "$out_path" "$repo_path" "$repo_name" <<'PY'
+import json
+import sys
+
+out_path, repo_path, repo_name = sys.argv[1:4]
+payload = {
+    "repositories": [
+        {
+            "repo_name": repo_name,
+            "repo_path": repo_path,
+            "profile_type": "mixed-framework-transitional",
+        }
+    ]
+}
+with open(out_path, "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+PY
+}
+
+build_project_local_classification() {
+	local out_path="$1"
+	local repo_path="$2"
+	local repo_name="$3"
+	python3 - "$out_path" "$repo_path" "$repo_name" <<'PY'
+import json
+import sys
+
+out_path, repo_path, repo_name = sys.argv[1:4]
+payload = {
+    "schema_version": "public-api-classification.v1",
+    "repositories": [
+        {
+            "repo_name": repo_name,
+            "repo_path": repo_path,
+            "files": [],
+        }
+    ],
+}
+with open(out_path, "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+PY
+}
+
+build_project_local_metrics() {
+	local out_path="$1"
+	local repo_name="$2"
+	python3 - "$out_path" "$repo_name" <<'PY'
+import json
+import sys
+
+out_path, repo_name = sys.argv[1:3]
+payload = {
+    "schema_version": "docstring-ratchet-metrics.v1",
+    "repositories": {
+        repo_name: {
+            "false_positive_rate_weekly": [0.0, 0.0],
+            "unresolved_high_conf_suppressions_over_7d": 0,
+        }
+    },
+}
+with open(out_path, "w", encoding="utf-8") as fh:
+    json.dump(payload, fh, indent=2, sort_keys=True)
+    fh.write("\n")
+PY
+}
+
 run_hook_governance_checks() {
 	local hook_root="$repo_root/scripts/hook-governance"
 	if [[ ! -d "$hook_root" ]]; then
@@ -150,9 +222,13 @@ run_hook_governance_checks() {
 		new_temp_json scope_manifest "verify-work-hook-scope"
 		new_temp_json inventory_path "verify-work-repo-profile-matrix"
 		new_temp_json classification_path "verify-work-public-api-classification"
+		new_temp_json metrics_file "verify-work-docstring-ratchet-metrics"
 		new_temp_json rollout_output "verify-work-rollout-check-report"
 		new_temp_json ratchet_output "verify-work-docstring-ratchet-report"
 		build_project_local_manifest "$scope_manifest" "$workspace_root" "$current_repo_name"
+		build_project_local_inventory "$inventory_path" "$current_git_root" "$current_repo_name"
+		build_project_local_classification "$classification_path" "$current_git_root" "$current_repo_name"
+		build_project_local_metrics "$metrics_file" "$current_repo_name"
 		echo "[verify-work] hook-governance scope: project-local (repo=$current_repo_name)"
 	else
 		echo "[verify-work] hook-governance scope: workspace"
@@ -160,7 +236,9 @@ run_hook_governance_checks() {
 		[[ -f "$classification_path" ]] && classification_ready=1
 	fi
 
-	if [[ -f "$inventory_script" && -f "$scope_manifest" ]]; then
+	if [[ "$hook_governance_scope" == "project-local" ]]; then
+		inventory_ready=1
+	elif [[ -f "$inventory_script" && -f "$scope_manifest" ]]; then
 		print_stage "hook-governance-inventory"
 		python3 "$inventory_script" --manifest "$scope_manifest" --out "$inventory_path"
 		inventory_ready=1
@@ -169,7 +247,9 @@ run_hook_governance_checks() {
 		return 1
 	fi
 
-	if [[ -f "$classify_script" && -f "$public_rules" && "$inventory_ready" -eq 1 ]]; then
+	if [[ "$hook_governance_scope" == "project-local" ]]; then
+		classification_ready=1
+	elif [[ -f "$classify_script" && -f "$public_rules" && "$inventory_ready" -eq 1 ]]; then
 		print_stage "hook-governance-public-api-classification"
 		python3 "$classify_script" \
 			--inventory "$inventory_path" \
@@ -271,21 +351,21 @@ bash "$repo_root/scripts/codex-preflight.sh" \
 
 if [[ "$fast_mode" -eq 0 ]]; then
 	print_stage "check"
-	pnpm check
+	npm run check
 	run_hook_governance_checks
 	exit 0
 fi
 
 print_stage "lint"
-pnpm lint
+npm run lint
 
 print_stage "typecheck"
-pnpm typecheck
+npm run typecheck
 
 if [[ "$changed_only" -eq 1 ]]; then
 	if has_package_script "test:related"; then
 		print_stage "test:related"
-		pnpm test:related
+		npm run test:related
 	else
 		if [[ "$strict_mode" -eq 1 ]]; then
 			echo "[verify-work] missing package script: test:related" >&2
@@ -293,11 +373,11 @@ if [[ "$changed_only" -eq 1 ]]; then
 		fi
 		echo "[verify-work] test:related unavailable; falling back to full test run"
 		print_stage "test"
-		pnpm test
+		npm test
 	fi
 else
 	print_stage "test"
-	pnpm test
+	npm test
 fi
 
 run_hook_governance_checks

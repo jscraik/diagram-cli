@@ -1,21 +1,21 @@
 {
   "arbitration_decisions": [],
-  "artifact_generated_at": "2026-04-11T17:50:22Z",
+  "artifact_generated_at": "2026-04-19T16:20:43Z",
   "drift_flags": [
     {
-      "detected_at": "2026-04-11T17:50:22Z",
+      "detected_at": "2026-04-19T16:20:43Z",
       "id": "mixed-framework-signals",
       "severity": "medium",
       "summary": "multiple hook framework markers are active"
     },
     {
-      "detected_at": "2026-04-11T17:50:22Z",
+      "detected_at": "2026-04-19T16:20:43Z",
       "id": "missing-arbitration-decisions",
       "severity": "low",
       "summary": "no arbitration decision records captured yet"
     }
   ],
-  "evaluated_at": "2026-04-11T17:50:22Z",
+  "evaluated_at": "2026-04-19T16:20:43Z",
   "evaluated_hook_config_digest": "f4c76b548d78adc6d4ece3dec62ae2f47ac158f460433b76eb4601955d00a2bc",
   "frameworks_active": [
     "prek",

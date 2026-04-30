@@ -124,3 +124,8 @@ node src/diagram.js --help
 
 Apache 2.0 - see [LICENSE](LICENSE).
 
+## Distribution
+
+Official installation instructions are maintained in this repository only.
+
+Third-party indexes or mirrors may list this project, but they are not affiliated with, endorsed by, or maintained by this project unless explicitly stated here.
