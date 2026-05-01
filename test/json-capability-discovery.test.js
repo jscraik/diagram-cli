@@ -23,6 +23,7 @@ describe('json capability discovery', () => {
       'explain',
       'generate',
       'generate-all',
+      'scan',
       'validate',
       'workflow-pr',
     ]);
@@ -37,6 +38,6 @@ describe('json capability discovery', () => {
     expect(result.status, result.stderr).to.equal(0);
     const payload = JSON.parse(result.stdout);
     expect(payload.status).to.equal('pass');
-    expect(payload.commandCount).to.equal(10);
+    expect(payload.commandCount).to.equal(11);
   });
 });

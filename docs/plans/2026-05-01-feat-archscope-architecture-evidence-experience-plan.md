@@ -237,7 +237,7 @@ Execution posture for every unit:
 - Do not mark a unit complete until validation evidence exists.
 - Keep `report.html` incomplete or deferred until the companion UI spec is available.
 
-- [ ] **P0 / Unit 1: Scan Command and Manifest Foundation**
+- [x] **P0 / Unit 1: Scan Command and Manifest Foundation**
 
 **Goal:** Add `archscope scan .` as a command surface and establish the evidence manifest contract without duplicating existing analysis pipelines.
 
@@ -662,7 +662,7 @@ Execution posture for every unit:
 | Unit     | Status   | Evidence                                                                                          | Notes                                           |
 | -------- | -------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | Planning | complete | Plan created from `docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md` | Fresh plan; untracked; report gated by UI spec. |
-| P0       | pending  | none                                                                                              | Start here.                                     |
+| P0       | complete | 2026-05-01: added `archscope scan [path]` command registration and P0 coordinator; extracted shared manifest construction into `src/artifacts/evidence-manifest.js`; kept non-visual writers and `report.html` deferred with explicit artifact statuses; added scan machine-envelope output and machine-command coverage entry; added focused scan/manifest/parity tests. Validation: `npm test -- test/scan-command.test.js test/scan-manifest.test.js test/evidence-manifest-parity.test.js` pass (6 passing); `npm test -- test/generate-output-json.test.js test/machine-command-coverage.test.js test/json-capability-discovery.test.js` pass (9 passing); `node scripts/validate-machine-contracts.js` pass (`commandCount: 11`, includes `scan`); `npm test` pass (163 passing). Review gates: `$simplify` pass after preserving generate-all manifest ordering and fixing `briefPath`; `$he-code-review` pass after fixing custom output-directory manifest paths; artifact `artifacts/reviews/archscope-evidence-p0-manual-review.md`. | P0-scoped AC1, AC2, AC5, AC6, AC10, and AC13 evidence recorded; README/CLI-reference docs remain P3 scope. |
 | P1       | pending  | none                                                                                              | Requires P0 manifest foundation.                |
 | P2       | pending  | none                                                                                              | Requires P1 evidence model.                     |
 | P3       | pending  | none                                                                                              | Requires command and artifact behavior.         |

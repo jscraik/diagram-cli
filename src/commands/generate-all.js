@@ -7,10 +7,13 @@ const {
   toManifestEntry,
 } = require('../core/analysis-generation');
 const {
-  estimateTokensFromBytes,
   resolveArtifactProfile,
   applyArtifactBudget,
 } = require('../artifacts/artifact-budget');
+const {
+  createGenerateAllManifest,
+  writeJsonFile,
+} = require('../artifacts/evidence-manifest');
 const {
   applyDiagramRcDefaults,
   getDiagramRcFromProgram,
@@ -86,30 +89,13 @@ function registerGenerateAllCommand(program) {
         fs.rmSync(staleFile, { force: true });
       }
 
-      const generatedAt = options.deterministic ? '1970-01-01T00:00:00.000Z' : new Date().toISOString();
-      const manifest = {
-        generatedAt,
-        schemaVersion: '1.0',
-        rootPath: root,
-        diagramDir: path.relative(root, outDir) || '.',
-        compaction: {
-          applied: budgeted.applied,
-          profile: artifactProfile.name,
-          maxTotalBytes: artifactProfile.maxBytesTotal,
-          maxPerDiagramBytes: artifactProfile.maxBytesPerDiagram,
-          maxDiagrams: artifactProfile.maxDiagrams,
-          generatedDiagrams: budgeted.summary.generatedCount,
-          writtenDiagrams: budgeted.summary.includedCount,
-          omittedTypes: budgeted.omitted.map((entry) => entry.type),
-          truncatedTypes: budgeted.truncatedTypes,
-          bytesSaved: budgeted.summary.bytesSaved,
-          estimatedTokensSaved: estimateTokensFromBytes(budgeted.summary.bytesSaved),
-          reason: artifactProfile.name === 'full'
-            ? 'full_profile'
-            : (budgeted.applied ? 'budget_constraints' : 'within_budget'),
-        },
-        diagrams: [],
-      };
+      const manifest = createGenerateAllManifest({
+        root,
+        outDir,
+        artifactProfile,
+        budgeted,
+        deterministic: Boolean(options.deterministic),
+      });
 
       for (const entry of budgeted.included) {
         const file = path.join(outDir, `${entry.type}.mmd`);
@@ -129,7 +115,7 @@ function registerGenerateAllCommand(program) {
 
       manifest.diagrams = manifest.diagrams.sort((a, b) => a.type.localeCompare(b.type));
       const manifestPath = path.join(outDir, 'manifest.json');
-      fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+      writeJsonFile(manifestPath, manifest);
 
       const formatStr = (options.format || 'text').toLowerCase();
       if (formatStr === 'json') {
