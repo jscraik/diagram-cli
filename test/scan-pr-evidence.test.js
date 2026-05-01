@@ -149,6 +149,7 @@ describe('scan PR evidence composition', () => {
     expect(payload.errors.map((error) => error.category)).to.include('pr_refs_unavailable');
     const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
     expect(brief).to.include('- Mode: pr scan');
+    expect(brief).to.include('- Risk: unavailable: pr_refs_unavailable');
     expect(brief).to.include('- PR evidence unavailable: pr_refs_unavailable');
   });
 

@@ -54,6 +54,9 @@ function buildArchitectureBrief({
   const evidenceStatus = manifest.artifacts.some((entry) => entry.status === 'failed')
     ? 'failed'
     : (manifest.artifacts.some((entry) => entry.status === 'partial') ? 'partial' : 'written');
+  const riskText = prImpact?.risk?.level || (prMode
+    ? `unavailable: ${prImpactEntry.errorCategory || prImpactEntry.reason || prImpactEntry.status || 'unknown'}`
+    : 'unknown until PR refs or policy validation are supplied');
   const prLines = prImpact
     ? [
       `- PR base: ${prImpact.base}`,
@@ -88,7 +91,7 @@ function buildArchitectureBrief({
     riskHeading,
     '',
     `- Validation: ${manifest.validation.status}`,
-    `- Risk: ${prImpact?.risk?.level || 'unknown until PR refs or policy validation are supplied'}`,
+    `- Risk: ${riskText}`,
     `- Evidence status: ${evidenceStatus}`,
     ...prLines,
     '',

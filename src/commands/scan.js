@@ -306,6 +306,12 @@ function registerScanCommand(program) {
       if (options.base || options.head) {
         try {
           const prEvidence = runWorkflowPrEvidence({ root, outDir, options });
+          const prImpactFile = path.join(outDir, 'pr-impact', 'pr-impact.json');
+          if (!fs.existsSync(prImpactFile)) {
+            const error = new Error('workflow pr completed without writing pr-impact/pr-impact.json');
+            error.category = 'pr_artifact_missing';
+            throw error;
+          }
           prImpact = prEvidence;
           artifactStatuses['pr-impact'] = 'written';
         } catch (error) {
@@ -426,7 +432,7 @@ function registerScanCommand(program) {
 
       if (formatStr === 'json') {
         const prImpactPath = prImpact
-          ? manifest.artifactReadOrder.find((entry) => entry.endsWith('pr-impact/pr-impact.json'))
+          ? artifactPathFor(manifest, 'pr-impact')
           : null;
         const prSummary = buildPrMachineSummary({
           prImpact,
