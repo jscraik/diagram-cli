@@ -19,6 +19,7 @@ Primary command reference for the canonical `archscope` CLI.
 ```bash
 archscope init [path]
 archscope doctor [path]
+archscope scan [path]
 archscope analyze [path]
 archscope generate [path]
 archscope generate-all [path]
@@ -57,6 +58,38 @@ Run environment diagnostics for Mermaid, Playwright, ffmpeg, git history depth, 
 archscope doctor .
 archscope doctor . --format json
 ```
+
+### `archscope scan [path]`
+
+Generate the default architecture evidence pack.
+
+```bash
+archscope scan .
+archscope scan . --base origin/main --head HEAD
+archscope scan . --format json --deterministic
+```
+
+Writes the first-run evidence pack to `.diagram` by default:
+
+- `manifest.json`
+- `brief.md`
+- `agent-context.json`
+- `architecture.mmd`
+
+When `--base` or `--head` is supplied and refs resolve, scan also writes
+`.diagram/pr-impact/pr-impact.json` by reusing the `workflow pr` contract.
+`report.html` is optional and deferred until the report UI workflow is present.
+
+Key options:
+
+- `--output-dir <dir>`
+- `--base <ref>`
+- `--head <ref>`
+- `--patterns <list>`
+- `--exclude <list>`
+- `--max-files <n>`
+- `--format <text|json>`
+- `--deterministic`
 
 ### `archscope analyze [path]`
 
@@ -216,22 +249,22 @@ Use `archscope doctor .` first if runtime dependencies are missing.
 
 ## Diagram Types
 
-| Type | Description |
-| --- | --- |
-| `architecture` | Component hierarchy by directory |
-| `sequence` | Service/module interaction flow |
-| `dependency` | Internal and external import graph |
-| `class` | Class-oriented relationships |
-| `flow` | Process/data flow |
-| `database` | Persistence-related paths |
-| `erd` | Entity relationship diagram from supported schema sources |
-| `user` | User interaction entrypaths |
-| `events` | Event-driven architecture paths |
-| `auth` | Authentication and authorization flow |
-| `security` | Security boundary and trust paths |
-| `agent` | Multi-agent orchestration paths |
-| `c4context` | Context-level system map |
-| `rag` | Retrieval-augmented generation flow |
+| Type           | Description                                               |
+| -------------- | --------------------------------------------------------- |
+| `architecture` | Component hierarchy by directory                          |
+| `sequence`     | Service/module interaction flow                           |
+| `dependency`   | Internal and external import graph                        |
+| `class`        | Class-oriented relationships                              |
+| `flow`         | Process/data flow                                         |
+| `database`     | Persistence-related paths                                 |
+| `erd`          | Entity relationship diagram from supported schema sources |
+| `user`         | User interaction entrypaths                               |
+| `events`       | Event-driven architecture paths                           |
+| `auth`         | Authentication and authorization flow                     |
+| `security`     | Security boundary and trust paths                         |
+| `agent`        | Multi-agent orchestration paths                           |
+| `c4context`    | Context-level system map                                  |
+| `rag`          | Retrieval-augmented generation flow                       |
 
 ## Defaults and Precedence
 
@@ -253,8 +286,12 @@ For `patterns`, `exclude`, `maxFiles`, and `theme`, defaults resolve as:
   - `data`
   - `errors`
   - optional `agentSummary`
-- JSON-capable command coverage is tracked in `.diagram/contracts/machine-command-coverage.json`
-- PR impact JSON nests its analytical payload under `data.prImpact` and includes `agentSummary`:
+- JSON-capable command coverage is tracked in
+  `.diagram/contracts/machine-command-coverage.json`
+- `scan --format json` nests the evidence manifest under `data.evidencePack`
+  and adds `data.pr` for PR evidence runs.
+- PR impact JSON nests its analytical payload under `data.prImpact` and
+  includes `agentSummary`:
   - `changedComponents`
   - `riskReasons`
   - `suggestedReviewerChecks`

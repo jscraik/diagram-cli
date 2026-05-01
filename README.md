@@ -1,12 +1,12 @@
 # archscope
 
-Inspect architecture, governance, and diagram workflows from source code.
+Architecture evidence for humans and AI coding agents.
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Quick Start](#quick-start)
-- [Opinionated Starter Path](#opinionated-starter-path)
+- [Architecture Evidence Pack](#architecture-evidence-pack)
 - [Human Workflows](#human-workflows)
 - [AI Agent Workflows](#ai-agent-workflows)
 - [Machine Output Contracts](#machine-output-contracts)
@@ -21,8 +21,9 @@ Inspect architecture, governance, and diagram workflows from source code.
 The compatibility command `diagram` remains available during the migration
 window for existing scripts.
 
-The CLI scans your repository and produces:
+The CLI scans your repository and produces architecture evidence:
 
+- A default evidence pack (`scan`) for first-run review and agent handoff
 - Mermaid diagrams (`generate`, `generate-all`), including schema-backed ERD output
 - Architecture policy validation (`validate`)
 - PR architecture impact reports (`workflow pr`)
@@ -48,16 +49,14 @@ npm link
 After `npm link`, use `archscope ...` for new workflows. Without `npm link`, run
 commands with `node src/diagram.js ...`.
 
-## Opinionated Starter Path
+## Architecture Evidence Pack
 
 Use this path for new repositories:
 
 ```bash
 archscope init .
 archscope doctor .
-archscope validate .
-archscope generate-all . --output-dir .diagram --artifact-profile agent
-archscope context .
+archscope scan .
 ```
 
 What this gives you:
@@ -66,13 +65,29 @@ What this gives you:
 - `.diagramrc` defaults
 - CI step sample at `.diagram/ci/github-actions-step.yml`
 - toolchain diagnostics before CI rollout
-- compact AI-friendly architecture artifacts
+- `.diagram/manifest.json` as the stable artifact index
+- `.diagram/brief.md` as the human architecture brief
+- `.diagram/agent-context.json` as the canonical agent handoff
+- `.diagram/architecture.mmd` as the first architecture diagram
+
+For PR review evidence, add git refs:
+
+```bash
+archscope scan . --base origin/main --head HEAD
+```
+
+That keeps the same evidence pack and adds `.diagram/pr-impact/pr-impact.json`
+when refs resolve. `.diagram/report.html` is optional and remains deferred until
+the report UI workflow is generated.
 
 ## Human Workflows
 
 ```bash
 # Analyze repository structure
 archscope analyze .
+
+# Generate the default evidence pack
+archscope scan .
 
 # Generate one diagram and open preview
 archscope generate . --type architecture --open
@@ -85,19 +100,29 @@ archscope explain auth-service .
 
 # PR risk/blast-radius report
 archscope workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
+
+# PR evidence pack for reviewers and agents
+archscope scan . --base origin/main --head HEAD
 ```
 
 ## AI Agent Workflows
 
 ```bash
 # Stable machine outputs
+archscope scan . --format json --deterministic
 archscope generate . --type architecture --format json --deterministic
 archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 
-# Compact context pack for agent token budgets
-archscope generate-all . --output-dir .diagram --artifact-profile agent
-archscope context .
+# Canonical agent read order
+cat .diagram/manifest.json
+cat .diagram/brief.md
+cat .diagram/agent-context.json
 ```
+
+Agents should read `.diagram/manifest.json` first, then consume only artifacts
+whose manifest status is `written`. The standalone `context` command remains
+available for refreshing the older `.diagram/context` pack when existing
+automation depends on it.
 
 ## Machine Output Contracts
 
@@ -108,6 +133,8 @@ archscope context .
 - Use `--deterministic` for stable ordering/timestamps in machine payloads.
 - JSON-capable command coverage is tracked in
   `.diagram/contracts/machine-command-coverage.json`.
+- `scan --format json` nests the evidence manifest under `data.evidencePack`
+  and includes `data.pr` when PR refs are supplied.
 - PR impact JSON nests its analytical payload under `data.prImpact` and includes
   `agentSummary` with:
   - `changedComponents`
