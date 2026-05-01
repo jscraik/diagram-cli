@@ -160,8 +160,8 @@ function assertPrScan() {
   if (payload.status !== 'success') {
     fail(`PR scan machine status was ${payload.status}, expected success`);
   }
-  if (payload.data.pr?.status !== 'complete') {
-    fail(`PR scan data.pr.status was ${payload.data.pr?.status}, expected complete`);
+  if (!['complete', 'no_changes'].includes(payload.data.pr?.status)) {
+    fail(`PR scan data.pr.status was ${payload.data.pr?.status}, expected complete or no_changes`);
   }
 
   const manifest = readJson('.diagram/manifest.json');

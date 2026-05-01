@@ -458,7 +458,7 @@ function registerScanCommand(program) {
               : (prImpact?.agentSummary?.riskReasons || manifest.warnings),
             suggestedReviewerChecks: [
               ...(prImpact?.agentSummary?.suggestedReviewerChecks || []),
-              'Read `.diagram/manifest.json` before consuming evidence artifacts.',
+              `Read \`${summary.manifestPath || '.diagram/manifest.json'}\` before consuming evidence artifacts.`,
             ],
           },
         });

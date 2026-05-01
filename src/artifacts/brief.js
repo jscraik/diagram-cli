@@ -51,6 +51,9 @@ function buildArchitectureBrief({
     'No errors recorded.'
   );
   const prImpactArtifactPath = prImpactEntry?.path || 'pr-impact/pr-impact.json';
+  const evidenceStatus = manifest.artifacts.some((entry) => entry.status === 'failed')
+    ? 'failed'
+    : (manifest.artifacts.some((entry) => entry.status === 'partial') ? 'partial' : 'written');
   const prLines = prImpact
     ? [
       `- PR base: ${prImpact.base}`,
@@ -86,7 +89,7 @@ function buildArchitectureBrief({
     '',
     `- Validation: ${manifest.validation.status}`,
     `- Risk: ${prImpact?.risk?.level || 'unknown until PR refs or policy validation are supplied'}`,
-    `- Evidence status: ${manifest.artifacts.some((entry) => entry.status === 'failed') ? 'failed' : 'written'}`,
+    `- Evidence status: ${evidenceStatus}`,
     ...prLines,
     '',
     warningsHeading,
