@@ -55,6 +55,7 @@ describe('scan evidence pack writers', () => {
         'brief.md',
         'agent-context.json',
         'architecture.mmd',
+        'report.html',
       ]) {
         expect(fs.existsSync(path.join(workspace, '.diagram', fileName)), fileName).to.equal(true);
       }
@@ -66,9 +67,9 @@ describe('scan evidence pack writers', () => {
         brief: 'written',
         'agent-context': 'written',
         architecture: 'written',
-        report: 'deferred',
+        report: 'written',
       });
-      expect(manifest.primaryHumanArtifact).to.equal('.diagram/brief.md');
+      expect(manifest.primaryHumanArtifact).to.equal('.diagram/report.html');
       expect(manifest.primaryAgentArtifact).to.equal('.diagram/agent-context.json');
       for (const artifactPath of allArtifactPaths(manifest)) {
         expect(path.isAbsolute(artifactPath), artifactPath).to.equal(false);
@@ -86,6 +87,11 @@ describe('scan evidence pack writers', () => {
       expect(agentContext.mode).to.equal('repository');
       expect(agentContext.partial).to.equal(false);
       expect(agentContext.readOrder).to.deep.equal(manifest.artifactReadOrder);
+
+      const report = fs.readFileSync(path.join(workspace, '.diagram', 'report.html'), 'utf8');
+      expect(report).to.include('<h1>Archscope Evidence Report</h1>');
+      expect(report).to.include('Architecture Components');
+      expect(report).to.include('Agent Handoff');
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

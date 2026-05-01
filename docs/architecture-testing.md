@@ -246,14 +246,14 @@ jobs:
 
 `npm run ci:artifacts` asserts the required scan contract:
 
-| Artifact                            | Repository scan | PR scan    |
-| ----------------------------------- | --------------- | ---------- |
-| `.diagram/manifest.json`            | `written`       | `written`  |
-| `.diagram/brief.md`                 | `written`       | `written`  |
-| `.diagram/agent-context.json`       | `written`       | `written`  |
-| `.diagram/architecture.mmd`         | `written`       | `written`  |
-| `.diagram/pr-impact/pr-impact.json` | `deferred`      | `written`  |
-| `.diagram/report.html`              | `deferred`      | `deferred` |
+| Artifact                            | Repository scan | PR scan   |
+| ----------------------------------- | --------------- | --------- |
+| `.diagram/manifest.json`            | `written`       | `written` |
+| `.diagram/brief.md`                 | `written`       | `written` |
+| `.diagram/agent-context.json`       | `written`       | `written` |
+| `.diagram/architecture.mmd`         | `written`       | `written` |
+| `.diagram/pr-impact/pr-impact.json` | `deferred`      | `written` |
+| `.diagram/report.html`              | `written`       | `written` |
 
 ## Troubleshooting
 

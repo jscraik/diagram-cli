@@ -44,7 +44,7 @@ describe('scan command', () => {
 
       expect(result.status, result.stderr).to.equal(0);
       expect(result.stdout).to.include('Manifest: .diagram/manifest.json');
-      expect(result.stdout).to.include('Human artifact: .diagram/brief.md');
+      expect(result.stdout).to.include('Human artifact: .diagram/report.html');
       expect(result.stdout).to.include('Agent artifact: .diagram/agent-context.json');
       expect(result.stdout).to.include('Next action:');
     } finally {

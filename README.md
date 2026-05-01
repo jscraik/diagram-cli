@@ -67,6 +67,7 @@ What this gives you:
 - toolchain diagnostics before CI rollout
 - `.diagram/manifest.json` as the stable artifact index
 - `.diagram/brief.md` as the human architecture brief
+- `.diagram/report.html` as the human architecture report
 - `.diagram/agent-context.json` as the canonical agent handoff
 - `.diagram/architecture.mmd` as the first architecture diagram
 
@@ -77,8 +78,8 @@ archscope scan . --base origin/main --head HEAD
 ```
 
 That keeps the same evidence pack and adds `.diagram/pr-impact/pr-impact.json`
-when refs resolve. `.diagram/report.html` is optional and remains deferred until
-the report UI workflow is generated.
+when refs resolve. `.diagram/report.html` is written by default and becomes the
+primary human artifact when report generation succeeds.
 
 ## Human Workflows
 

@@ -9,6 +9,7 @@ const {
   writeJsonFile,
 } = require('../artifacts/evidence-manifest');
 const { generateDiagramArtifact } = require('../core/analysis-generation');
+const { writeArchitectureReport } = require('../renderers/report-html');
 const { buildMachineEnvelope } = require('./output');
 const {
   applyDiagramRcDefaults,
@@ -48,13 +49,21 @@ function markArtifactFailure({
   errors.push(errorForArtifact(artifact, category, error));
 }
 
-function writeArtifact({ artifact, write, failureState }) {
+function writeArtifact({
+  artifact,
+  write,
+  failureState,
+  reason = 'writer_failed',
+  category = 'artifact_write_failed',
+}) {
   try {
     return write();
   } catch (error) {
     markArtifactFailure({
       ...failureState,
       artifact,
+      reason,
+      category,
       error,
     });
     return null;
@@ -234,7 +243,7 @@ function registerScanCommand(program) {
         brief: 'written',
         'agent-context': 'written',
         architecture: 'written',
-        report: 'deferred',
+        report: 'written',
         'pr-impact': 'deferred',
       };
       const artifactReasons = {};
@@ -262,7 +271,7 @@ function registerScanCommand(program) {
         const pipeline = await runAnalysisPipeline(root, options, 'scan');
         analysis = pipeline.analysis;
       } catch (error) {
-        failArtifactsForAnalysis(['brief', 'agent-context', 'architecture'], failureState, error);
+        failArtifactsForAnalysis(['brief', 'agent-context', 'architecture', 'report'], failureState, error);
       }
 
       if (analysis) {
@@ -319,9 +328,45 @@ function registerScanCommand(program) {
           }),
           failureState,
         });
+
+        manifest = buildManifest();
+
+        const reportPath = path.join(outDir, 'report.html');
+        writeArtifact({
+          artifact: 'report',
+          write: () => writeArchitectureReport(reportPath, {
+            manifest,
+            analysis,
+            prImpact,
+            warnings,
+            errors,
+          }),
+          failureState,
+          reason: 'write_failure',
+          category: 'write_failure',
+        });
       }
 
       manifest = buildManifest();
+      if (
+        analysis
+        && artifactStatuses.report === 'failed'
+        && artifactStatuses['agent-context'] === 'written'
+      ) {
+        const agentContextPath = path.join(outDir, 'agent-context.json');
+        writeArtifact({
+          artifact: 'agent-context',
+          write: () => writeAgentContext(agentContextPath, {
+            manifest,
+            analysis,
+            prImpact,
+            warnings,
+            errors,
+          }),
+          failureState,
+        });
+        manifest = buildManifest();
+      }
       const manifestPath = path.join(outDir, 'manifest.json');
       writeJsonFile(manifestPath, manifest);
 

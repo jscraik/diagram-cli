@@ -55,7 +55,7 @@ describe('scan evidence manifest', () => {
         '.diagram/brief.md',
         '.diagram/agent-context.json',
       ]);
-      expect(manifest.primaryHumanArtifact).to.equal('.diagram/brief.md');
+      expect(manifest.primaryHumanArtifact).to.equal('.diagram/report.html');
       expect(manifest.primaryAgentArtifact).to.equal('.diagram/agent-context.json');
 
       const byId = new Map(manifest.artifacts.map((entry) => [entry.id, entry]));
@@ -63,8 +63,8 @@ describe('scan evidence manifest', () => {
       expect(byId.get('brief').status).to.equal('written');
       expect(byId.get('agent-context').status).to.equal('written');
       expect(byId.get('architecture').status).to.equal('written');
-      expect(byId.get('report').status).to.equal('deferred');
-      expect(byId.get('report').reason).to.equal('ui_spec_required');
+      expect(byId.get('report').status).to.equal('written');
+      expect(byId.get('report')).to.not.have.property('reason');
       expect(manifest.warnings).to.deep.equal([]);
       assertNoAbsoluteArtifactPaths(manifest);
     } finally {
@@ -97,6 +97,7 @@ describe('scan evidence manifest', () => {
       expect(payload.data.manifestPath).to.equal('.diagram/manifest.json');
       expect(payload.data.briefPath).to.equal('.diagram/brief.md');
       expect(payload.data.agentContextPath).to.equal('.diagram/agent-context.json');
+      expect(payload.data.evidencePack.primaryHumanArtifact).to.equal('.diagram/report.html');
       expect(payload.data.evidencePack.generatedAt).to.equal('1970-01-01T00:00:00.000Z');
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
@@ -128,7 +129,7 @@ describe('scan evidence manifest', () => {
         'brief.md',
         'agent-context.json',
       ]);
-      expect(manifest.primaryHumanArtifact).to.equal('brief.md');
+      expect(manifest.primaryHumanArtifact).to.equal('report.html');
       expect(manifest.primaryAgentArtifact).to.equal('agent-context.json');
       assertNoAbsoluteArtifactPaths(manifest);
     } finally {

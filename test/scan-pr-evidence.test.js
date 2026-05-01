@@ -73,6 +73,8 @@ describe('scan PR evidence composition', () => {
     const manifest = payload.data.evidencePack;
     const artifacts = Object.fromEntries(manifest.artifacts.map((entry) => [entry.id, entry]));
     expect(artifacts['pr-impact'].status).to.equal('written');
+    expect(artifacts.report.status).to.equal('written');
+    expect(manifest.primaryHumanArtifact).to.equal('.diagram/report.html');
     expect(manifest.artifactReadOrder).to.include('.diagram/pr-impact/pr-impact.json');
     expect(payload.data.prImpactPath).to.equal('.diagram/pr-impact/pr-impact.json');
     expect(payload.data.pr.status).to.equal('complete');
@@ -103,6 +105,11 @@ describe('scan PR evidence composition', () => {
     expect(brief).to.include('- Risk reasons:');
     expect(brief).to.include('- Reviewer checks:');
     expect(brief).to.include('- Validation evidence: workflow pr contract reused via .diagram/pr-impact/pr-impact.json');
+
+    const report = fs.readFileSync(path.join(workspace, '.diagram', 'report.html'), 'utf8');
+    expect(report).to.include('PR scan');
+    expect(report).to.include('Risk And Review Focus');
+    expect(report).to.include('Review blast-radius components for transitive side effects.');
   });
 
   it('preserves repository evidence when PR refs are unavailable', () => {
@@ -125,6 +132,7 @@ describe('scan PR evidence composition', () => {
     const artifacts = Object.fromEntries(payload.data.evidencePack.artifacts.map((entry) => [entry.id, entry]));
     expect(artifacts.brief.status).to.equal('written');
     expect(artifacts['agent-context'].status).to.equal('written');
+    expect(artifacts.report.status).to.equal('written');
     expect(artifacts['pr-impact'].status).to.equal('failed');
     expect(artifacts['pr-impact'].errorCategory).to.equal('pr_refs_unavailable');
     expect(payload.data.pr.status).to.equal('failed');

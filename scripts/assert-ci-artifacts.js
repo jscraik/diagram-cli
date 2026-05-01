@@ -13,7 +13,7 @@ const COMMON_SCAN_ARTIFACTS = [
   ['brief', 'written', '.diagram/brief.md'],
   ['agent-context', 'written', '.diagram/agent-context.json'],
   ['architecture', 'written', '.diagram/architecture.mmd'],
-  ['report', 'deferred', '.diagram/report.html'],
+  ['report', 'written', '.diagram/report.html'],
 ];
 
 function fail(message) {
@@ -66,6 +66,7 @@ function resetScanOutputs() {
     '.diagram/brief.md',
     '.diagram/agent-context.json',
     '.diagram/architecture.mmd',
+    '.diagram/report.html',
     '.diagram/architecture-results.xml',
   ]) {
     fs.rmSync(path.join(repoRoot, relativePath), { force: true });
@@ -85,6 +86,12 @@ function assertRepositoryScan() {
     fail('manifest must be first in artifactReadOrder');
   }
   assertCommonScanArtifacts(manifest);
+  if (manifest.primaryHumanArtifact !== '.diagram/report.html') {
+    fail(`primaryHumanArtifact was ${manifest.primaryHumanArtifact}, expected .diagram/report.html`);
+  }
+  if (!fs.existsSync(path.join(repoRoot, '.diagram', 'report.html'))) {
+    fail('repository scan must write report.html');
+  }
   assertArtifact(manifest, 'pr-impact', 'deferred', '.diagram/pr-impact/pr-impact.json');
   if (fs.existsSync(path.join(repoRoot, '.diagram', 'pr-impact', 'pr-impact.json'))) {
     fail('repository scan must not leave a PR impact artifact when refs are not supplied');
@@ -117,6 +124,9 @@ function assertPrScan() {
   const manifest = readJson('.diagram/manifest.json');
   assertCommonScanArtifacts(manifest);
   assertArtifact(manifest, 'pr-impact', 'written', '.diagram/pr-impact/pr-impact.json');
+  if (!fs.existsSync(path.join(repoRoot, '.diagram', 'report.html'))) {
+    fail('PR scan must write report.html');
+  }
   readJson('.diagram/pr-impact/pr-impact.json');
 }
 

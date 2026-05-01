@@ -75,10 +75,12 @@ Writes the first-run evidence pack to `.diagram` by default:
 - `brief.md`
 - `agent-context.json`
 - `architecture.mmd`
+- `report.html`
 
 When `--base` or `--head` is supplied and refs resolve, scan also writes
 `.diagram/pr-impact/pr-impact.json` by reusing the `workflow pr` contract.
-`report.html` is optional and deferred until the report UI workflow is present.
+`report.html` is written by default and becomes the primary human artifact when
+report generation succeeds.
 
 Key options:
 
