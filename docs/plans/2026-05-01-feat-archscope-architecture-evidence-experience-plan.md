@@ -7,7 +7,7 @@ date: 2026-05-01
 origin: docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md
 spec: docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md
 source_spec: docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md
-ui_spec: pending
+ui_spec: docs/ui-specs/2026-05-01-archscope-evidence-report-ui-spec.md
 plan_route: fresh
 plan_depth: deep
 traceability_required: false
@@ -693,6 +693,6 @@ Operational notes:
 
 - Governing spec: `docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md`
 - Compatibility plan: `docs/plans/2026-04-11-feat-archscope-repositioning-and-compatibility-plan.md`
-- HE plan skill: `/Users/jamiecraik/dev/agent-skills/Plugins/harness-engineering/skills/team_automation/he-plan/SKILL.md`
-- HE plan artifact contract: `/Users/jamiecraik/dev/agent-skills/Plugins/harness-engineering/fixtures/preserved-context/skills/team_automation/he-plan/references/plan-artifacts.md`
-- HE verification-first guidance: `/Users/jamiecraik/dev/agent-skills/Plugins/harness-engineering/fixtures/preserved-context/skills/team_automation/he-plan/references/verification-first.md`
+- HE plan skill handle: `$he-plan` (resolved by the local agent-skills runtime)
+- HE plan artifact contract: `$he-plan` reference `plan-artifacts.md`
+- HE verification-first guidance: `$he-plan` reference `verification-first.md`

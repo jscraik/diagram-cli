@@ -1,5 +1,12 @@
 # Archscope Evidence P2 Manual Review
 
+## Table of Contents
+
+- [Scope](#scope)
+- [Simplify Findings](#simplify-findings)
+- [Code Review Findings](#code-review-findings)
+- [Validation Evidence](#validation-evidence)
+
 ## Scope
 
 Reviewed P2 PR-aware scan composition for `docs/plans/2026-05-01-feat-archscope-architecture-evidence-experience-plan.md`: `scan --base --head` now reuses the existing `workflow pr` command contract, writes `.diagram/pr-impact/pr-impact.json`, and indexes PR evidence from the scan manifest.

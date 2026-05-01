@@ -18,22 +18,28 @@ function run(command, args, cwd) {
   });
 }
 
+function runChecked(command, args, cwd) {
+  const result = run(command, args, cwd);
+  expect(result.status, `${command} ${args.join(' ')}\n${result.stderr || result.stdout}`).to.equal(0);
+  return result;
+}
+
 function createRepo() {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'archscope-scan-pr-'));
   fs.mkdirSync(path.join(workspace, 'src'), { recursive: true });
-  run('git', ['init'], workspace);
+  runChecked('git', ['init'], workspace);
 
   fs.writeFileSync(path.join(workspace, 'src', 'index.js'), 'module.exports = { value: 1 };\n');
-  run('git', ['add', '.'], workspace);
-  run('git', ['commit', '-m', 'initial'], workspace);
+  runChecked('git', ['add', '.'], workspace);
+  runChecked('git', ['commit', '-m', 'initial'], workspace);
 
   fs.writeFileSync(
     path.join(workspace, 'src', 'index.js'),
     "const util = require('./util');\nmodule.exports = util;\n"
   );
   fs.writeFileSync(path.join(workspace, 'src', 'util.js'), 'module.exports = { value: 2 };\n');
-  run('git', ['add', '.'], workspace);
-  run('git', ['commit', '-m', 'change architecture'], workspace);
+  runChecked('git', ['add', '.'], workspace);
+  runChecked('git', ['commit', '-m', 'change architecture'], workspace);
 
   return workspace;
 }
@@ -135,6 +141,7 @@ describe('scan PR evidence composition', () => {
     expect(artifacts.report.status).to.equal('written');
     expect(artifacts['pr-impact'].status).to.equal('failed');
     expect(artifacts['pr-impact'].errorCategory).to.equal('pr_refs_unavailable');
+    expect(payload.data.evidencePack.artifactReadOrder).to.not.include('.diagram/pr-impact/pr-impact.json');
     expect(payload.data.pr.status).to.equal('failed');
     expect(payload.data.pr.base).to.equal('missing-ref');
     expect(payload.data.pr.head).to.equal('HEAD');

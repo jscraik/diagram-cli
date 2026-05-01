@@ -91,6 +91,10 @@ function createScanSummary(manifest) {
   };
 }
 
+function artifactPathFor(manifest, artifactId) {
+  return manifest.artifacts.find((entry) => entry.id === artifactId)?.path || null;
+}
+
 function errorForArtifact(artifact, category, error) {
   return {
     artifact,
@@ -367,6 +371,36 @@ function registerScanCommand(program) {
         });
         manifest = buildManifest();
       }
+      if (analysis && artifactStatuses.brief === 'written') {
+        const briefPath = path.join(outDir, 'brief.md');
+        writeArtifact({
+          artifact: 'brief',
+          write: () => writeArchitectureBrief(briefPath, {
+            manifest,
+            analysis,
+            prImpact,
+            warnings,
+            errors,
+          }),
+          failureState,
+        });
+        manifest = buildManifest();
+        if (artifactStatuses.brief === 'failed' && artifactStatuses['agent-context'] === 'written') {
+          const agentContextPath = path.join(outDir, 'agent-context.json');
+          writeArtifact({
+            artifact: 'agent-context',
+            write: () => writeAgentContext(agentContextPath, {
+              manifest,
+              analysis,
+              prImpact,
+              warnings,
+              errors,
+            }),
+            failureState,
+          });
+          manifest = buildManifest();
+        }
+      }
       const manifestPath = path.join(outDir, 'manifest.json');
       writeJsonFile(manifestPath, manifest);
 
@@ -393,7 +427,7 @@ function registerScanCommand(program) {
             outcome,
             evidencePack: manifest,
             manifestPath: summary.manifestPath,
-            briefPath: manifest.artifactReadOrder[1],
+            briefPath: artifactPathFor(manifest, 'brief'),
             agentContextPath: manifest.primaryAgentArtifact,
             prImpactPath,
             ...(prSummary ? { pr: prSummary } : {}),

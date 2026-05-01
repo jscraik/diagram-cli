@@ -38,7 +38,7 @@ describe('agent context contract', () => {
         path.join(repoRoot, 'src', 'schema', 'agent-context-v1.schema.json'),
         'utf8'
       ));
-      expect(schema.required).to.deep.equal([
+      expect(schema.required).to.have.members([
         'schemaVersion',
         'generatedBy',
         'mode',

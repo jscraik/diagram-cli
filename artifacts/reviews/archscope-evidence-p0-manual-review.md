@@ -1,5 +1,12 @@
 # Archscope Evidence P0 Manual Review
 
+## Table of Contents
+
+- [Scope](#scope)
+- [Simplify Findings](#simplify-findings)
+- [Code Review Findings](#code-review-findings)
+- [Validation Evidence](#validation-evidence)
+
 ## Scope
 
 Reviewed P0 / Unit 1: Scan Command and Manifest Foundation.

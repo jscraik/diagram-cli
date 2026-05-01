@@ -1,5 +1,12 @@
 # Archscope Evidence P1 Manual Review
 
+## Table of Contents
+
+- [Scope](#scope)
+- [Simplify Findings](#simplify-findings)
+- [Code Review Findings](#code-review-findings)
+- [Validation Evidence](#validation-evidence)
+
 ## Scope
 
 Reviewed P1 non-visual evidence-pack work for `docs/plans/2026-05-01-feat-archscope-architecture-evidence-experience-plan.md`: `scan` now writes `.diagram/brief.md`, `.diagram/agent-context.json`, `.diagram/architecture.mmd`, and `.diagram/manifest.json`, while `report.html` remains deferred.

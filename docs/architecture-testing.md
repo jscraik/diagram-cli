@@ -124,6 +124,7 @@ Repository scan outputs:
 - `.diagram/brief.md`
 - `.diagram/agent-context.json`
 - `.diagram/architecture.mmd`
+- `.diagram/report.html`
 
 PR scan outputs:
 

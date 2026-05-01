@@ -46,6 +46,7 @@ The first scan writes the default architecture evidence pack:
 - `.diagram/brief.md` - human architecture brief
 - `.diagram/agent-context.json` - canonical AI-agent handoff
 - `.diagram/architecture.mmd` - first architecture diagram
+- `.diagram/report.html` - static human evidence report
 
 For PR review evidence, include refs:
 
@@ -54,8 +55,8 @@ archscope scan . --base origin/main --head HEAD
 ```
 
 When refs resolve, the PR scan also writes
-`.diagram/pr-impact/pr-impact.json`. If the optional HTML report is not present,
-read `.diagram/brief.md` and `.diagram/manifest.json` first.
+`.diagram/pr-impact/pr-impact.json`. If the HTML report cannot be written,
+read `.diagram/manifest.json` and `.diagram/brief.md` first.
 
 The compatibility command remains available for existing automation:
 

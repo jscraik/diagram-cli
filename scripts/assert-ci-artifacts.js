@@ -32,6 +32,44 @@ function run(args, label) {
   return result;
 }
 
+function runGit(args) {
+  return spawnSync('git', args, {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+}
+
+function gitRefExists(ref) {
+  return runGit(['rev-parse', '--verify', `${ref}^{commit}`]).status === 0;
+}
+
+function previousHeadCommit() {
+  const result = runGit(['rev-list', '--max-count=2', 'HEAD']);
+  if (result.status !== 0) return null;
+  const commits = result.stdout.trim().split(/\r?\n/).filter(Boolean);
+  return commits[1] || null;
+}
+
+function resolvePrScanRefs() {
+  const requested = { base: baseRef, head: headRef };
+  if (gitRefExists(requested.base) && gitRefExists(requested.head)) {
+    return requested;
+  }
+
+  const fallbackBase = previousHeadCommit();
+  if (fallbackBase && gitRefExists('HEAD')) {
+    console.warn(
+      `ci artifact assertion warning: ${requested.base} or ${requested.head} was unavailable; using ${fallbackBase}..HEAD`
+    );
+    return { base: fallbackBase, head: 'HEAD' };
+  }
+
+  fail(
+    `PR scan refs unavailable: base=${requested.base}, head=${requested.head}. `
+    + 'Set ARCHSCOPE_BASE_REF/ARCHSCOPE_HEAD_REF to fetched commits or checkout at least two commits.'
+  );
+}
+
 function readJson(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath);
   if (!fs.existsSync(absolutePath)) {
@@ -100,15 +138,16 @@ function assertRepositoryScan() {
 
 function assertPrScan() {
   resetScanOutputs();
+  const refs = resolvePrScanRefs();
   const result = run([
     'scan',
     '.',
     '--output-dir',
     '.diagram',
     '--base',
-    baseRef,
+    refs.base,
     '--head',
-    headRef,
+    refs.head,
     '--format',
     'json',
     '--deterministic',

@@ -1,5 +1,12 @@
 # Archscope Evidence P5 Manual Review
 
+## Table of Contents
+
+- [Scope](#scope)
+- [Simplify Findings](#simplify-findings)
+- [Code Review Findings](#code-review-findings)
+- [Validation Evidence](#validation-evidence)
+
 ## Scope
 
 Reviewed the P5 HTML report implementation and phase ledger update:
