@@ -324,7 +324,6 @@ function registerScanCommand(program) {
           });
         }
       }
-      }
 
       let manifest = buildManifest();
 
