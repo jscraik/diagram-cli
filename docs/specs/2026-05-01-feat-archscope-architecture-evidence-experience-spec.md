@@ -430,8 +430,17 @@ Machine output must support deterministic mode where already promised by the com
 - `diagramPath`
 - `prImpactPath` when generated
 - `pr` when `--base` and `--head` are supplied; required fields are `status`, `base`, `head`, and either `prImpactPath` or a stable error category such as `pr_refs_unavailable`
+- `outcome` with one of `success`, `partial`, or `failed`
 - `warnings`
 - `partial`
+
+Machine-mode exit behavior must follow the same outcome:
+
+- `success`: exit code `0`; all artifacts required for the current mode are written.
+- `partial`: non-zero exit code; `manifest.json` and at least one primary artifact were written, but one or more required current-mode artifacts failed or degraded.
+- `failed`: non-zero exit code; no useful evidence pack was produced or command invocation was invalid.
+
+Artifacts explicitly marked `deferred` because they are outside the current phase or mode do not make `success` become `partial`.
 
 ### Documentation Interfaces
 

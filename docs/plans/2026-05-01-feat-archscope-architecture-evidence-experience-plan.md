@@ -233,6 +233,7 @@ Execution posture for every unit:
 - Use vertical slices: behavior test, implementation, focused validation, then ledger update.
 - Run the explicitly requested `$simplify` and `$he-code-review` review steps after each completed implementation phase when this plan enters work mode; record each review outcome or blocker in the ledger.
 - Resolve phase review steps through repo-local `.codex/skills/` first. If no repo-local equivalent exists, use the explicitly requested external skills at `/Users/jamiecraik/dev/agent-skills/.agents/skills/simplify/SKILL.md` and `/Users/jamiecraik/dev/agent-skills/.agents/skills/he-code-review/SKILL.md`. If those external skills cannot be loaded or executed in the active environment, record them as unavailable coverage gaps and run a findings-first manual simplify/code-review checklist against the phase diff; do not mark the external skills as passed.
+- Manual fallback reviews must write `artifacts/reviews/archscope-evidence-p<phase>-manual-review.md` with the headings `Scope`, `Simplify Findings`, `Code Review Findings`, `Validation Evidence`, and a final line `VERDICT: PASS` or `VERDICT: BLOCKED`. Any P0/P1/P2 finding or missing validation evidence makes the verdict `BLOCKED`.
 - Do not mark a unit complete until validation evidence exists.
 - Keep `report.html` incomplete or deferred until the companion UI spec is available.
 
@@ -273,6 +274,7 @@ Execution posture for every unit:
 - Manifest identifies primary human summary artifact, primary agent artifact, artifact statuses, deterministic flag, and warnings.
 - Existing `generate-all` manifest fields remain equivalent after extraction.
 - `scan --format json --deterministic` emits parser-safe JSON with sorted lists and no volatile generated timestamp.
+- Machine JSON includes `data.outcome` as `success`, `partial`, or `failed`, and command exit code follows that outcome.
 - Compatibility `diagram` invocation still exposes existing behavior and does not regress existing command tests.
 
 **Verification:**
@@ -327,6 +329,7 @@ Execution posture for every unit:
 - Agent context includes schema version, compact summary fields, artifact pointers, and deterministic ordering.
 - Brief output stays within the defined heading set and line budget.
 - Simulated writer failure records `partial: true`, artifact-level status, and a stable error category.
+- Required-writer failure produces `data.outcome: "partial"` or `data.outcome: "failed"` with a non-zero exit code.
 - Error categories are asserted through one shared scan error-category contract test.
 - Generated artifacts do not contain absolute local paths.
 
@@ -598,8 +601,8 @@ Execution posture for every unit:
 - [ ] **AC3:** `scan` writes the non-visual pack: `.diagram/brief.md`, `.diagram/agent-context.json`, `.diagram/architecture.mmd`, and `.diagram/manifest.json`.
 - [ ] **AC4:** `agent-context.json` has stable schema versioning, deterministic support, compact summary fields, artifact pointers, and documented read order.
 - [ ] **AC5:** Console output prints a concise next-step summary naming `.diagram/manifest.json`, the current `primaryHumanArtifact`, the current `primaryAgentArtifact`, and exactly one stable next action.
-- [ ] **AC6:** `scan --format json --deterministic` emits canonical machine-envelope fields with parser-safe stdout and stable error categories.
-- [ ] **AC7:** Partial evidence records artifact-level statuses and never reports full success when artifacts required for the current phase and mode fail or are deferred.
+- [ ] **AC6:** `scan --format json --deterministic` emits canonical machine-envelope fields with parser-safe stdout, stable error categories, and `data.outcome` set to `success`, `partial`, or `failed`.
+- [ ] **AC7:** Partial evidence records artifact-level statuses and never reports full success or exits `0` when artifacts required for the current phase and mode fail or are deferred.
 - [ ] **AC8:** `scan . --base <ref> --head <ref>` reuses `workflow pr`, writes PR artifacts, and includes risk, blast radius, confidence, evidence, and reviewer checks.
 - [ ] **AC9:** README, CLI reference, getting-started, and CI artifact guidance present architecture evidence first and keep governance/migration detail in maintainer paths.
 - [ ] **AC10:** `generate`, `generate-all`, `validate`, `workflow pr`, `context`, `diagram`, and `@brainwav/diagram` compatibility behavior remain non-breaking.
