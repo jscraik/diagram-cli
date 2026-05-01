@@ -21,6 +21,16 @@ function readManifest() {
 }
 
 function byCommand(entries) {
+  const seen = new Set();
+  for (const entry of entries) {
+    if (!entry?.command) {
+      fail('command entry missing command name');
+    }
+    if (seen.has(entry.command)) {
+      fail(`duplicate command entry: ${entry.command}`);
+    }
+    seen.add(entry.command);
+  }
   return new Map(entries.map((entry) => [entry.command, entry]));
 }
 

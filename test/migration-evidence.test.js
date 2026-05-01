@@ -82,6 +82,31 @@ describe('migration evidence', () => {
     });
     expect(gap.satisfied).to.equal(false);
     expect(gap.rcSequence.consecutive).to.equal(false);
+
+    const nonInitialConsecutive = evaluateMigrationWindow({
+      releaseId: '1.2.3-rc.4',
+      compatibilityDeclaredAtUtc: '2026-04-01T00:00:00.000Z',
+      evaluatedAtUtc: '2026-05-02T00:00:00.000Z',
+      releaseCandidateTags: ['v1.2.3-rc.3', 'v1.2.3-rc.4'],
+    });
+    expect(nonInitialConsecutive.satisfied).to.equal(true);
+    expect(nonInitialConsecutive.rcSequence.consecutive).to.equal(true);
+  });
+
+  it('rejects semantically inconsistent readiness evidence', () => {
+    const record = buildMigrationReadinessRecord({
+      releaseId: '1.2.3-rc.2',
+      sourceCommit: 'abc123',
+      compatibilityDeclaredAtUtc: '2026-04-01T00:00:00.000Z',
+      generatedAtUtc: '2026-05-02T00:00:00.000Z',
+      releaseCandidateTags: ['v1.2.3-rc.1', 'v1.2.3-rc.2'],
+    });
+    record.compatibilityWindow.satisfied = false;
+    record.contentHash = computeContentHash(record);
+
+    const result = validateMigrationReadinessRecord(record);
+    expect(result.valid).to.equal(false);
+    expect(result.errors).to.include('compatibilityWindow.satisfied does not match derived eligibility');
   });
 
   it('rejects non-UTC compatibility window timestamps', () => {

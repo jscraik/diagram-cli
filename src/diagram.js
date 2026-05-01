@@ -73,16 +73,28 @@ program.on('command:*', function (operands) {
   process.exit(1);
 });
 
-function getInvocationName(argv) {
+function getInvocationName(argv, env = process.env) {
+  const candidates = [
+    argv[1],
+    env._,
+    env.npm_lifecycle_script,
+    argv[0],
+  ];
+  for (const candidate of candidates) {
+    const name = path.basename(String(candidate || '').trim());
+    if (name && name !== 'node' && name !== 'diagram.js') {
+      return name;
+    }
+  }
   return path.basename(argv[1] || '');
 }
 
-function isCompatibilityInvocation(argv) {
-  return getInvocationName(argv) === COMPATIBILITY_COMMAND_NAME;
+function isCompatibilityInvocation(argv, env = process.env) {
+  return getInvocationName(argv, env) === COMPATIBILITY_COMMAND_NAME;
 }
 
-function emitCompatibilityInvocationNotice(argv) {
-  if (isCompatibilityInvocation(argv)) {
+function emitCompatibilityInvocationNotice(argv, env = process.env) {
+  if (isCompatibilityInvocation(argv, env)) {
     console.error(chalk.yellow(COMPATIBILITY_NOTICE));
   }
 }

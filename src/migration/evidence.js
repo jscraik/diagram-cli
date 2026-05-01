@@ -110,7 +110,9 @@ function evaluateRcSequence(releaseCandidateTags, baseVersion) {
     .filter((entry) => entry && (!baseVersion || entry.baseVersion === baseVersion))
     .sort((a, b) => a.rcNumber - b.rcNumber);
   const rcNumbers = parsed.map((entry) => entry.rcNumber);
-  const consecutive = rcNumbers.every((number, index) => number === index + 1);
+  const consecutive = rcNumbers.every((number, index) => (
+    index === 0 || number === rcNumbers[index - 1] + 1
+  ));
   return {
     baseVersion,
     releaseCandidateTags: parsed.map((entry) => entry.tag),
@@ -207,6 +209,24 @@ function validateMigrationReadinessRecord(record) {
   if (window.minimumWindowDays !== MINIMUM_WINDOW_DAYS) errors.push('minimumWindowDays must equal 30');
   if (window.minimumReleaseCandidates !== MINIMUM_RELEASE_CANDIDATES) errors.push('minimumReleaseCandidates must equal 2');
   if (!window.rcSequence?.consecutive) errors.push('release candidates must be consecutive');
+  if ((window.rcSequence?.releaseCandidateCount || 0) < MINIMUM_RELEASE_CANDIDATES) {
+    errors.push('releaseCandidateCount must meet minimumReleaseCandidates');
+  }
+  if ((window.daysElapsed || 0) < MINIMUM_WINDOW_DAYS) {
+    errors.push('daysElapsed must meet minimumWindowDays');
+  }
+  const expectedSatisfied = window.rcSequence?.consecutive === true
+    && (window.rcSequence?.releaseCandidateCount || 0) >= MINIMUM_RELEASE_CANDIDATES
+    && (window.daysElapsed || 0) >= MINIMUM_WINDOW_DAYS;
+  if (window.satisfied !== expectedSatisfied) {
+    errors.push('compatibilityWindow.satisfied does not match derived eligibility');
+  }
+  if (record?.status !== (expectedSatisfied ? 'eligible' : 'blocked')) {
+    errors.push('status does not match compatibilityWindow.satisfied');
+  }
+  if (record?.finalizationEligible !== expectedSatisfied) {
+    errors.push('finalizationEligible does not match compatibilityWindow.satisfied');
+  }
   return {
     valid: errors.length === 0,
     errors,

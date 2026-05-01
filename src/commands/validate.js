@@ -167,7 +167,7 @@ function registerValidateCommand(program) {
       const startTime = Date.now();
       const format = String(options.format || 'console').toLowerCase();
       const outputsMachineFormat = !options.output && (format === 'json' || format === 'junit');
-      const quietMachineOutput = options.quiet || (outputsMachineFormat && !options.verbose);
+      const quietMachineOutput = options.quiet || outputsMachineFormat;
 
       if (options.init) {
         const configPath = resolveConfigPathOrExit(root, options.config);
@@ -284,7 +284,7 @@ function registerValidateCommand(program) {
           schemaVersion: '1.0',
           command: 'validate',
           rootPath: root,
-          status: exitCode === 0 ? 'success' : 'failed',
+          status: exitCode === 0 ? 'success' : 'failure',
           deterministic: Boolean(options.deterministic),
           data: {
             validation: validationOutput,
@@ -303,7 +303,7 @@ function registerValidateCommand(program) {
               : ['Review failed architecture rules before merging.'],
           },
         });
-        console.log(JSON.stringify(payload, null, 2));
+        process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
         process.exit(exitCode);
       }
 

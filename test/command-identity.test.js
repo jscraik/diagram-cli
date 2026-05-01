@@ -25,8 +25,10 @@ describe('command identity and compatibility', () => {
   it('detects compatibility invocation by argv script name', () => {
     expect(getInvocationName(['node', '/tmp/diagram'])).to.equal(COMPATIBILITY_COMMAND_NAME);
     expect(getInvocationName(['node', '/tmp/archscope'])).to.equal(CANONICAL_COMMAND_NAME);
+    expect(getInvocationName(['node', '/repo/src/diagram.js'], { _: '/tmp/diagram' })).to.equal(COMPATIBILITY_COMMAND_NAME);
     expect(isCompatibilityInvocation(['node', '/tmp/diagram'])).to.equal(true);
     expect(isCompatibilityInvocation(['node', '/tmp/archscope'])).to.equal(false);
+    expect(isCompatibilityInvocation(['node', '/repo/src/diagram.js'], { _: '/tmp/diagram' })).to.equal(true);
   });
 
   it('uses archscope in help and unknown-command guidance', () => {

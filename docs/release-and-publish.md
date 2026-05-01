@@ -137,6 +137,10 @@ npm init -y >/dev/null
 npm install @brainwav/diagram@X.Y.Z >/dev/null
 npx archscope --help
 npx diagram --help
+npx archscope analyze . --format json >/dev/null
+npx diagram analyze . --format json >/dev/null
+npx archscope generate . --type architecture --output architecture.mmd >/dev/null
+npx diagram generate . --type architecture --output diagram-architecture.mmd >/dev/null
 ```
 
 1. Confirm git tag and GitHub release exist for `vX.Y.Z`.

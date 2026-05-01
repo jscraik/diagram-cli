@@ -17,6 +17,7 @@ describe('archscope readiness validation', () => {
     expect(payload.migrationState).to.equal('compatibility');
     expect(payload.finalizationReady).to.equal(false);
     expect(payload.compatibilityDrill.status).to.equal('pass');
+    expect(payload.compatibilityDrill.checked).to.include('archscope/diagram validate output parity');
   });
 
   it('fails closed when finalization readiness is required without release evidence', () => {

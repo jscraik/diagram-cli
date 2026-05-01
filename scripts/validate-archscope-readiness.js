@@ -49,6 +49,16 @@ function parseJson(stdout, label) {
   }
 }
 
+function stableStringify(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function assertCommandPass(label, command, args, options = {}) {
   const result = run(command, args, options);
   if (result.status !== 0) {
@@ -66,8 +76,35 @@ function runJsonCli(commandPath, args, workspace) {
   if (result.status !== 0 && result.status !== 1) {
     throw new Error(`${path.basename(commandPath)} ${args.join(' ')} failed unexpectedly: ${result.stderr || result.stdout}`);
   }
-  parseJson(result.stdout, `${path.basename(commandPath)} ${args.join(' ')}`);
+  result.payload = parseJson(result.stdout, `${path.basename(commandPath)} ${args.join(' ')}`);
   return result;
+}
+
+function assertPayloadParity(archscopeResult, diagramResult) {
+  const stripVolatile = (payload) => {
+    const clone = JSON.parse(JSON.stringify(payload));
+    if (clone?.data?.validation?.summary) {
+      delete clone.data.validation.summary.duration;
+    }
+    return clone;
+  };
+  const archscopePayload = stripVolatile(archscopeResult.payload);
+  const diagramPayload = stripVolatile(diagramResult.payload);
+  const archscopeComparable = {
+    status: archscopeResult.status,
+    payloadStatus: archscopePayload.status,
+    data: archscopePayload.data,
+    errors: archscopePayload.errors,
+  };
+  const diagramComparable = {
+    status: diagramResult.status,
+    payloadStatus: diagramPayload.status,
+    data: diagramPayload.data,
+    errors: diagramPayload.errors,
+  };
+  if (stableStringify(archscopeComparable) !== stableStringify(diagramComparable)) {
+    throw new Error('compatibility drill failed: archscope and diagram validate JSON output diverged');
+  }
 }
 
 function runCompatibilityDrill() {
@@ -98,8 +135,9 @@ function runCompatibilityDrill() {
     if (diagramHelp.status !== 0) {
       throw new Error(`diagram help failed: ${diagramHelp.stderr || diagramHelp.stdout}`);
     }
-    runJsonCli(archscopePath, ['validate', '.', '--format', 'json', '--deterministic'], workspace);
-    runJsonCli(diagramPath, ['validate', '.', '--format', 'json', '--deterministic'], workspace);
+    const archscopeResult = runJsonCli(archscopePath, ['validate', '.', '--format', 'json', '--deterministic'], workspace);
+    const diagramResult = runJsonCli(diagramPath, ['validate', '.', '--format', 'json', '--deterministic'], workspace);
+    assertPayloadParity(archscopeResult, diagramResult);
     return {
       status: 'pass',
       checked: [
@@ -107,6 +145,7 @@ function runCompatibilityDrill() {
         'diagram --help',
         'archscope validate --format json',
         'diagram validate --format json',
+        'archscope/diagram validate output parity',
       ],
     };
   } finally {

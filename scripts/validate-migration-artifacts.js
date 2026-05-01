@@ -60,7 +60,11 @@ function validatePointerAndLedger(recordsByPath) {
   }
 
   const latestEntry = entries[entries.length - 1];
-  if (latestEntry) {
+  if (!latestEntry) {
+    if (pointer.releaseId || pointer.releaseTag || pointer.recordPath || pointer.contentHash) {
+      errors.push('latest pointer must be absent when ledger has no entries');
+    }
+  } else {
     if (pointer.releaseId !== latestEntry.releaseId) errors.push('latest pointer releaseId does not match ledger tail');
     if (pointer.releaseTag !== latestEntry.releaseTag) errors.push('latest pointer releaseTag does not match ledger tail');
     if (pointer.recordPath !== latestEntry.recordPath) errors.push('latest pointer recordPath does not match ledger tail');

@@ -223,7 +223,7 @@ function registerWorkflowCommands(program, deps) {
               schemaVersion: '1.0',
               command: 'workflow-pr',
               rootPath: root,
-              status: 'failed',
+              status: 'failure',
               deterministic: Boolean(options.deterministic),
               data: { confidenceReport: quickReport },
               errors: [{
@@ -620,6 +620,9 @@ function registerWorkflowCommands(program, deps) {
 
         if (options.strictConfidence && shouldFailStrictConfidence(report)) {
           exitCode = 1;
+          result.agentSummary.riskReasons = [
+            ...new Set([...(result.agentSummary.riskReasons || []), 'strict_confidence_failed']),
+          ];
           if (!isJson) {
             console.error(chalk.red('\n❌ Strict confidence check failed'));
           }
@@ -646,14 +649,19 @@ function registerWorkflowCommands(program, deps) {
           result,
           rootPath: root,
           deterministic: Boolean(options.deterministic),
-          status: exitCode === 0 ? 'success' : 'failed',
+          status: exitCode === 0 ? 'success' : 'failure',
           artifactPaths,
           errors: exitCode === 0
             ? []
-            : [{
-              code: 'risk_threshold_exceeded',
-              message: 'PR impact risk threshold exceeded',
-            }],
+            : result.agentSummary.riskReasons.includes('strict_confidence_failed')
+              ? [{
+                code: 'strict_confidence_failed',
+                message: 'Strict confidence check failed',
+              }]
+              : [{
+                code: 'risk_threshold_exceeded',
+                message: 'PR impact risk threshold exceeded',
+              }],
         });
         console.log(JSON.stringify(payload, null, 2));
       } else {
