@@ -28,7 +28,7 @@ function assertNoAbsoluteArtifactPaths(manifest) {
 describe('scan evidence manifest', () => {
   const repoRoot = path.resolve(__dirname, '..');
 
-  it('writes manifest.json with expected P0 artifact statuses', () => {
+  it('writes manifest.json with non-visual artifact statuses', () => {
     const workspace = createWorkspace();
     try {
       const result = spawnSync('node', [
@@ -60,12 +60,12 @@ describe('scan evidence manifest', () => {
 
       const byId = new Map(manifest.artifacts.map((entry) => [entry.id, entry]));
       expect(byId.get('manifest').status).to.equal('written');
-      expect(byId.get('brief').status).to.equal('deferred');
-      expect(byId.get('agent-context').status).to.equal('deferred');
-      expect(byId.get('architecture').status).to.equal('deferred');
+      expect(byId.get('brief').status).to.equal('written');
+      expect(byId.get('agent-context').status).to.equal('written');
+      expect(byId.get('architecture').status).to.equal('written');
       expect(byId.get('report').status).to.equal('deferred');
       expect(byId.get('report').reason).to.equal('ui_spec_required');
-      expect(manifest.warnings).to.deep.equal(['non_visual_writers_deferred']);
+      expect(manifest.warnings).to.deep.equal([]);
       assertNoAbsoluteArtifactPaths(manifest);
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });

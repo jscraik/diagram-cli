@@ -63,7 +63,15 @@ function createGenerateAllManifest({
   };
 }
 
-function artifactEntry({ id, path: artifactPath, status, role, optional = false, reason = null }) {
+function artifactEntry({
+  id,
+  path: artifactPath,
+  status,
+  role,
+  optional = false,
+  reason = null,
+  errorCategory = null,
+}) {
   if (!ARTIFACT_STATUSES.has(status)) {
     throw new Error(`Invalid artifact status for ${id}: ${status}`);
   }
@@ -74,6 +82,7 @@ function artifactEntry({ id, path: artifactPath, status, role, optional = false,
     role,
     optional,
     ...(reason ? { reason } : {}),
+    ...(errorCategory ? { errorCategory } : {}),
   };
 }
 
@@ -83,6 +92,8 @@ function createScanEvidenceManifest({
   deterministic = false,
   warnings = [],
   artifactStatuses = {},
+  artifactReasons = {},
+  artifactErrorCategories = {},
 }) {
   const realRoot = realpathIfPresent(root);
   const diagramDir = unixPath(path.relative(realRoot, outDir) || '.');
@@ -96,27 +107,35 @@ function createScanEvidenceManifest({
       path: artifactPath('manifest.json'),
       status: statusFor('manifest', 'written'),
       role: 'artifact-index',
+      reason: artifactReasons.manifest || null,
+      errorCategory: artifactErrorCategories.manifest || null,
     }),
     artifactEntry({
       id: 'brief',
       path: artifactPath('brief.md'),
       status: statusFor('brief', 'deferred'),
       role: 'primary-human-summary',
-      reason: statusFor('brief', 'deferred') === 'deferred' ? 'p1_not_implemented' : null,
+      reason: artifactReasons.brief
+        || (statusFor('brief', 'deferred') === 'deferred' ? 'p1_not_implemented' : null),
+      errorCategory: artifactErrorCategories.brief || null,
     }),
     artifactEntry({
       id: 'agent-context',
       path: artifactPath('agent-context.json'),
       status: statusFor('agent-context', 'deferred'),
       role: 'primary-agent-context',
-      reason: statusFor('agent-context', 'deferred') === 'deferred' ? 'p1_not_implemented' : null,
+      reason: artifactReasons['agent-context']
+        || (statusFor('agent-context', 'deferred') === 'deferred' ? 'p1_not_implemented' : null),
+      errorCategory: artifactErrorCategories['agent-context'] || null,
     }),
     artifactEntry({
       id: 'architecture',
       path: artifactPath('architecture.mmd'),
       status: statusFor('architecture', 'deferred'),
       role: 'supporting-diagram',
-      reason: statusFor('architecture', 'deferred') === 'deferred' ? 'p1_not_implemented' : null,
+      reason: artifactReasons.architecture
+        || (statusFor('architecture', 'deferred') === 'deferred' ? 'p1_not_implemented' : null),
+      errorCategory: artifactErrorCategories.architecture || null,
     }),
     artifactEntry({
       id: 'report',
@@ -124,7 +143,8 @@ function createScanEvidenceManifest({
       status: reportStatus,
       role: 'human-report',
       optional: true,
-      reason: reportStatus === 'deferred' ? 'ui_spec_required' : null,
+      reason: artifactReasons.report || (reportStatus === 'deferred' ? 'ui_spec_required' : null),
+      errorCategory: artifactErrorCategories.report || null,
     }),
   ].sort((a, b) => a.path.localeCompare(b.path));
 
@@ -160,7 +180,7 @@ function createScanEvidenceManifest({
     ].sort(),
     validation: {
       status: 'not_run',
-      summary: 'scan P0 does not run validation automatically',
+      summary: 'scan does not run validation automatically',
     },
     warnings: sortStrings(warnings),
   };

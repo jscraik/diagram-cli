@@ -1,24 +1,75 @@
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
+const { writeAgentContext } = require('../artifacts/agent-context');
+const { writeArchitectureBrief } = require('../artifacts/brief');
 const {
   createScanEvidenceManifest,
   writeJsonFile,
 } = require('../artifacts/evidence-manifest');
+const { generateDiagramArtifact } = require('../core/analysis-generation');
 const { buildMachineEnvelope } = require('./output');
 const {
   applyDiagramRcDefaults,
   getDiagramRcFromProgram,
+  runAnalysisPipeline,
   resolveRootPathOrExit,
   validateOutputPath,
 } = require('./shared');
 
 function outcomeForManifest(manifest) {
-  const failed = manifest.artifacts.some((entry) => entry.status === 'failed');
-  const partial = manifest.artifacts.some((entry) => entry.status === 'partial');
-  if (failed) return 'failed';
-  if (partial) return 'partial';
+  const state = manifest.artifacts.reduce((current, entry) => ({
+    failed: current.failed || entry.status === 'failed',
+    partial: current.partial || entry.status === 'partial',
+    written: current.written || entry.status === 'written',
+  }), { failed: false, partial: false, written: false });
+  if (state.failed) {
+    if (state.written) return 'partial';
+    return 'failed';
+  }
+  if (state.partial) return 'partial';
   return 'success';
+}
+
+function markArtifactFailure({
+  artifactStatuses,
+  artifactReasons,
+  artifactErrorCategories,
+  errors,
+  artifact,
+  reason = 'writer_failed',
+  category = 'artifact_write_failed',
+  error,
+}) {
+  artifactStatuses[artifact] = 'failed';
+  artifactReasons[artifact] = reason;
+  artifactErrorCategories[artifact] = category;
+  errors.push(errorForArtifact(artifact, category, error));
+}
+
+function writeArtifact({ artifact, write, failureState }) {
+  try {
+    return write();
+  } catch (error) {
+    markArtifactFailure({
+      ...failureState,
+      artifact,
+      error,
+    });
+    return null;
+  }
+}
+
+function failArtifactsForAnalysis(artifacts, failureState, error) {
+  for (const artifact of artifacts) {
+    markArtifactFailure({
+      ...failureState,
+      artifact,
+      reason: 'analysis_failed',
+      category: 'analysis_failed',
+      error,
+    });
+  }
 }
 
 function createScanSummary(manifest) {
@@ -26,22 +77,37 @@ function createScanSummary(manifest) {
     manifestPath: manifest.artifactReadOrder[0],
     primaryHumanArtifact: manifest.primaryHumanArtifact,
     primaryAgentArtifact: manifest.primaryAgentArtifact,
-    nextAction: `Read ${manifest.artifactReadOrder[0]} for artifact status before opening deferred files.`,
+    nextAction: `Read ${manifest.artifactReadOrder[0]} for artifact status before opening optional files.`,
   };
+}
+
+function errorForArtifact(artifact, category, error) {
+  return {
+    artifact,
+    category,
+    message: error?.message || String(error),
+  };
+}
+
+function writeArchitectureArtifact({ outDir, analysis }) {
+  const artifact = generateDiagramArtifact(analysis, 'architecture');
+  const architecturePath = path.join(outDir, 'architecture.mmd');
+  fs.writeFileSync(architecturePath, artifact.mermaid);
+  return architecturePath;
 }
 
 /**
  * Register the `scan [path]` CLI command.
  *
- * The P0 scan implementation establishes the evidence-pack command surface and
- * manifest contract. Later phases attach the actual non-visual evidence writers.
+ * The scan implementation coordinates the non-visual evidence pack and writes
+ * manifest.json last so consumers can trust artifact-level statuses.
  *
  * @param {import('commander').Command} program - Commander program instance.
  */
 function registerScanCommand(program) {
   program
     .command('scan [path]')
-    .description('Generate architecture evidence pack manifest')
+    .description('Generate architecture evidence pack')
     .option('-O, --output-dir <dir>', 'Output directory', '.diagram')
     .option('-p, --patterns <list>', 'File patterns')
     .option('-e, --exclude <list>', 'Exclude patterns')
@@ -75,16 +141,83 @@ function registerScanCommand(program) {
       }
       fs.mkdirSync(outDir, { recursive: true });
 
-      const warnings = ['non_visual_writers_deferred'];
+      const warnings = [];
       if (options.base || options.head) {
         warnings.push('pr_evidence_deferred');
       }
-      const manifest = createScanEvidenceManifest({
+      const artifactStatuses = {
+        manifest: 'written',
+        brief: 'written',
+        'agent-context': 'written',
+        architecture: 'written',
+        report: 'deferred',
+      };
+      const artifactReasons = {};
+      const artifactErrorCategories = {};
+      const errors = [];
+      const failureState = {
+        artifactStatuses,
+        artifactReasons,
+        artifactErrorCategories,
+        errors,
+      };
+      let analysis = null;
+      const buildManifest = () => createScanEvidenceManifest({
         root,
         outDir,
         deterministic: Boolean(options.deterministic),
         warnings,
+        artifactStatuses,
+        artifactReasons,
+        artifactErrorCategories,
       });
+
+      try {
+        const pipeline = await runAnalysisPipeline(root, options, 'scan');
+        analysis = pipeline.analysis;
+      } catch (error) {
+        failArtifactsForAnalysis(['brief', 'agent-context', 'architecture'], failureState, error);
+      }
+
+      if (analysis) {
+        writeArtifact({
+          artifact: 'architecture',
+          write: () => writeArchitectureArtifact({ outDir, analysis }),
+          failureState,
+        });
+      }
+
+      let manifest = buildManifest();
+
+      if (analysis) {
+        const briefPath = path.join(outDir, 'brief.md');
+        writeArtifact({
+          artifact: 'brief',
+          write: () => writeArchitectureBrief(briefPath, {
+            manifest,
+            analysis,
+            warnings,
+            errors,
+          }),
+          failureState,
+        });
+
+        manifest = buildManifest();
+
+        const agentContextPath = path.join(outDir, 'agent-context.json');
+        writeArtifact({
+          artifact: 'agent-context',
+          write: () => writeAgentContext(agentContextPath, {
+            manifest,
+            analysis,
+            warnings,
+            errors,
+          }),
+          failureState,
+        });
+      }
+
+      manifest = buildManifest();
       const manifestPath = path.join(outDir, 'manifest.json');
       writeJsonFile(manifestPath, manifest);
 
@@ -106,16 +239,19 @@ function registerScanCommand(program) {
             agentContextPath: manifest.primaryAgentArtifact,
             warnings: manifest.warnings,
           },
+          errors,
           agentSummary: {
-            changedComponents: 0,
-            riskReasons: manifest.warnings,
+            changedComponents: analysis?.components?.length || 0,
+            riskReasons: errors.length > 0
+              ? errors.map((entry) => entry.category)
+              : manifest.warnings,
             suggestedReviewerChecks: [
-              'Read `.diagram/manifest.json` before consuming deferred evidence artifacts.',
+              'Read `.diagram/manifest.json` before consuming evidence artifacts.',
             ],
           },
         });
         console.log(JSON.stringify(payload, null, 2));
-        process.exit(outcome === 'failed' ? 1 : 0);
+        process.exit(outcome === 'success' ? 0 : 1);
       }
 
       if (!options.quiet) {
@@ -128,6 +264,9 @@ function registerScanCommand(program) {
       console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
       console.log(chalk.cyan('\nNext action:'));
       console.log(`  ${summary.nextAction}`);
+      if (outcome !== 'success') {
+        process.exit(1);
+      }
     });
 }
 
