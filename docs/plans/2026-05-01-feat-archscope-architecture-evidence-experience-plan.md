@@ -194,7 +194,7 @@ Out of scope:
 ### Deferred to Implementation
 
 - Whether top-level `agent-context.json` is generated directly by the context domain or projected from `.diagram/context/diagram-context.meta.json`.
-- Whether `scan` runs `validate` automatically when `.architecture.yml` exists or only indexes validation evidence from explicit validation steps.
+- Whether `scan` runs `validate` automatically after P1 when `.architecture.yml` exists or only indexes validation evidence from explicit validation steps. Temporary P0/P1 policy: `scan` does not auto-run `validate`; it indexes explicit validation evidence when supplied or produced by reused helpers.
 - Whether ERD appears in the default pack only when data-model signals exist.
 
 ### Deferred to Companion UI Spec
@@ -368,8 +368,10 @@ Execution posture for every unit:
 **Approach:**
 
 - When base/head refs are supplied, call shared PR-impact functionality rather than reimplementing changed-file analysis.
+- Treat `workflow pr` as the primary PR analytic command and brief-field contract owner; treat `scan --base --head` as the primary PR evidence-pack command that reuses that contract.
 - Write raw PR artifacts under `.diagram/pr-impact`.
 - Include PR summary, risk, blast radius, confidence, reviewer checks, and artifact pointers in `brief.md`, `agent-context.json`, and `manifest.json`.
+- Preserve the full `workflow pr` Architecture Review Brief field contract: summary, changed components, blast radius, risk level, risk reasons, reviewer checks, artifacts, validation evidence, and agent handoff.
 - Invalid or unavailable refs should not break repository scan output; PR artifacts should be marked unavailable with `pr_refs_unavailable`.
 
 **Test scenarios:**
@@ -377,7 +379,7 @@ Execution posture for every unit:
 - Valid base/head fixture writes PR artifacts and indexes them in manifest.
 - Invalid refs preserve repository evidence and mark PR evidence partial or failed.
 - Risk and blast-radius claims carry evidence references, confidence labels, or `unknown`.
-- Existing `workflow pr` behavior remains non-breaking.
+- Existing `workflow pr` behavior remains non-breaking and still emits the full Architecture Review Brief field contract.
 
 **Verification:**
 
@@ -602,8 +604,8 @@ Execution posture for every unit:
 - [ ] **AC4:** `agent-context.json` has stable schema versioning, deterministic support, compact summary fields, artifact pointers, and documented read order.
 - [ ] **AC5:** Console output prints a concise next-step summary naming `.diagram/manifest.json`, the current `primaryHumanArtifact`, the current `primaryAgentArtifact`, and exactly one stable next action.
 - [ ] **AC6:** `scan --format json --deterministic` emits canonical machine-envelope fields with parser-safe stdout, stable error categories, and `data.outcome` set to `success`, `partial`, or `failed`.
-- [ ] **AC7:** Partial evidence records artifact-level statuses and never reports full success or exits `0` when artifacts required for the current phase and mode fail or are deferred.
-- [ ] **AC8:** `scan . --base <ref> --head <ref>` reuses `workflow pr`, writes PR artifacts, and includes risk, blast radius, confidence, evidence, and reviewer checks.
+- [ ] **AC7:** Partial evidence records artifact-level statuses and never reports full success or exits `0` when artifacts required for the current phase and mode fail or are unexpectedly deferred.
+- [ ] **AC8:** `scan . --base <ref> --head <ref>` reuses `workflow pr`, writes PR artifacts, preserves the `workflow pr` Architecture Review Brief field contract, and includes risk, blast radius, confidence, evidence, and reviewer checks.
 - [ ] **AC9:** README, CLI reference, getting-started, and CI artifact guidance present architecture evidence first and keep governance/migration detail in maintainer paths.
 - [ ] **AC10:** `generate`, `generate-all`, `validate`, `workflow pr`, `context`, `diagram`, and `@brainwav/diagram` compatibility behavior remain non-breaking.
 - [ ] **AC11:** Companion UI spec exists and maps report visual acceptance to SA6 and SA15.
