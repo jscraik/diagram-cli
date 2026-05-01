@@ -388,7 +388,7 @@ Execution posture for every unit:
 
 **Rollback:**
 
-- Keep repository scan behavior and disable PR composition behind clear `pr_refs_unavailable` or `report_generation_unavailable` warnings.
+- Keep repository scan behavior and disable PR composition behind clear PR-specific warnings such as `pr_refs_unavailable`, or generic `internal_error`/`write_failure` when the PR artifact writer itself fails.
 
 **Exit criteria:**
 
@@ -424,14 +424,14 @@ Execution posture for every unit:
 
 **CI artifact contract:**
 
-| Artifact path                       | Repository scan                 | PR scan                                          |
-| ----------------------------------- | ------------------------------- | ------------------------------------------------ |
-| `.diagram/manifest.json`            | required, `written`             | required, `written`                              |
-| `.diagram/brief.md`                 | required, `written`             | required, `written`                              |
-| `.diagram/agent-context.json`       | required, `written`             | required, `written`                              |
-| `.diagram/architecture.mmd`         | required, `written`             | required, `written`                              |
-| `.diagram/pr-impact/pr-impact.json` | absent or `deferred`            | required when `--base` and `--head` are supplied |
-| `.diagram/report.html`              | optional or `deferred` until P5 | optional or `deferred` until P5                  |
+| Artifact path                       | Repository scan                 | PR scan                                                                                                                                     |
+| ----------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.diagram/manifest.json`            | required, `written`             | required, `written`                                                                                                                         |
+| `.diagram/brief.md`                 | required, `written`             | required, `written`                                                                                                                         |
+| `.diagram/agent-context.json`       | required, `written`             | required, `written`                                                                                                                         |
+| `.diagram/architecture.mmd`         | required, `written`             | required, `written`                                                                                                                         |
+| `.diagram/pr-impact/pr-impact.json` | absent or `deferred`            | required as `written` when refs resolve; otherwise manifest and machine output must record `failed` or `partial` with `pr_refs_unavailable` |
+| `.diagram/report.html`              | optional or `deferred` until P5 | optional or `deferred` until P5                                                                                                             |
 
 **Test scenarios:**
 
