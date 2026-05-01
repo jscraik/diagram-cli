@@ -22,6 +22,7 @@ function formatList(items, emptyText) {
 function buildArchitectureBrief({
   manifest,
   analysis,
+  prImpact = null,
   warnings = [],
   errors = [],
 }) {
@@ -41,18 +42,31 @@ function buildArchitectureBrief({
   const areaText = summary.areas.length > 0
     ? summary.areas.map(([name, count]) => `${name} (${count})`).join(', ')
     : 'unknown';
+  const modeText = prImpact ? 'pr scan' : 'repository scan';
   const warningLines = formatList(warnings, 'No warnings recorded.');
   const errorLines = formatList(
     errors.map((error) => `${error.category}: ${error.message}`),
     'No errors recorded.'
   );
+  const prLines = prImpact
+    ? [
+      `- PR base: ${prImpact.base}`,
+      `- PR head: ${prImpact.head}`,
+      `- Changed components: ${prImpact.agentSummary?.changedComponents ?? prImpact.changedComponents?.length ?? 0}`,
+      `- Blast radius: ${prImpact.blastRadius?.impactedComponents?.length ?? 0}`,
+      `- Risk reasons: ${(prImpact.agentSummary?.riskReasons || []).join(', ') || 'none'}`,
+      `- Reviewer checks: ${(prImpact.agentSummary?.suggestedReviewerChecks || []).join('; ') || 'none'}`,
+      `- Validation evidence: workflow pr contract reused via .diagram/pr-impact/pr-impact.json`,
+      `- Confidence: ${prImpact.confidence?.level || 'unknown'}`,
+    ]
+    : ['- PR refs not supplied.'];
 
   const lines = [
     titleHeading,
     '',
     summaryHeading,
     '',
-    `- Mode: repository scan`,
+    `- Mode: ${modeText}`,
     `- Components detected: ${summary.componentCount}`,
     `- Files considered: ${summary.totalFilesFound}`,
     `- Entry points detected: ${summary.entryPointCount}`,
@@ -66,8 +80,9 @@ function buildArchitectureBrief({
     riskHeading,
     '',
     `- Validation: ${manifest.validation.status}`,
-    `- Risk: unknown until PR refs or policy validation are supplied`,
+    `- Risk: ${prImpact?.risk?.level || 'unknown until PR refs or policy validation are supplied'}`,
     `- Evidence status: ${manifest.artifacts.some((entry) => entry.status === 'failed') ? 'failed' : 'written'}`,
+    ...prLines,
     '',
     warningsHeading,
     '',

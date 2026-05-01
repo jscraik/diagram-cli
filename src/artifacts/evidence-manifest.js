@@ -146,6 +146,16 @@ function createScanEvidenceManifest({
       reason: artifactReasons.report || (reportStatus === 'deferred' ? 'ui_spec_required' : null),
       errorCategory: artifactErrorCategories.report || null,
     }),
+    artifactEntry({
+      id: 'pr-impact',
+      path: artifactPath('pr-impact/pr-impact.json'),
+      status: statusFor('pr-impact', 'deferred'),
+      role: 'pr-impact-json',
+      optional: true,
+      reason: artifactReasons['pr-impact']
+        || (statusFor('pr-impact', 'deferred') === 'deferred' ? 'pr_refs_not_supplied' : null),
+      errorCategory: artifactErrorCategories['pr-impact'] || null,
+    }),
   ].sort((a, b) => a.path.localeCompare(b.path));
 
   const primaryHumanArtifact = reportStatus === 'written'
@@ -156,6 +166,7 @@ function createScanEvidenceManifest({
     artifactPath('manifest.json'),
     artifactPath('brief.md'),
     artifactPath('agent-context.json'),
+    ...(statusFor('pr-impact', 'deferred') !== 'deferred' ? [artifactPath('pr-impact/pr-impact.json')] : []),
   ];
 
   return {

@@ -5,6 +5,7 @@ const { summarizeAnalysis } = require('./evidence-summary');
 function buildAgentContext({
   manifest,
   analysis = {},
+  prImpact = null,
   warnings = [],
   errors = [],
   mode = 'repository',
@@ -21,10 +22,10 @@ function buildAgentContext({
     }))
     .sort((left, right) => left.path.localeCompare(right.path));
 
-  return {
+  const payload = {
     schemaVersion: '1.0',
     generatedBy: 'archscope scan',
-    mode,
+    mode: prImpact ? 'pr' : mode,
     partial: artifacts.some((entry) => entry.status === 'partial' || entry.status === 'failed'),
     summary: {
       componentCount: summary.componentCount,
@@ -46,6 +47,21 @@ function buildAgentContext({
         `${left.artifact || ''}:${left.category}`.localeCompare(`${right.artifact || ''}:${right.category}`)
       ),
   };
+
+  if (prImpact) {
+    payload.pr = {
+      status: prImpact._meta?.status || 'complete',
+      changedFiles: prImpact.changedFiles || [],
+      changedComponents: prImpact.changedComponents || [],
+      blastRadius: prImpact.blastRadius || null,
+      reviewerChecks: prImpact.agentSummary?.suggestedReviewerChecks || [],
+    };
+    payload.base = prImpact.base;
+    payload.head = prImpact.head;
+    payload.risk = prImpact.risk || null;
+  }
+
+  return payload;
 }
 
 function writeAgentContext(filePath, input) {

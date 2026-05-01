@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const chalk = require('chalk');
 const { writeAgentContext } = require('../artifacts/agent-context');
 const { writeArchitectureBrief } = require('../artifacts/brief');
@@ -96,6 +97,92 @@ function writeArchitectureArtifact({ outDir, analysis }) {
   return architecturePath;
 }
 
+function optionArg(args, flag, value) {
+  if (value !== undefined && value !== null && String(value).trim() !== '') {
+    args.push(flag, String(value));
+  }
+}
+
+function parseWorkflowPrPayload(stdout) {
+  const trimmed = String(stdout || '').trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function runWorkflowPrEvidence({ root, outDir, options }) {
+  const prImpactDir = path.join(outDir, 'pr-impact');
+  const args = [
+    path.join(__dirname, '..', 'diagram.js'),
+    'workflow',
+    'pr',
+    root,
+    '--head',
+    options.head || 'HEAD',
+    '--output-dir',
+    prImpactDir,
+    '--format',
+    'json',
+  ];
+  optionArg(args, '--base', options.base);
+  optionArg(args, '--patterns', options.patterns);
+  optionArg(args, '--exclude', options.exclude);
+  optionArg(args, '--max-files', options.maxFiles);
+  if (options.deterministic) {
+    args.push('--deterministic');
+  }
+
+  const result = spawnSync(process.execPath, args, {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  const payload = parseWorkflowPrPayload(result.stdout);
+  if (result.status !== 0 || !payload?.data?.prImpact) {
+    const error = new Error(
+      payload?.errors?.[0]?.message
+      || result.stderr.trim()
+      || result.stdout.trim()
+      || 'workflow pr evidence failed'
+    );
+    error.category = payload?.errors?.[0]?.code || 'pr_refs_unavailable';
+    throw error;
+  }
+
+  return payload.data.prImpact;
+}
+
+function buildPrMachineSummary({
+  prImpact,
+  prImpactPath,
+  options,
+  errors,
+}) {
+  if (prImpact) {
+    return {
+      status: prImpact._meta?.status || 'complete',
+      base: prImpact.base,
+      head: prImpact.head,
+      prImpactPath,
+      risk: prImpact.risk || null,
+      blastRadius: prImpact.blastRadius || null,
+      reviewerChecks: prImpact.agentSummary?.suggestedReviewerChecks || [],
+    };
+  }
+  if (options.base || options.head) {
+    const prError = errors.find((error) => error.artifact === 'pr-impact');
+    return {
+      status: 'failed',
+      base: options.base || null,
+      head: options.head || 'HEAD',
+      errorCategory: prError?.category || 'pr_refs_unavailable',
+    };
+  }
+  return null;
+}
+
 /**
  * Register the `scan [path]` CLI command.
  *
@@ -142,15 +229,13 @@ function registerScanCommand(program) {
       fs.mkdirSync(outDir, { recursive: true });
 
       const warnings = [];
-      if (options.base || options.head) {
-        warnings.push('pr_evidence_deferred');
-      }
       const artifactStatuses = {
         manifest: 'written',
         brief: 'written',
         'agent-context': 'written',
         architecture: 'written',
         report: 'deferred',
+        'pr-impact': 'deferred',
       };
       const artifactReasons = {};
       const artifactErrorCategories = {};
@@ -162,6 +247,7 @@ function registerScanCommand(program) {
         errors,
       };
       let analysis = null;
+      let prImpact = null;
       const buildManifest = () => createScanEvidenceManifest({
         root,
         outDir,
@@ -187,6 +273,22 @@ function registerScanCommand(program) {
         });
       }
 
+      if (options.base || options.head) {
+        try {
+          const prEvidence = runWorkflowPrEvidence({ root, outDir, options });
+          prImpact = prEvidence;
+          artifactStatuses['pr-impact'] = 'written';
+        } catch (error) {
+          markArtifactFailure({
+            ...failureState,
+            artifact: 'pr-impact',
+            reason: 'pr_refs_unavailable',
+            category: error.category || 'pr_refs_unavailable',
+            error,
+          });
+        }
+      }
+
       let manifest = buildManifest();
 
       if (analysis) {
@@ -196,6 +298,7 @@ function registerScanCommand(program) {
           write: () => writeArchitectureBrief(briefPath, {
             manifest,
             analysis,
+            prImpact,
             warnings,
             errors,
           }),
@@ -210,6 +313,7 @@ function registerScanCommand(program) {
           write: () => writeAgentContext(agentContextPath, {
             manifest,
             analysis,
+            prImpact,
             warnings,
             errors,
           }),
@@ -225,6 +329,15 @@ function registerScanCommand(program) {
       const summary = createScanSummary(manifest);
 
       if (formatStr === 'json') {
+        const prImpactPath = prImpact
+          ? manifest.artifactReadOrder.find((entry) => entry.endsWith('pr-impact/pr-impact.json'))
+          : null;
+        const prSummary = buildPrMachineSummary({
+          prImpact,
+          prImpactPath,
+          options,
+          errors,
+        });
         const payload = buildMachineEnvelope({
           schemaVersion: '1.0',
           command: 'scan',
@@ -237,15 +350,18 @@ function registerScanCommand(program) {
             manifestPath: summary.manifestPath,
             briefPath: manifest.artifactReadOrder[1],
             agentContextPath: manifest.primaryAgentArtifact,
+            prImpactPath,
+            ...(prSummary ? { pr: prSummary } : {}),
             warnings: manifest.warnings,
           },
           errors,
           agentSummary: {
-            changedComponents: analysis?.components?.length || 0,
+            changedComponents: prImpact?.agentSummary?.changedComponents ?? analysis?.components?.length ?? 0,
             riskReasons: errors.length > 0
               ? errors.map((entry) => entry.category)
-              : manifest.warnings,
+              : (prImpact?.agentSummary?.riskReasons || manifest.warnings),
             suggestedReviewerChecks: [
+              ...(prImpact?.agentSummary?.suggestedReviewerChecks || []),
               'Read `.diagram/manifest.json` before consuming evidence artifacts.',
             ],
           },
