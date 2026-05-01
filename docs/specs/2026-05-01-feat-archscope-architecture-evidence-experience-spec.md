@@ -140,6 +140,7 @@ Out of scope:
 - `EvidenceManifest`
   - The index for the evidence pack.
   - Required fields: schema version, generated command, generated time, deterministic mode flag, project path or safe label, artifact list, primary human artifact, primary agent artifact, subordinate directories, validation summary, and warnings.
+  - Primary human artifact rule: when `report.html` is marked `written`, `primaryHumanArtifact` is `.diagram/report.html`; otherwise `primaryHumanArtifact` must be `.diagram/brief.md`, with `report.html` still indexed at its current status.
   - Deterministic behavior: when `scan --deterministic` is used, artifact lists must be sorted with the same deterministic ordering discipline as existing machine outputs, and volatile generation timestamps must either be omitted from deterministic machine output or set to the existing fixed sentinel timestamp `1970-01-01T00:00:00.000Z` in generated artifacts that require a timestamp.
 
 - `ScanCommand`
@@ -176,7 +177,7 @@ Canonical terms:
 - Supporting artifact type: diagrams, including Mermaid and ERD output.
 - Primary workflow: PR architecture review.
 - Default evidence bundle: `ArchitectureEvidencePack`.
-- Primary human artifact: `.diagram/report.html`.
+- Primary human artifact: `.diagram/report.html` when written; `.diagram/brief.md` while the report is unavailable or deferred.
 - Primary agent artifact: `.diagram/agent-context.json`.
 - Primary human summary artifact: `.diagram/brief.md`.
 - Artifact index: `.diagram/manifest.json`.
@@ -196,6 +197,7 @@ Relationship clarifications:
 - `report.html` is the richer human report. It may include the same facts as `brief.md`, but it owns layout, navigation, and visual scanning.
 - `agent-context.json` is the deterministic agent contract. It must not depend on scraping the human report.
 - `manifest.json` is the stable index and should be sufficient for CI, agents, and future tooling to discover generated artifacts.
+- `manifest.json` decides primary human artifact selection from artifact status; agents and CI must not assume `report.html` is primary when it is not marked `written`.
 - `workflow pr` remains the PR-specific analytical workflow. `scan` may call or summarize it when refs are supplied, but it must not change `workflow pr` semantics.
 - Existing migration evidence remains maintainer machinery. It can be indexed from `manifest.json`, but it must not be required reading for first-run value.
 
