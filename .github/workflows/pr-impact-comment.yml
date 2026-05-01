@@ -44,12 +44,12 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           # Parse JSON and build comment
-          CHANGED_COMPONENTS=$(jq '.changedComponents | length' pr-impact.json)
-          BLAST_RADIUS=$(jq '.blastRadius.impactedComponents | length' pr-impact.json)
-          RISK_LEVEL=$(jq -r '.risk.level' pr-impact.json)
-          RISK_SCORE=$(jq '.risk.score' pr-impact.json)
-          TRUNCATED=$(jq '.blastRadius.truncated' pr-impact.json)
-          OMITTED=$(jq '.blastRadius.omittedCount' pr-impact.json)
+          CHANGED_COMPONENTS=$(jq '.data.prImpact.changedComponents | length' pr-impact.json)
+          BLAST_RADIUS=$(jq '.data.prImpact.blastRadius.impactedComponents | length' pr-impact.json)
+          RISK_LEVEL=$(jq -r '.data.prImpact.risk.level' pr-impact.json)
+          RISK_SCORE=$(jq '.data.prImpact.risk.score' pr-impact.json)
+          TRUNCATED=$(jq '.data.prImpact.blastRadius.truncated' pr-impact.json)
+          OMITTED=$(jq '.data.prImpact.blastRadius.omittedCount' pr-impact.json)
 
           # Risk emoji
           case "$RISK_LEVEL" in
@@ -68,7 +68,7 @@ jobs:
           fi
 
           # Get risk flags
-          RISK_FLAGS=$(jq -r '.risk.flags | join(", ")' pr-impact.json)
+          RISK_FLAGS=$(jq -r '.data.prImpact.risk.flags | join(", ")' pr-impact.json)
           if [ -n "$RISK_FLAGS" ] && [ "$RISK_FLAGS" != "" ]; then
             FLAGS_SECTION="**Risk factors:** $RISK_FLAGS"
           else
@@ -76,9 +76,9 @@ jobs:
           fi
 
           # Check for override
-          OVERRIDE=$(jq '.risk.override.applied' pr-impact.json)
+          OVERRIDE=$(jq '.data.prImpact.risk.override.applied' pr-impact.json)
           if [ "$OVERRIDE" = "true" ]; then
-            OVERRIDE_REASON=$(jq -r '.risk.override.reason' pr-impact.json)
+            OVERRIDE_REASON=$(jq -r '.data.prImpact.risk.override.reason' pr-impact.json)
             OVERRIDE_SECTION="> ⚠️ **Risk gate overridden:** $OVERRIDE_REASON"
           else
             OVERRIDE_SECTION=""

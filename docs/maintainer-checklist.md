@@ -13,6 +13,8 @@ Review this checklist before merging changes or cutting a release.
 - [ ] Scope is clear and minimal.
 - [ ] `npm test` passes.
 - [ ] `npm run test:deep` passes when behavior or command output changed.
+- [ ] `npm run migration:readiness` passes when command identity, machine output,
+      release, or migration evidence behavior changed.
 - [ ] CLI examples were validated against current command behavior.
 - [ ] No secrets, tokens, or private endpoints were added.
 
@@ -33,6 +35,8 @@ Review this checklist before merging changes or cutting a release.
 
 - [ ] Version is updated.
 - [ ] `npm run release:prepare -- X.Y.Z` passes.
+- [ ] `npm run migration:readiness` passes for compatibility releases.
+- [ ] Finalization candidates pass `npm run migration:readiness -- --release-id X.Y.Z-rc.N --require-finalization-ready`.
 - [ ] Packaged CLI smoke test passes.
 - [ ] Publish command completed (`npm run release:publish -- X.Y.Z` or initial equivalent).
 - [ ] Git tag and GitHub release exist.

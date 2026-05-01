@@ -1,6 +1,6 @@
 # Architecture Testing
 
-Use `diagram validate` and `diagram workflow pr` to enforce architecture rules and review PR blast radius.
+Use `archscope validate` and `archscope workflow pr` to enforce architecture rules and review PR blast radius.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Use `diagram validate` and `diagram workflow pr` to enforce architecture rules a
 
 ## Overview
 
-`diagram validate` checks imports against declarative rules in `.architecture.yml`.
+`archscope validate` checks imports against declarative rules in `.architecture.yml`.
 
 Exit codes:
 
@@ -24,7 +24,7 @@ Exit codes:
 - `1`: one or more rules failed
 - `2`: configuration or usage error
 
-`diagram workflow pr` computes:
+`archscope workflow pr` computes:
 
 - changed modeled components
 - dependency edge delta
@@ -35,16 +35,16 @@ Exit codes:
 
 ```bash
 # Scaffold starter rules
-diagram validate --init
+archscope validate --init
 
 # Run validation
-diagram validate .
+archscope validate .
 
 # Preview matching files
-diagram validate . --dry-run --verbose
+archscope validate . --dry-run --verbose
 
 # PR risk analysis
-diagram workflow pr . --base origin/main --head HEAD
+archscope workflow pr . --base origin/main --head HEAD
 ```
 
 ## Configuration File
@@ -81,7 +81,7 @@ rules:
 ## Validate Command
 
 ```bash
-diagram validate [path] [options]
+archscope validate [path] [options]
 ```
 
 Options:
@@ -101,15 +101,15 @@ Options:
 Examples:
 
 ```bash
-diagram validate .
-diagram validate . --format json --deterministic
-diagram validate . --format junit --output architecture-results.xml
+archscope validate .
+archscope validate . --format json --deterministic
+archscope validate . --format junit --output architecture-results.xml
 ```
 
 ## PR Impact Command
 
 ```bash
-diagram workflow pr [path] [options]
+archscope workflow pr [path] [options]
 ```
 
 Key options:
@@ -131,14 +131,14 @@ Key options:
 Examples:
 
 ```bash
-diagram workflow pr . --base origin/main --head HEAD
-diagram workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
-diagram workflow pr . --base origin/main --head HEAD --format json --deterministic
+archscope workflow pr . --base origin/main --head HEAD
+archscope workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
+archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 ```
 
 ## Output Contracts
 
-`diagram workflow pr` writes:
+`archscope workflow pr` writes:
 
 - `.diagram/pr-impact/pr-impact.json`
 - `.diagram/pr-impact/pr-impact.html` (skipped in `--format json`)
@@ -147,8 +147,12 @@ Machine-output guidance:
 
 - Use `--format json` (canonical).
 - Use `--deterministic` for stable timestamps/order.
-- JSON includes explicit `schemaVersion`.
-- JSON includes `agentSummary` with:
+- Covered JSON commands emit the canonical root machine envelope with
+  `schemaVersion`, `command`, `status`, `meta`, `data`, `errors`, and optional
+  `agentSummary`.
+- JSON-capable command coverage is tracked in `.diagram/contracts/machine-command-coverage.json`.
+- PR impact JSON nests its analytical payload under `data.prImpact` and includes
+  `agentSummary` with:
   - `changedComponents`
   - `riskReasons`
   - `suggestedReviewerChecks`
@@ -158,6 +162,12 @@ No-change behavior:
 - If base/head refs have no diff, command exits `0`.
 - Text mode prints a concise status message.
 - JSON mode returns an empty-impact result payload.
+
+Compatibility note:
+
+- `diagram validate` and `diagram workflow pr` remain available during the
+  `compatibility` migration state.
+- New docs and automation should prefer `archscope`.
 
 ## CI Integration
 
@@ -189,9 +199,9 @@ jobs:
 ## Troubleshooting
 
 - Missing `.architecture.yml`:
-  - Run `diagram validate --init`.
+  - Run `archscope validate --init`.
 - Unexpected matches:
-  - Run `diagram validate --dry-run --verbose`.
+  - Run `archscope validate --dry-run --verbose`.
 - Output write failures:
   - Ensure output paths are inside the project root and writable.
 - PR ref resolution failures:

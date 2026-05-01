@@ -5,12 +5,14 @@
   "description": "Generate architecture diagrams from codebases",
   "main": "src/diagram.js",
   "bin": {
+    "archscope": "src/diagram.js",
     "diagram": "src/diagram.js"
   },
   "scripts": {
     "test": "mocha",
     "test:watch": "mocha --watch",
     "test:deep": "node scripts/deep-regression.js",
+    "migration:readiness": "node scripts/validate-archscope-readiness.js",
     "ci:artifacts": "mkdir -p .diagram && node src/diagram.js generate-all . --output-dir .diagram --artifact-profile agent && node src/diagram.js validate . --format junit --output .diagram/architecture-results.xml",
     "prepublishOnly": "npm test",
     "release:prepare": "bash scripts/release-npm.sh",
@@ -66,6 +68,10 @@
     "registry": "https://registry.npmjs.org/"
   },
   "files": [
+    ".diagram/contracts/**/*.json",
+    ".diagram/migration/finalization-policy.json",
+    ".diagram/migration/migration-readiness.json",
+    ".diagram/migration/releases/**/*.json",
     "src/**/*.js",
     "README.md",
     "scripts/refresh-diagram-context.sh",

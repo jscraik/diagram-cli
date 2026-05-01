@@ -1,6 +1,6 @@
 # CLI Command Reference
 
-Primary command reference for `diagram-cli`.
+Primary command reference for the canonical `archscope` CLI.
 
 ## Table of Contents
 
@@ -12,34 +12,35 @@ Primary command reference for `diagram-cli`.
 - [Defaults and Precedence](#defaults-and-precedence)
 - [Machine Output](#machine-output)
 - [Compatibility Aliases](#compatibility-aliases)
+- [Migration State](#migration-state)
 
 ## Command Set
 
 ```bash
-diagram init [path]
-diagram doctor [path]
-diagram analyze [path]
-diagram generate [path]
-diagram generate-all [path]
-diagram changed [path]
-diagram context [path]
-diagram explain <component> [path]
-diagram validate [path]
-diagram workflow pr [path]
-diagram diff <base> <head>
-diagram generate-video [path]
-diagram generate-animated [path]
+archscope init [path]
+archscope doctor [path]
+archscope analyze [path]
+archscope generate [path]
+archscope generate-all [path]
+archscope changed [path]
+archscope context [path]
+archscope explain <component> [path]
+archscope validate [path]
+archscope workflow pr [path]
+archscope diff <base> <head>
+archscope generate-video [path]
+archscope generate-animated [path]
 ```
 
 ## Core Commands
 
-### `diagram init [path]`
+### `archscope init [path]`
 
 Bootstrap starter files for architecture workflows.
 
 ```bash
-diagram init .
-diagram init . --force
+archscope init .
+archscope init . --force
 ```
 
 Creates:
@@ -48,32 +49,33 @@ Creates:
 - `.diagramrc`
 - `.diagram/ci/github-actions-step.yml`
 
-### `diagram doctor [path]`
+### `archscope doctor [path]`
 
 Run environment diagnostics for Mermaid, Playwright, ffmpeg, git history depth, write permissions, and npm cache.
 
 ```bash
-diagram doctor .
-diagram doctor . --format json
+archscope doctor .
+archscope doctor . --format json
 ```
 
-### `diagram analyze [path]`
+### `archscope analyze [path]`
 
 Analyze repository structure without rendering a diagram.
 
 ```bash
-diagram analyze .
-diagram analyze . --format json --deterministic
+archscope analyze .
+archscope analyze . --format json --deterministic
 ```
 
-### `diagram generate [path]`
+### `archscope generate [path]`
 
 Generate one diagram.
 
 ```bash
-diagram generate . --type architecture
-diagram generate . --type security --format json --deterministic
-diagram generate . --output diagram.svg --validate
+archscope generate . --type architecture
+archscope generate . --type security --format json --deterministic
+archscope generate . --type erd --format json --deterministic
+archscope generate . --output diagram.svg --validate
 ```
 
 Key options:
@@ -87,14 +89,14 @@ Key options:
 - `--format <type>`
 - `--deterministic`
 
-### `diagram generate-all [path]`
+### `archscope generate-all [path]`
 
 Generate all supported diagram types and manifest.
 
 ```bash
-diagram generate-all .
-diagram generate-all . --output-dir .diagram --artifact-profile agent
-diagram generate-all . --format json --deterministic
+archscope generate-all .
+archscope generate-all . --output-dir .diagram --artifact-profile agent
+archscope generate-all . --format json --deterministic
 ```
 
 Key options:
@@ -104,42 +106,42 @@ Key options:
 - `--format <type>`
 - `--deterministic`
 
-### `diagram changed [path]`
+### `archscope changed [path]`
 
 Analyze only git-changed files (branch delta or working tree).
 
 ```bash
-diagram changed . --base origin/main --head HEAD
-diagram changed . --format json --deterministic
+archscope changed . --base origin/main --head HEAD
+archscope changed . --format json --deterministic
 ```
 
-### `diagram context [path]`
+### `archscope context [path]`
 
 Refresh AI-focused context pack artifacts under `.diagram/context`.
 
 ```bash
-diagram context .
-diagram context . --force
-diagram context . --format json --deterministic
+archscope context .
+archscope context . --force
+archscope context . --format json --deterministic
 ```
 
-### `diagram explain <component> [path]`
+### `archscope explain <component> [path]`
 
 Explain a local dependency neighborhood in text + Mermaid.
 
 ```bash
-diagram explain auth-service .
-diagram explain src/api/routes/users.ts . --depth 3 --format json --deterministic
+archscope explain auth-service .
+archscope explain src/api/routes/users.ts . --depth 3 --format json --deterministic
 ```
 
-### `diagram validate [path]`
+### `archscope validate [path]`
 
 Validate architecture rules from `.architecture.yml`.
 
 ```bash
-diagram validate --init
-diagram validate .
-diagram validate . --format junit --output architecture-results.xml
+archscope validate --init
+archscope validate .
+archscope validate . --format junit --output architecture-results.xml
 ```
 
 Key options:
@@ -152,14 +154,14 @@ Key options:
 
 ## Workflow Commands
 
-### `diagram workflow pr [path]`
+### `archscope workflow pr [path]`
 
 Compute PR architecture delta, blast radius, and risk.
 
 ```bash
-diagram workflow pr . --base origin/main --head HEAD
-diagram workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
-diagram workflow pr . --base origin/main --head HEAD --format json --deterministic
+archscope workflow pr . --base origin/main --head HEAD
+archscope workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
+archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 ```
 
 Writes artifacts to `.diagram/pr-impact` by default:
@@ -183,34 +185,34 @@ Key options:
 - `--patterns <list>`
 - `--exclude <list>`
 
-### `diagram diff <base> <head>`
+### `archscope diff <base> <head>`
 
 Compare architecture between two refs.
 
 ```bash
-diagram diff origin/main HEAD
-diagram diff origin/main HEAD --format json --deterministic
+archscope diff origin/main HEAD
+archscope diff origin/main HEAD --format json --deterministic
 ```
 
 ## Video and Animation Commands
 
-### `diagram generate-video [path]`
+### `archscope generate-video [path]`
 
 Generate animated video output (`.mp4`, `.webm`, `.mov`).
 
 ```bash
-diagram generate-video . --duration 8 --fps 60 --width 1920 --height 1080
+archscope generate-video . --duration 8 --fps 60 --width 1920 --height 1080
 ```
 
-### `diagram generate-animated [path]`
+### `archscope generate-animated [path]`
 
 Generate animated SVG output.
 
 ```bash
-diagram generate-animated . --type architecture --output diagram-animated.svg
+archscope generate-animated . --type architecture --output diagram-animated.svg
 ```
 
-Use `diagram doctor .` first if runtime dependencies are missing.
+Use `archscope doctor .` first if runtime dependencies are missing.
 
 ## Diagram Types
 
@@ -222,6 +224,7 @@ Use `diagram doctor .` first if runtime dependencies are missing.
 | `class` | Class-oriented relationships |
 | `flow` | Process/data flow |
 | `database` | Persistence-related paths |
+| `erd` | Entity relationship diagram from supported schema sources |
 | `user` | User interaction entrypaths |
 | `events` | Event-driven architecture paths |
 | `auth` | Authentication and authorization flow |
@@ -242,8 +245,16 @@ For `patterns`, `exclude`, `maxFiles`, and `theme`, defaults resolve as:
 
 - Canonical machine mode: `--format json`
 - Stability mode: `--deterministic`
-- JSON payloads include explicit `schemaVersion`
-- PR impact JSON includes `agentSummary`:
+- Covered JSON payloads use the canonical root envelope:
+  - `schemaVersion`
+  - `command`
+  - `status`
+  - `meta`
+  - `data`
+  - `errors`
+  - optional `agentSummary`
+- JSON-capable command coverage is tracked in `.diagram/contracts/machine-command-coverage.json`
+- PR impact JSON nests its analytical payload under `data.prImpact` and includes `agentSummary`:
   - `changedComponents`
   - `riskReasons`
   - `suggestedReviewerChecks`
@@ -252,9 +263,22 @@ For `patterns`, `exclude`, `maxFiles`, and `theme`, defaults resolve as:
 
 These aliases are accepted for backward compatibility and normalized at runtime:
 
-- `diagram test` -> `diagram validate`
-- `diagram all` -> `diagram generate-all`
-- `diagram video` -> `diagram generate-video`
-- `diagram animate` -> `diagram generate-animated`
+- `archscope test` -> `archscope validate`
+- `archscope all` -> `archscope generate-all`
+- `archscope video` -> `archscope generate-video`
+- `archscope animate` -> `archscope generate-animated`
 - `--json` / `-j` -> `--format json`
 
+The command name `diagram` remains available as a compatibility entrypoint in
+the `compatibility` migration state. New documentation and scripts should prefer
+`archscope`, while existing `diagram` automation can continue during the
+declared migration window.
+
+## Migration State
+
+- Current state: `compatibility`
+- Canonical command: `archscope`
+- Compatibility command: `diagram`
+- Package name boundary: `@brainwav/diagram` is unchanged in this delivery.
+- Finalization policy: `.diagram/migration/finalization-policy.json`
+- Migration guide: [Archscope compatibility migration](migration/archscope-compatibility.md)

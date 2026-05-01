@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0",
+  "description": "Exhaustive inventory of CLI commands that support parser-safe JSON machine output.",
+  "commands": [
+    {
+      "command": "analyze",
+      "module": "src/commands/analyze.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "changed",
+      "module": "src/commands/changed.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "context",
+      "module": "src/commands/context.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "diff",
+      "module": "src/commands/diff.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "doctor",
+      "module": "src/commands/doctor.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "explain",
+      "module": "src/commands/explain.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "generate",
+      "module": "src/commands/generate.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "generate-all",
+      "module": "src/commands/generate-all.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "validate",
+      "module": "src/commands/validate.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "workflow-pr",
+      "cli": "workflow pr",
+      "module": "src/workflow/pr-command.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    }
+  ]
+}

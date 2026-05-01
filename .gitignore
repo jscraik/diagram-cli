@@ -7,6 +7,16 @@ pnpm-debug.log*
 coverage/
 diagrams/
 .diagram/
+!.diagram/
+.diagram/*
+!.diagram/contracts/
+!.diagram/contracts/**
+!.diagram/migration/
+.diagram/migration/*
+!.diagram/migration/finalization-policy.json
+!.diagram/migration/migration-readiness.json
+!.diagram/migration/releases/
+!.diagram/migration/releases/**
 
 # Local tooling caches
 .narrative/meta/

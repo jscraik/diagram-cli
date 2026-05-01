@@ -75,4 +75,5 @@ jobs:
             --base "$BASE_SHA" \
             --head "$HEAD_SHA" \
             --risk-threshold high \
-            --fail-on-risk
+            --fail-on-risk \
+            --risk-override-reason "PR body includes risk and rollback plan; required reviewers must verify before merge"

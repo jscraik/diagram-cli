@@ -68,6 +68,51 @@ describe('artifact budget', () => {
     expect(() => resolveArtifactProfile('unknown')).to.throw('Invalid artifact profile');
   });
 
+  it('preserves diagram metadata through budgeting', () => {
+    const diagrams = [
+      {
+        ...makeDiagram('erd', 4),
+        metadata: {
+          purpose: 'schema_entity_relationships',
+          confidence: { outcome: 'publishable' },
+        },
+      },
+    ];
+
+    const profile = resolveArtifactProfile('full');
+    const result = applyArtifactBudget(diagrams, profile);
+
+    expect(result.included[0].metadata).to.deep.equal({
+      purpose: 'schema_entity_relationships',
+      confidence: { outcome: 'publishable' },
+    });
+  });
+
+  it('omits low-confidence artifacts from compact profiles', () => {
+    const diagrams = [
+      makeDiagram('architecture', 4),
+      {
+        ...makeDiagram('erd', 4),
+        metadata: {
+          purpose: 'schema_entity_relationships',
+          compactEligible: false,
+          confidence: { outcome: 'fail_confidence' },
+        },
+      },
+      makeDiagram('database', 4),
+    ];
+
+    const profile = resolveArtifactProfile('agent');
+    const result = applyArtifactBudget(diagrams, profile);
+
+    expect(result.included.map((entry) => entry.type)).to.deep.equal(['architecture', 'database']);
+    expect(result.omitted).to.deep.include({
+      type: 'erd',
+      reason: 'low_confidence',
+      originalBytes: Buffer.byteLength(diagrams[1].mermaid),
+    });
+  });
+
   it('exposes stable defaults for ultra-compact profile', () => {
     const profile = resolveArtifactProfile('ultra-compact');
     expect(profile.name).to.equal('ultra-compact');

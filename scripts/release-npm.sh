@@ -8,6 +8,10 @@ Usage: scripts/release-npm.sh [--publish] [--initial] <version>
 Options:
   --publish   Execute the full release (version bump, git tag, npm publish)
   --initial   Publish the existing package.json version as first npm release
+  --release-id <id>
+              Release-candidate evidence ID to validate before finalization
+  --require-finalization-ready
+              Require immutable migration evidence before continuing
   -h, --help  Show this help
 
 Examples:
@@ -48,10 +52,13 @@ EOF
 module.exports = { ok: true };
 EOF
 
+    ./node_modules/.bin/archscope --help >/dev/null
     ./node_modules/.bin/diagram --help >/dev/null
+    ./node_modules/.bin/archscope analyze workspace --format json >/dev/null
     ./node_modules/.bin/diagram analyze workspace --format json >/dev/null
-    ./node_modules/.bin/diagram generate workspace --type architecture --output workspace/architecture.mmd >/dev/null
-    ./node_modules/.bin/diagram validate workspace --init >/dev/null
+    ./node_modules/.bin/archscope generate workspace --type architecture --output workspace/architecture.mmd >/dev/null
+    ./node_modules/.bin/diagram generate workspace --type architecture --output workspace/diagram-architecture.mmd >/dev/null
+    ./node_modules/.bin/archscope validate workspace --init >/dev/null
     ./node_modules/.bin/diagram validate workspace >/dev/null
   )
 }
@@ -97,14 +104,27 @@ version_gt() {
 publish=false
 initial=false
 target_version=""
+release_id=""
+require_finalization_ready=false
 
-for arg in "$@"; do
+while [[ $# -gt 0 ]]; do
+  arg="$1"
   case "$arg" in
     --publish)
       publish=true
       ;;
     --initial)
       initial=true
+      ;;
+    --release-id)
+      if [[ $# -lt 2 || -z "${2:-}" ]]; then
+        fail "--release-id requires a value."
+      fi
+      release_id="$2"
+      shift
+      ;;
+    --require-finalization-ready)
+      require_finalization_ready=true
       ;;
     -h|--help)
       usage
@@ -118,6 +138,7 @@ for arg in "$@"; do
       fi
       ;;
   esac
+  shift
 done
 
 if [[ -z "$target_version" ]]; then
@@ -187,6 +208,23 @@ fi
 
 echo "Running test suite..."
 npm test
+
+echo "Validating migration artifacts..."
+readiness_args=()
+if [[ -n "$release_id" ]]; then
+  readiness_args+=(--release-id "$release_id")
+fi
+if [[ "$require_finalization_ready" == "true" ]]; then
+  if [[ -z "$release_id" ]]; then
+    fail "--require-finalization-ready requires --release-id."
+  fi
+  readiness_args+=(--require-finalization-ready)
+fi
+if [[ "${#readiness_args[@]}" -gt 0 ]]; then
+  npm run migration:readiness -- "${readiness_args[@]}"
+else
+  npm run migration:readiness
+fi
 
 echo "Checking publish artifact..."
 npm pack --dry-run

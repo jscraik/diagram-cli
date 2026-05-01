@@ -3,7 +3,15 @@ const path = require('path');
 const { globSync } = require('glob');
 const { canonicalEntityName, normalizeErdModel } = require('./erd-model');
 
-const DEFAULT_IGNORE = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/build/**'];
+const DEFAULT_IGNORE = [
+  '**/node_modules/**',
+  '**/.git/**',
+  '**/dist/**',
+  '**/build/**',
+  '**/test/fixtures/**',
+  '**/tests/fixtures/**',
+  '**/__fixtures__/**',
+];
 const SOURCE_PRECEDENCE = Object.freeze(['prisma', 'sql']);
 const SOURCE_FILE_PATTERNS = Object.freeze({
   prisma: '**/schema.prisma',
@@ -385,7 +393,14 @@ function inferRelationshipsFromForeignKeyNames(entities, explicitRelationships) 
   return inferred;
 }
 
-function extractErdModel({ rootPath }) {
+function normalizeIgnore(ignore) {
+  return [...new Set([
+    ...DEFAULT_IGNORE,
+    ...(Array.isArray(ignore) ? ignore : []),
+  ].filter(Boolean))];
+}
+
+function extractErdModel({ rootPath, ignore = [] }) {
   const result = {
     extractionInvoked: true,
     sourcePrecedence: [...SOURCE_PRECEDENCE],
@@ -407,7 +422,7 @@ function extractErdModel({ rootPath }) {
       globSync(SOURCE_FILE_PATTERNS[source], {
         cwd: rootPath,
         absolute: true,
-        ignore: DEFAULT_IGNORE,
+        ignore: normalizeIgnore(ignore),
         nodir: true,
       }).sort(),
     ])

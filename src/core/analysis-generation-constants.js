@@ -36,6 +36,7 @@ const SUPPORTED_DIAGRAM_TYPES = Object.freeze([
   'class',
   'flow',
   'database',
+  'erd',
   'user',
   'events',
   'auth',

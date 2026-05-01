@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "migrationState": "compatibility",
+  "effectiveFromState": "compatibility",
+  "targetState": "finalized",
+  "minimumWindow": {
+    "releaseCandidates": 2,
+    "days": 30,
+    "clock": "UTC"
+  },
+  "gatingCriteria": [
+    "dual_command_identity_available",
+    "compatibility_path_regression_passed",
+    "machine_command_coverage_manifest_valid",
+    "machine_envelope_conformance_passed",
+    "migration_evidence_hash_valid",
+    "append_only_ledger_valid",
+    "rollback_drill_passed"
+  ]
+}

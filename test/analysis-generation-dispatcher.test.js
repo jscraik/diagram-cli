@@ -21,6 +21,7 @@ describe('analysis generation dispatcher', () => {
       class: 'classDiagram',
       flow: 'flowchart TD',
       database: 'flowchart TD',
+      erd: 'erDiagram',
       user: 'flowchart LR',
       events: 'flowchart TD',
       auth: 'flowchart TD',

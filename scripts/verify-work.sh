@@ -300,4 +300,9 @@ else
 	npm test
 fi
 
+if has_package_script "migration:readiness"; then
+	print_stage "migration:readiness"
+	npm run migration:readiness
+fi
+
 run_hook_governance_checks
