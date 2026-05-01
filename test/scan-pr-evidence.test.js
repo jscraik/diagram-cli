@@ -147,6 +147,9 @@ describe('scan PR evidence composition', () => {
     expect(payload.data.pr.head).to.equal('HEAD');
     expect(payload.data.pr.errorCategory).to.equal('pr_refs_unavailable');
     expect(payload.errors.map((error) => error.category)).to.include('pr_refs_unavailable');
+    const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
+    expect(brief).to.include('- Mode: pr scan');
+    expect(brief).to.include('- PR evidence unavailable: pr_refs_unavailable');
   });
 
   it('keeps PR artifact paths consistent with custom output directories', () => {
@@ -170,5 +173,9 @@ describe('scan PR evidence composition', () => {
     expect(payload.data.prImpactPath).to.equal('artifacts/scan/pr-impact/pr-impact.json');
     expect(payload.data.pr.prImpactPath).to.equal('artifacts/scan/pr-impact/pr-impact.json');
     expect(fs.existsSync(path.join(workspace, 'artifacts', 'scan', 'pr-impact', 'pr-impact.json'))).to.equal(true);
+    const brief = fs.readFileSync(path.join(workspace, 'artifacts', 'scan', 'brief.md'), 'utf8');
+    expect(brief).to.include(
+      '- Validation evidence: workflow pr contract reused via artifacts/scan/pr-impact/pr-impact.json'
+    );
   });
 });

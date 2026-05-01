@@ -151,7 +151,24 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
   const result = spawnSync(process.execPath, args, {
     cwd: root,
     encoding: 'utf8',
+    timeout: 120000,
+    maxBuffer: 10 * 1024 * 1024,
   });
+  if (result.error?.code === 'ETIMEDOUT') {
+    const timeoutError = new Error('workflow pr evidence timed out');
+    timeoutError.category = 'pr_timeout';
+    throw timeoutError;
+  }
+  if (result.error?.code === 'ENOBUFS') {
+    const bufferError = new Error('workflow pr evidence exceeded max output buffer');
+    bufferError.category = 'pr_output_too_large';
+    throw bufferError;
+  }
+  if (result.error) {
+    const spawnError = new Error(result.error.message || 'workflow pr evidence failed to start');
+    spawnError.category = 'pr_refs_unavailable';
+    throw spawnError;
+  }
   const payload = parseWorkflowPrPayload(result.stdout);
   if (result.status !== 0 || !payload?.data?.prImpact) {
     const error = new Error(

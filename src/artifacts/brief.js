@@ -42,14 +42,15 @@ function buildArchitectureBrief({
   const areaText = summary.areas.length > 0
     ? summary.areas.map(([name, count]) => `${name} (${count})`).join(', ')
     : 'unknown';
-  const modeText = prImpact ? 'pr scan' : 'repository scan';
+  const prImpactEntry = manifest.artifacts.find((entry) => entry.id === 'pr-impact');
+  const prMode = prImpactEntry && prImpactEntry.status !== 'deferred';
+  const modeText = prMode ? 'pr scan' : 'repository scan';
   const warningLines = formatList(warnings, 'No warnings recorded.');
   const errorLines = formatList(
     errors.map((error) => `${error.category}: ${error.message}`),
     'No errors recorded.'
   );
-  const prImpactArtifactPath = manifest.artifacts.find((entry) => entry.id === 'pr-impact')?.path
-    || 'pr-impact/pr-impact.json';
+  const prImpactArtifactPath = prImpactEntry?.path || 'pr-impact/pr-impact.json';
   const prLines = prImpact
     ? [
       `- PR base: ${prImpact.base}`,
@@ -61,7 +62,9 @@ function buildArchitectureBrief({
       `- Validation evidence: workflow pr contract reused via ${prImpactArtifactPath}`,
       `- Confidence: ${prImpact.confidence?.level || 'unknown'}`,
     ]
-    : ['- PR refs not supplied.'];
+    : [prMode
+      ? `- PR evidence unavailable: ${prImpactEntry.errorCategory || prImpactEntry.reason || prImpactEntry.status || 'unknown'}`
+      : '- PR refs not supplied.'];
 
   const lines = [
     titleHeading,

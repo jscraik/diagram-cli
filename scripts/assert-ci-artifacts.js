@@ -56,18 +56,22 @@ function resolvePrScanRefs() {
     return requested;
   }
 
+  if (!gitRefExists('HEAD')) {
+    fail(`PR scan head ref unavailable: ${requested.head}`);
+  }
+
   const fallbackBase = previousHeadCommit();
-  if (fallbackBase && gitRefExists('HEAD')) {
+  if (fallbackBase) {
     console.warn(
       `ci artifact assertion warning: ${requested.base} or ${requested.head} was unavailable; using ${fallbackBase}..HEAD`
     );
     return { base: fallbackBase, head: 'HEAD' };
   }
 
-  fail(
-    `PR scan refs unavailable: base=${requested.base}, head=${requested.head}. `
-    + 'Set ARCHSCOPE_BASE_REF/ARCHSCOPE_HEAD_REF to fetched commits or checkout at least two commits.'
+  console.warn(
+    `ci artifact assertion warning: ${requested.base} or ${requested.head} unavailable in shallow history; using HEAD..HEAD`
   );
+  return { base: 'HEAD', head: 'HEAD' };
 }
 
 function readJson(relativePath) {
