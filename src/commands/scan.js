@@ -306,6 +306,12 @@ function registerScanCommand(program) {
       if (options.base || options.head) {
         try {
           const prEvidence = runWorkflowPrEvidence({ root, outDir, options });
+          const prImpactPath = path.join(outDir, 'pr-impact', 'pr-impact.json');
+          if (!fs.existsSync(prImpactPath)) {
+            const error = new Error('workflow pr completed without writing pr-impact/pr-impact.json');
+            error.category = 'pr_artifact_missing';
+            throw error;
+          }
           prImpact = prEvidence;
           artifactStatuses['pr-impact'] = 'written';
         } catch (error) {
@@ -317,6 +323,7 @@ function registerScanCommand(program) {
             error,
           });
         }
+      }
       }
 
       let manifest = buildManifest();
