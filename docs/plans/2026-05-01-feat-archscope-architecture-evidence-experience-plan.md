@@ -232,6 +232,7 @@ Execution posture for every unit:
 
 - Use vertical slices: behavior test, implementation, focused validation, then ledger update.
 - Run the explicitly requested `$simplify` and `$he-code-review` review steps after each completed implementation phase when this plan enters work mode; record each review outcome or blocker in the ledger.
+- Resolve phase review steps to `/Users/jamiecraik/dev/agent-skills/.agents/skills/simplify/SKILL.md` and `/Users/jamiecraik/dev/agent-skills/.agents/skills/he-code-review/SKILL.md`. If either skill cannot be loaded or executed, stop the phase closeout and record the blocker in the ledger; do not substitute a different review workflow.
 - Do not mark a unit complete until validation evidence exists.
 - Keep `report.html` incomplete or deferred until the companion UI spec is available.
 
@@ -259,6 +260,7 @@ Execution posture for every unit:
 
 - Register `scan` as a public command with path, output directory, `--format json`, `--deterministic`, `--base`, and `--head` options.
 - Extract existing generate-all manifest behavior into one shared writer, then implement a minimal evidence-pack coordinator that can write `manifest.json` with expected top-level artifact entries and statuses.
+- Treat shared-manifest extraction as a hard decision gate: if the extraction changes existing `generate-all` output semantics or requires edits to more than three non-test implementation files outside `src/artifacts/evidence-manifest.js`, `src/commands/generate-all.js`, and `src/commands/scan.js`, stop and re-plan a narrower adapter.
 - Make `report.html` an expected artifact with `deferred` status until P4/P5.
 - Set `primaryHumanArtifact` to `.diagram/brief.md` whenever `report.html` is not marked `written`.
 - Use canonical machine-envelope behavior for JSON output.
@@ -286,7 +288,7 @@ Execution posture for every unit:
 
 **Exit criteria:**
 
-- AC1, AC2, AC5, AC6, AC7, AC10, and AC13 have passing validation or explicit scoped blockers.
+- AC1, AC2, AC5, AC6, AC10, and AC13 have passing validation or explicit scoped blockers.
 
 - [ ] **P1 / Unit 2: Non-Visual Evidence Pack Writers**
 
@@ -314,6 +316,7 @@ Execution posture for every unit:
 - Generate `brief.md` from normalized evidence fields: summary, detected architecture areas, artifact pointers, validation summary, warnings, and agent handoff.
 - Keep `brief.md` bounded to a short fixed structure: summary, artifact read order, risk/validation summary, warnings, and next action; add fixture assertions for required headings and maximum line budget.
 - Generate top-level `agent-context.json` from the context domain or a small adapter over existing context metadata.
+- Add `src/schema/agent-context-v1.schema.json` and enforce the minimal v1 fields `schemaVersion`, `generatedBy`, `mode`, `summary`, `artifacts`, `readOrder`, `warnings`, `errors`, and `partial`; allow optional PR fields only when comparison refs are supplied.
 - Update `manifest.json` after writers complete so statuses reflect reality.
 - Preserve useful partial output if any writer fails.
 
@@ -414,12 +417,24 @@ Execution posture for every unit:
 - Ensure CI guidance exposes `brief.md`, `agent-context.json`, `manifest.json`, and PR-impact JSON through stable paths.
 - Preserve compatibility docs for `diagram` and package-name migration state.
 
+**CI artifact contract:**
+
+| Artifact path                       | Repository scan                 | PR scan                                          |
+| ----------------------------------- | ------------------------------- | ------------------------------------------------ |
+| `.diagram/manifest.json`            | required, `written`             | required, `written`                              |
+| `.diagram/brief.md`                 | required, `written`             | required, `written`                              |
+| `.diagram/agent-context.json`       | required, `written`             | required, `written`                              |
+| `.diagram/architecture.mmd`         | required, `written`             | required, `written`                              |
+| `.diagram/pr-impact/pr-impact.json` | absent or `deferred`            | required when `--base` and `--head` are supplied |
+| `.diagram/report.html`              | optional or `deferred` until P5 | optional or `deferred` until P5                  |
+
 **Test scenarios:**
 
 - README first-run path names the evidence pack and read order.
 - First-run console/docs path directs users to exactly two primary files: `.diagram/manifest.json` and the current `primaryHumanArtifact`.
 - CLI reference documents scan options and machine mode.
 - CI artifact generation either runs scan or documents how to collect scan artifacts from stable paths.
+- `ci:artifacts` validation asserts the required repository-scan and PR-scan artifact paths and statuses from the table above when script behavior changes.
 - Video and animated generation remain documented as secondary, not removed.
 
 **Verification:**
@@ -541,6 +556,7 @@ Execution posture for every unit:
 **Stop condition:**
 
 - Existing machine-envelope helpers cannot support `scan` without broad refactoring. Route back to plan before creating parallel output machinery.
+- Shared manifest extraction changes existing `generate-all` output semantics or exceeds the P0 file-scope gate. Route back to plan before widening the extraction.
 
 ### Checkpoint B: Non-Visual Pack Completeness
 

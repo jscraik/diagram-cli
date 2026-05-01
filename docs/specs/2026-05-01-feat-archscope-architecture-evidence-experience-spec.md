@@ -130,6 +130,9 @@ Out of scope:
 - `AgentContextContract`
   - The canonical machine-readable contract for AI coding agents.
   - Required behavior: deterministic output option, stable schema versioning, parser-safe JSON, explicit command metadata, stable error categories, and compact summary fields.
+  - Schema path: `src/schema/agent-context-v1.schema.json`.
+  - Required v1 fields: `schemaVersion`, `generatedBy`, `mode`, `summary`, `artifacts`, `readOrder`, `warnings`, `errors`, and `partial`.
+  - Optional PR-mode fields: `pr`, `base`, `head`, and `risk` when `scan` is invoked with comparison refs.
   - Canonical read order:
     1. `.diagram/manifest.json`
     2. `.diagram/brief.md`
