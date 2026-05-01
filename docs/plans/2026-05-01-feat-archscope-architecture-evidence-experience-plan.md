@@ -117,7 +117,7 @@ This plan is local and untracked until a Linear issue or equivalent work item is
 | untracked | R9          | SA21                  | P0, P1, P2 | AC2, AC7, AC8  | pending     |
 | untracked | R10         | SA11, SA18            | P0, P3     | AC1, AC10      | pending     |
 | untracked | R11         | SA10                  | P3         | AC9            | pending     |
-| untracked | R12         | SA14                  | P3         | AC9            | pending     |
+| untracked | R12         | SA14                  | P3         | AC14           | pending     |
 | untracked | R13         | SA6, SA15             | P4, P5     | AC11, AC12     | pending     |
 | untracked | R14         | SA13, SA23            | P0-P5      | AC13           | pending     |
 
@@ -232,7 +232,7 @@ Execution posture for every unit:
 
 - Use vertical slices: behavior test, implementation, focused validation, then ledger update.
 - Run the explicitly requested `$simplify` and `$he-code-review` review steps after each completed implementation phase when this plan enters work mode; record each review outcome or blocker in the ledger.
-- Resolve phase review steps to `/Users/jamiecraik/dev/agent-skills/.agents/skills/simplify/SKILL.md` and `/Users/jamiecraik/dev/agent-skills/.agents/skills/he-code-review/SKILL.md`. If either skill cannot be loaded or executed, stop the phase closeout and record the blocker in the ledger; do not substitute a different review workflow.
+- Resolve phase review steps through repo-local `.codex/skills/` first. If no repo-local equivalent exists, use the explicitly requested external skills at `/Users/jamiecraik/dev/agent-skills/.agents/skills/simplify/SKILL.md` and `/Users/jamiecraik/dev/agent-skills/.agents/skills/he-code-review/SKILL.md`. If those external skills cannot be loaded or executed in the active environment, record them as unavailable coverage gaps and run a findings-first manual simplify/code-review checklist against the phase diff; do not mark the external skills as passed.
 - Do not mark a unit complete until validation evidence exists.
 - Keep `report.html` incomplete or deferred until the companion UI spec is available.
 
@@ -405,7 +405,7 @@ Execution posture for every unit:
 - Modify: `docs/cli-reference.md`
 - Modify: `docs/getting-started.md`
 - Modify: `docs/architecture-testing.md` if CI artifact guidance is present there
-- Modify: `package.json` script `ci:artifacts` only if implementation needs scan artifacts in CI
+- Modify: `package.json` script `ci:artifacts` to assert scan artifact paths once the non-visual pack and PR evidence are implemented
 - Test or validation: docs style checks and CI artifact script
 
 **Approach:**
@@ -431,17 +431,17 @@ Execution posture for every unit:
 **Test scenarios:**
 
 - README first-run path names the evidence pack and read order.
-- First-run console/docs path directs users to exactly two primary files: `.diagram/manifest.json` and the current `primaryHumanArtifact`.
+- First-run console/docs path directs users to `.diagram/manifest.json`, the current `primaryHumanArtifact`, and the current `primaryAgentArtifact`.
 - CLI reference documents scan options and machine mode.
-- CI artifact generation either runs scan or documents how to collect scan artifacts from stable paths.
-- `ci:artifacts` validation asserts the required repository-scan and PR-scan artifact paths and statuses from the table above when script behavior changes.
+- CI artifact generation runs scan or an equivalent fixture and proves the stable artifact paths from the CI artifact contract.
+- `ci:artifacts` validation asserts the required repository-scan and PR-scan artifact paths and statuses from the table above.
 - Video and animated generation remain documented as secondary, not removed.
 
 **Verification:**
 
 - Docs: `npm run docs:style:changed`
 - Contract: `bash scripts/verify-work.sh --fast`
-- CI artifact behavior when script changes: `npm run ci:artifacts`
+- CI artifact behavior: `npm run ci:artifacts`
 - Baseline: `npm test`
 
 **Rollback:**
@@ -450,7 +450,7 @@ Execution posture for every unit:
 
 **Exit criteria:**
 
-- AC9, AC10, and AC13 have passing validation or explicit scoped blockers.
+- AC9, AC10, AC13, and AC14 have passing validation or explicit scoped blockers.
 
 - [ ] **P4 / Unit 5: Companion UI Spec for report.html**
 
@@ -597,15 +597,16 @@ Execution posture for every unit:
 - [ ] **AC2:** `.diagram/manifest.json` indexes top-level and subordinate artifacts, starts the agent read order, records artifact statuses, avoids absolute paths, and handles deterministic timestamp/list behavior.
 - [ ] **AC3:** `scan` writes the non-visual pack: `.diagram/brief.md`, `.diagram/agent-context.json`, `.diagram/architecture.mmd`, and `.diagram/manifest.json`.
 - [ ] **AC4:** `agent-context.json` has stable schema versioning, deterministic support, compact summary fields, artifact pointers, and documented read order.
-- [ ] **AC5:** Console output prints a concise next-step summary naming `.diagram/manifest.json`, the current `primaryHumanArtifact`, and exactly one stable next action.
+- [ ] **AC5:** Console output prints a concise next-step summary naming `.diagram/manifest.json`, the current `primaryHumanArtifact`, the current `primaryAgentArtifact`, and exactly one stable next action.
 - [ ] **AC6:** `scan --format json --deterministic` emits canonical machine-envelope fields with parser-safe stdout and stable error categories.
-- [ ] **AC7:** Partial evidence records artifact-level statuses and never reports full success when required artifacts fail or are deferred.
+- [ ] **AC7:** Partial evidence records artifact-level statuses and never reports full success when artifacts required for the current phase and mode fail or are deferred.
 - [ ] **AC8:** `scan . --base <ref> --head <ref>` reuses `workflow pr`, writes PR artifacts, and includes risk, blast radius, confidence, evidence, and reviewer checks.
 - [ ] **AC9:** README, CLI reference, getting-started, and CI artifact guidance present architecture evidence first and keep governance/migration detail in maintainer paths.
 - [ ] **AC10:** `generate`, `generate-all`, `validate`, `workflow pr`, `context`, `diagram`, and `@brainwav/diagram` compatibility behavior remain non-breaking.
 - [ ] **AC11:** Companion UI spec exists and maps report visual acceptance to SA6 and SA15.
 - [ ] **AC12:** `report.html` supports scan and PR modes only after AC11 is satisfied and report invocation policy is frozen.
 - [ ] **AC13:** Implementation reuses existing analysis, generation, context, PR-impact, machine-envelope, and manifest capabilities rather than creating a parallel pipeline; parity tests must prove shared manifest behavior and reused PR/generation outputs.
+- [ ] **AC14:** `npm run ci:artifacts` passes and proves CI can publish or expose the required repository-scan and PR-scan artifact paths and statuses from the CI artifact contract.
 
 ## System-Wide Impact
 
