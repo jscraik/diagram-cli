@@ -37,11 +37,26 @@ npm link
 ```bash
 archscope init .
 archscope doctor .
-archscope analyze .
-archscope generate-all . --output-dir .diagram --artifact-profile agent
-archscope context .
-archscope validate .
+archscope scan .
 ```
+
+The first scan writes the default architecture evidence pack:
+
+- `.diagram/manifest.json` - stable artifact index and status source
+- `.diagram/brief.md` - human architecture brief
+- `.diagram/agent-context.json` - canonical AI-agent handoff
+- `.diagram/architecture.mmd` - first architecture diagram
+- `.diagram/report.html` - static human evidence report
+
+For PR review evidence, include refs:
+
+```bash
+archscope scan . --base origin/main --head HEAD
+```
+
+When refs resolve, the PR scan also writes
+`.diagram/pr-impact/pr-impact.json`. If the HTML report cannot be written,
+read `.diagram/manifest.json` and `.diagram/brief.md` first.
 
 The compatibility command remains available for existing automation:
 
@@ -54,7 +69,7 @@ Without linking:
 ```bash
 node src/diagram.js init .
 node src/diagram.js doctor .
-node src/diagram.js validate .
+node src/diagram.js scan .
 ```
 
 ## Machine Output Mode
@@ -62,6 +77,7 @@ node src/diagram.js validate .
 Prefer `--format json` for automation:
 
 ```bash
+archscope scan . --format json --deterministic
 archscope generate . --type architecture --format json --deterministic
 archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 ```

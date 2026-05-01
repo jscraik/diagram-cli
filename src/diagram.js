@@ -8,6 +8,7 @@ const { loadDiagramRc } = require('./config/diagramrc');
 const { registerAnalyzeCommand } = require('./commands/analyze');
 const { registerGenerateCommand } = require('./commands/generate');
 const { registerGenerateAllCommand } = require('./commands/generate-all');
+const { registerScanCommand } = require('./commands/scan');
 const { registerValidateCommand } = require('./commands/validate');
 const { registerDiffCommand } = require('./commands/diff');
 const { registerGenerateVideoCommand } = require('./commands/generate-video');
@@ -41,6 +42,7 @@ program
 registerAnalyzeCommand(program);
 registerGenerateCommand(program);
 registerGenerateAllCommand(program);
+registerScanCommand(program);
 registerValidateCommand(program);
 registerDiffCommand(program);
 registerGenerateVideoCommand(program);
@@ -58,6 +60,7 @@ program.on('command:*', function (operands) {
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} init [path]`) + chalk.gray('            - Scaffold .architecture.yml, .diagramrc, and CI sample step'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} doctor [path]`) + chalk.gray('          - Check local tooling and environment health'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} analyze [path]`) + chalk.gray('         - Analyze codebase structure'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} scan [path]`) + chalk.gray('            - Initialize architecture evidence pack manifest'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate [path]`) + chalk.gray('        - Generate one diagram type'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate-all [path]`) + chalk.gray('    - Generate all diagram types'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} changed [path]`) + chalk.gray('         - Analyze only git-changed files'));

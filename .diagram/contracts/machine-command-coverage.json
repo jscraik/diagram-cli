@@ -51,6 +51,12 @@
       "deterministic": true
     },
     {
+      "command": "scan",
+      "module": "src/commands/scan.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
       "command": "validate",
       "module": "src/commands/validate.js",
       "schemaVersion": "1.0",

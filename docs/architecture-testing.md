@@ -1,6 +1,6 @@
 # Architecture Testing
 
-Use `archscope validate` and `archscope workflow pr` to enforce architecture rules and review PR blast radius.
+Use `archscope scan`, `archscope validate`, and `archscope workflow pr` to generate architecture evidence, enforce rules, and review PR blast radius.
 
 ## Table of Contents
 
@@ -9,6 +9,7 @@ Use `archscope validate` and `archscope workflow pr` to enforce architecture rul
 - [Configuration File](#configuration-file)
 - [Rule Fields](#rule-fields)
 - [Validate Command](#validate-command)
+- [Scan Evidence Pack](#scan-evidence-pack)
 - [PR Impact Command](#pr-impact-command)
 - [Output Contracts](#output-contracts)
 - [CI Integration](#ci-integration)
@@ -17,6 +18,8 @@ Use `archscope validate` and `archscope workflow pr` to enforce architecture rul
 ## Overview
 
 `archscope validate` checks imports against declarative rules in `.architecture.yml`.
+`archscope scan` writes the default evidence pack for human review, CI upload,
+and AI-agent handoff.
 
 Exit codes:
 
@@ -40,11 +43,14 @@ archscope validate --init
 # Run validation
 archscope validate .
 
+# Generate evidence pack
+archscope scan .
+
 # Preview matching files
 archscope validate . --dry-run --verbose
 
-# PR risk analysis
-archscope workflow pr . --base origin/main --head HEAD
+# PR evidence and risk analysis
+archscope scan . --base origin/main --head HEAD
 ```
 
 ## Configuration File
@@ -66,15 +72,15 @@ rules:
 
 ## Rule Fields
 
-| Field | Required | Type | Notes |
-| --- | --- | --- | --- |
-| `name` | Yes | string | Rule label in output |
-| `layer` | Yes | string or string[] | File scope matcher |
-| `description` | No | string | Human context |
-| `must_not_import_from` | No* | string[] | Forbidden imports |
-| `may_import_from` | No* | string[] | Allowlist imports |
-| `must_import_from` | No* | string[] | Required imports |
-| `inward_only` | No* | boolean | Protected layer directionality |
+| Field                  | Required | Type               | Notes                          |
+| ---------------------- | -------- | ------------------ | ------------------------------ |
+| `name`                 | Yes      | string             | Rule label in output           |
+| `layer`                | Yes      | string or string[] | File scope matcher             |
+| `description`          | No       | string             | Human context                  |
+| `must_not_import_from` | No\*     | string[]           | Forbidden imports              |
+| `may_import_from`      | No\*     | string[]           | Allowlist imports              |
+| `must_import_from`     | No\*     | string[]           | Required imports               |
+| `inward_only`          | No\*     | boolean            | Protected layer directionality |
 
 `*` At least one constraint field is required.
 
@@ -105,6 +111,41 @@ archscope validate .
 archscope validate . --format json --deterministic
 archscope validate . --format junit --output architecture-results.xml
 ```
+
+## Scan Evidence Pack
+
+```bash
+archscope scan [path] [options]
+```
+
+Repository scan outputs:
+
+- `.diagram/manifest.json`
+- `.diagram/brief.md`
+- `.diagram/agent-context.json`
+- `.diagram/architecture.mmd`
+- `.diagram/report.html`
+
+PR scan outputs:
+
+- all repository scan outputs
+- `.diagram/pr-impact/pr-impact.json` when `--base` or `--head` refs resolve
+
+Key options:
+
+- `--output-dir <dir>`
+- `--base <ref>`
+- `--head <ref>`
+- `--format <text|json>`
+- `--deterministic`
+- `--patterns <list>`
+- `--exclude <list>`
+- `--max-files <n>`
+
+Agents and CI should read `.diagram/manifest.json` first and only consume
+artifacts whose status is `written`. Repository scans keep the PR impact artifact
+`deferred`; PR scans mark it `written` when refs resolve or `failed` with
+`pr_refs_unavailable` when they do not.
 
 ## PR Impact Command
 
@@ -138,7 +179,10 @@ archscope workflow pr . --base origin/main --head HEAD --format json --determini
 
 ## Output Contracts
 
-`archscope workflow pr` writes:
+`archscope scan . --base <ref> --head <ref>` writes the default evidence pack and
+adds `.diagram/pr-impact/pr-impact.json`.
+
+`archscope workflow pr` remains the lower-level PR impact command and writes:
 
 - `.diagram/pr-impact/pr-impact.json`
 - `.diagram/pr-impact/pr-impact.html` (skipped in `--format json`)
@@ -151,6 +195,8 @@ Machine-output guidance:
   `schemaVersion`, `command`, `status`, `meta`, `data`, `errors`, and optional
   `agentSummary`.
 - JSON-capable command coverage is tracked in `.diagram/contracts/machine-command-coverage.json`.
+- Scan JSON nests the evidence manifest under `data.evidencePack` and includes
+  `data.pr` for PR evidence runs.
 - PR impact JSON nests its analytical payload under `data.prImpact` and includes
   `agentSummary` with:
   - `changedComponents`
@@ -189,12 +235,26 @@ jobs:
       - run: npm test
       - run: npm run test:deep
       - run: npm run ci:artifacts
+        env:
+          ARCHSCOPE_BASE_REF: ${{ github.event.pull_request.base.sha }}
+          ARCHSCOPE_HEAD_REF: ${{ github.event.pull_request.head.sha }}
       - run: node src/diagram.js workflow pr . --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --risk-threshold high --fail-on-risk
       - uses: actions/upload-artifact@v4
         with:
-          name: diagram-artifacts
+          name: archscope-artifacts
           path: .diagram
 ```
+
+`npm run ci:artifacts` asserts the required scan contract:
+
+| Artifact                            | Repository scan | PR scan   |
+| ----------------------------------- | --------------- | --------- |
+| `.diagram/manifest.json`            | `written`       | `written` |
+| `.diagram/brief.md`                 | `written`       | `written` |
+| `.diagram/agent-context.json`       | `written`       | `written` |
+| `.diagram/architecture.mmd`         | `written`       | `written` |
+| `.diagram/pr-impact/pr-impact.json` | `deferred`      | `written` |
+| `.diagram/report.html`              | `written`       | `written` |
 
 ## Troubleshooting
 

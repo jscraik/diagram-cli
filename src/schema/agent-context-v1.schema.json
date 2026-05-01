@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://archscope.dev/schemas/agent-context-v1.json",
+  "title": "Archscope Agent Context v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedBy",
+    "mode",
+    "summary",
+    "artifacts",
+    "readOrder",
+    "warnings",
+    "errors",
+    "partial"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "generatedBy": { "type": "string" },
+    "mode": { "enum": ["repository", "pr"] },
+    "partial": { "type": "boolean" },
+    "summary": {
+      "type": "object",
+      "required": [
+        "componentCount",
+        "entryPointCount",
+        "totalFilesFound",
+        "languages",
+        "architectureAreas"
+      ],
+      "properties": {
+        "componentCount": { "type": "integer", "minimum": 0 },
+        "entryPointCount": { "type": "integer", "minimum": 0 },
+        "totalFilesFound": { "type": "integer", "minimum": 0 },
+        "languages": { "type": "object" },
+        "architectureAreas": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "role", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "path": { "type": "string" },
+          "role": { "type": "string" },
+          "status": { "enum": ["written", "deferred", "partial", "failed"] },
+          "reason": { "type": "string" },
+          "errorCategory": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "readOrder": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "message"],
+        "properties": {
+          "category": { "type": "string" },
+          "artifact": { "type": ["string", "null"] },
+          "message": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "pr": { "type": "object" },
+    "base": { "type": "string" },
+    "head": { "type": "string" },
+    "risk": { "type": ["object", "null"] }
+  },
+  "additionalProperties": false
+}
