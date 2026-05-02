@@ -32,13 +32,24 @@ function shellArg(value) {
   return `'${text.replace(/'/g, "'\\''")}'`;
 }
 
-function buildSaveHint(options) {
-  const args = ['archscope', 'generate', '.', '--type', options.type || 'architecture'];
+function buildGenerateHintArgs(options, targetPath = '.', extraArgs = []) {
+  const args = ['archscope', 'generate', targetPath || '.', '--type', options.type || 'architecture'];
   if (options.focus) args.push('--focus', options.focus);
   if (options.patterns) args.push('--patterns', options.patterns);
   if (options.exclude) args.push('--exclude', options.exclude);
   if (options.maxFiles) args.push('--max-files', options.maxFiles);
   if (options.analyzer && options.analyzer !== 'default') args.push('--analyzer', options.analyzer);
+  args.push(...extraArgs);
+  return args;
+}
+
+function buildGenerateHint(options, targetPath = '.', extraArgs = []) {
+  const args = buildGenerateHintArgs(options, targetPath, extraArgs);
+  return args.map(shellArg).join(' ');
+}
+
+function buildSaveHint(options, targetPath = '.') {
+  const args = buildGenerateHintArgs(options, targetPath);
   args.push('--output', 'diagram.svg');
   return args.map(shellArg).join(' ');
 }
@@ -305,7 +316,7 @@ function registerGenerateCommand(program) {
           if (options.failOnValidationError) {
             if (!isJson) {
               console.error(chalk.red('❌ Validation failed (exit 1)'));
-              console.error(chalk.gray('Fix: run `archscope generate . --type architecture --validate` and address listed lines.'));
+              console.error(chalk.gray(`Fix: run \`${buildGenerateHint(options, targetPath, ['--validate'])}\` and address listed lines.`));
             }
             failOnValidationErrorTriggered = true;
           }
@@ -429,7 +440,7 @@ function registerGenerateCommand(program) {
 
           if (large || !url) {
             console.error(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
-            console.error(chalk.cyan('💾 Save to file:'), buildSaveHint(options));
+            console.error(chalk.cyan('💾 Save to file:'), buildSaveHint(options, targetPath));
           } else {
             console.error(chalk.cyan('🔗 Preview:'), url);
           }
