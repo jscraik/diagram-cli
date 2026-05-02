@@ -1,5 +1,13 @@
 # Archscope Identity P0 Manual Review
 
+## Table of Contents
+
+- [Scope](`#scope`)
+- [Simplify Findings](`#simplify-findings`)
+- [Code Review Findings](`#code-review-findings`)
+- [Validation Evidence](`#validation-evidence`)
+- [Verdict](`#verdict`)
+
 ## Scope
 
 Reviewed P0: Identity Surface Audit and Classification for
