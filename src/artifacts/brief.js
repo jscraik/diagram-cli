@@ -52,6 +52,9 @@ function buildArchitectureBrief({
   const prImpactPath = prImpact?.prImpactPath
     || manifest.artifacts.find((entry) => entry.id === 'pr-impact' && entry.status === 'written')?.path
     || null;
+  const decisionLine = prImpact
+    ? `- Review decision: inspect ${prImpactPath || 'the PR evidence outcome'} before approving architecture-sensitive changes.`
+    : '- Review decision: read the manifest and brief before handing this repo to a reviewer or coding agent.';
   let prLines;
   if (prImpact) {
     prLines = [
@@ -83,6 +86,7 @@ function buildArchitectureBrief({
     `- Entry points detected: ${summary.entryPointCount}`,
     `- Languages: ${languageText}`,
     `- Architecture areas: ${areaText}`,
+    decisionLine,
     '',
     readOrderHeading,
     '',

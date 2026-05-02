@@ -82,11 +82,39 @@ function failArtifactsForAnalysis(artifacts, failureState, error) {
   }
 }
 
-function createScanSummary(manifest) {
+function summarizeWarnings(warnings) {
+  if (!Array.isArray(warnings) || warnings.length === 0) return 'none';
+  return warnings.join('; ');
+}
+
+function summarizeList(items) {
+  if (!Array.isArray(items) || items.length === 0) return 'none';
+  return items.join('; ');
+}
+
+function createScanSummary(manifest, {
+  analysis = null,
+  outcome = outcomeForManifest(manifest),
+  prImpact = null,
+  prImpactPath = null,
+} = {}) {
+  const componentCount = Array.isArray(analysis?.components) ? analysis.components.length : 0;
+  const warnings = Array.isArray(manifest.warnings) ? manifest.warnings : [];
+  const prAgentSummary = prImpact?.agentSummary || {};
   return {
     manifestPath: manifest.artifactReadOrder[0],
     primaryHumanArtifact: manifest.primaryHumanArtifact,
     primaryAgentArtifact: manifest.primaryAgentArtifact,
+    packStatus: outcome,
+    componentCount,
+    warningSummary: summarizeWarnings(warnings),
+    pr: prImpact ? {
+      riskLevel: prImpact.risk?.level || 'unknown',
+      changedComponents: prAgentSummary.changedComponents ?? prImpact.changedComponents?.length ?? 0,
+      riskReasons: prAgentSummary.riskReasons || [],
+      reviewerChecks: prAgentSummary.suggestedReviewerChecks || [],
+      prImpactPath,
+    } : null,
     nextAction: `Read ${manifest.artifactReadOrder[0]} for artifact status before opening optional files.`,
   };
 }
@@ -395,13 +423,18 @@ function registerScanCommand(program) {
       }
 
       const outcome = outcomeForManifest(manifest);
-      const summary = createScanSummary(manifest);
+      const prImpactPath = prImpact
+        ? manifest.artifactReadOrder.find((entry) => entry.endsWith('pr-impact/pr-impact.json'))
+          || null
+        : null;
+      const summary = createScanSummary(manifest, {
+        analysis,
+        outcome,
+        prImpact,
+        prImpactPath,
+      });
 
       if (formatStr === 'json') {
-        const prImpactPath = prImpact
-          ? manifest.artifactReadOrder.find((entry) => entry.endsWith('pr-impact/pr-impact.json'))
-            || null
-          : null;
         const prSummary = buildPrMachineSummary({
           prImpact,
           prImpactPath,
@@ -457,9 +490,20 @@ function registerScanCommand(program) {
         process.exit(1);
       }
       console.log(chalk.green('\nArchitecture evidence pack initialized'));
+      console.log(`  Pack status: ${summary.packStatus}`);
+      console.log(`  Components detected: ${summary.componentCount}`);
       console.log(`  Manifest: ${summary.manifestPath}`);
       console.log(`  Human artifact: ${summary.primaryHumanArtifact}`);
       console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
+      console.log(`  Warnings: ${summary.warningSummary}`);
+      if (summary.pr) {
+        console.log(chalk.cyan('\nPR review focus:'));
+        console.log(`  Risk: ${summary.pr.riskLevel}`);
+        console.log(`  Changed components: ${summary.pr.changedComponents}`);
+        console.log(`  Risk reasons: ${summarizeList(summary.pr.riskReasons)}`);
+        console.log(`  Reviewer checks: ${summarizeList(summary.pr.reviewerChecks)}`);
+        console.log(`  PR impact artifact: ${summary.pr.prImpactPath || 'not written'}`);
+      }
       console.log(chalk.cyan('\nNext action:'));
       console.log(`  ${summary.nextAction}`);
     });

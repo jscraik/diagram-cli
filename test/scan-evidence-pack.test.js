@@ -79,6 +79,7 @@ describe('scan evidence pack writers', () => {
       expect(brief).to.include('# Archscope Evidence Brief');
       expect(brief).to.include('## Artifact Read Order');
       expect(brief).to.include('## Agent Handoff');
+      expect(brief).to.include('- Review decision: read the manifest and brief before handing this repo to a reviewer or coding agent.');
       expect(brief.trimEnd().split(/\r?\n/).length).to.be.lessThan(60);
 
       const agentContext = readJson(path.join(workspace, '.diagram', 'agent-context.json'));
