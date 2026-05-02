@@ -157,6 +157,30 @@ describe('scan PR evidence composition', () => {
     expect(result.stdout).to.include('PR impact artifact: .diagram/pr-impact/pr-impact.json');
   });
 
+  it('prints PR review focus when text-mode PR evidence is incomplete', () => {
+    const result = spawnSync('node', [
+      path.join(repoRoot, 'src', 'diagram.js'),
+      'scan',
+      workspace,
+      '--base',
+      'missing-ref',
+      '--head',
+      'HEAD',
+      '--quiet',
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+
+    expect(result.status).to.equal(1);
+    expect(result.stderr).to.include('Architecture evidence pack incomplete');
+    expect(result.stdout).to.include('Architecture evidence pack summary');
+    expect(result.stdout).to.include('Pack status: partial');
+    expect(result.stdout).to.include('PR review focus:');
+    expect(result.stdout).to.include('Risk reasons: git_refs_missing');
+    expect(result.stdout).to.include('PR impact artifact: not written');
+  });
+
   it('preserves repository evidence when PR refs are unavailable', () => {
     const result = spawnSync('node', [
       path.join(repoRoot, 'src', 'diagram.js'),

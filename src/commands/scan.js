@@ -122,6 +122,7 @@ function summarizeList(items) {
  * @param {string} [options.outcome] - Overall pack outcome; defaults to a value derived from `manifest`.
  * @param {Object|null} [options.prImpact=null] - PR impact data produced by workflow analysis; used to populate `pr` fields when present.
  * @param {string|null} [options.prImpactPath=null] - Filesystem path to the written PR impact artifact, if any.
+ * @param {Object|null} [options.prSummary=null] - Machine PR summary used to keep failed PR scans visible in text summaries.
  * @returns {Object} An object containing:
  *  - `manifestPath`: path to the primary manifest entry,
  *  - `primaryHumanArtifact` and `primaryAgentArtifact`: ids from the manifest,
@@ -136,6 +137,7 @@ function createScanSummary(manifest, {
   outcome = outcomeForManifest(manifest),
   prImpact = null,
   prImpactPath = null,
+  prSummary = null,
 } = {}) {
   const componentCount = Array.isArray(analysis?.components) ? analysis.components.length : 0;
   const warnings = Array.isArray(manifest.warnings) ? manifest.warnings : [];
@@ -153,6 +155,12 @@ function createScanSummary(manifest, {
       riskReasons: prAgentSummary.riskReasons || [],
       reviewerChecks: prAgentSummary.suggestedReviewerChecks || [],
       prImpactPath,
+    } : prSummary ? {
+      riskLevel: prSummary.risk?.level || 'unknown',
+      changedComponents: 0,
+      riskReasons: [prSummary.errorCategory || 'pr_evidence_unavailable'],
+      reviewerChecks: [`Resolve PR evidence failure before approving architecture-sensitive changes.`],
+      prImpactPath: prSummary.prImpactPath || null,
     } : null,
     nextAction: `Read ${manifest.artifactReadOrder[0]} for artifact status before opening optional files.`,
   };
@@ -196,6 +204,21 @@ function parseWorkflowPrPayload(stdout) {
   }
 }
 
+function inferWorkflowPrErrorCategory({ payload, result }) {
+  const payloadCategory = payload?.errors?.[0]?.category
+    || payload?.errors?.[0]?.extensions?.code
+    || payload?.data?.prImpact?.errorCategory;
+  const output = `${result?.stderr || ''}\n${result?.stdout || ''}`;
+  if (/bad revision|unknown revision|ambiguous argument|not a valid object name|invalid ref|unknown ref|git ref not found|needed a single revision|revision or path not in the working tree/i.test(output)) {
+    return 'git_refs_missing';
+  }
+  if (payloadCategory) return payloadCategory;
+  if (/permission denied|eacces|enoent|no such file|timed out|timeout|unexpected token|invalid json/i.test(output)) {
+    return 'internal_error';
+  }
+  return 'internal_error';
+}
+
 /**
  * Invoke the local diagram workflow to generate PR-impact evidence for a repository and return the parsed PR impact data.
  *
@@ -210,7 +233,7 @@ function parseWorkflowPrPayload(stdout) {
  *   - {number|string} [maxFiles] - Maximum files to consider.
  *   - {boolean} [deterministic] - Whether to run the workflow in deterministic mode.
  * @returns {Object} The PR impact data object parsed from the workflow's JSON output.
- * @throws {Error} If the workflow process fails or does not produce a `prImpact` payload; the thrown error will have `error.category === 'git_refs_missing'`.
+ * @throws {Error} If the workflow process fails or does not produce a `prImpact` payload; the thrown error carries the workflow category when available.
  */
 function runWorkflowPrEvidence({ root, outDir, options }) {
   const prImpactDir = path.join(outDir, 'pr-impact');
@@ -247,11 +270,30 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
       || result.stdout.trim()
       || 'workflow pr evidence failed'
     );
-    error.category = 'git_refs_missing';
+    error.category = inferWorkflowPrErrorCategory({ payload, result });
     throw error;
   }
 
   return payload.data.prImpact;
+}
+
+function printScanTextSummary(summary) {
+  console.log(`  Pack status: ${summary.packStatus}`);
+  console.log(`  Components detected: ${summary.componentCount}`);
+  console.log(`  Manifest: ${summary.manifestPath}`);
+  console.log(`  Human artifact: ${summary.primaryHumanArtifact}`);
+  console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
+  console.log(`  Warnings: ${summary.warningSummary}`);
+  if (summary.pr) {
+    console.log(chalk.cyan('\nPR review focus:'));
+    console.log(`  Risk: ${summary.pr.riskLevel}`);
+    console.log(`  Changed components: ${summary.pr.changedComponents}`);
+    console.log(`  Risk reasons: ${summarizeList(summary.pr.riskReasons)}`);
+    console.log(`  Reviewer checks: ${summarizeList(summary.pr.reviewerChecks)}`);
+    console.log(`  PR impact artifact: ${summary.pr.prImpactPath || 'not written'}`);
+  }
+  console.log(chalk.cyan('\nNext action:'));
+  console.log(`  ${summary.nextAction}`);
 }
 
 /**
@@ -498,20 +540,21 @@ function registerScanCommand(program) {
         ? manifest.artifactReadOrder.find((entry) => entry.endsWith('pr-impact/pr-impact.json'))
           || null
         : null;
+      const prSummary = buildPrMachineSummary({
+        prImpact,
+        prImpactPath,
+        options,
+        errors,
+      });
       const summary = createScanSummary(manifest, {
         analysis,
         outcome,
         prImpact,
         prImpactPath,
+        prSummary,
       });
 
       if (formatStr === 'json') {
-        const prSummary = buildPrMachineSummary({
-          prImpact,
-          prImpactPath,
-          options,
-          errors,
-        });
         const payload = buildMachineEnvelope({
           schemaVersion: '1.0',
           command: 'scan',
@@ -558,25 +601,12 @@ function registerScanCommand(program) {
         if (errors.length > 0) {
           console.error(`  Error: ${errors[0].category}: ${errors[0].message}`);
         }
+        console.log(chalk.cyan('\nArchitecture evidence pack summary'));
+        printScanTextSummary(summary);
         process.exit(1);
       }
       console.log(chalk.green('\nArchitecture evidence pack initialized'));
-      console.log(`  Pack status: ${summary.packStatus}`);
-      console.log(`  Components detected: ${summary.componentCount}`);
-      console.log(`  Manifest: ${summary.manifestPath}`);
-      console.log(`  Human artifact: ${summary.primaryHumanArtifact}`);
-      console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
-      console.log(`  Warnings: ${summary.warningSummary}`);
-      if (summary.pr) {
-        console.log(chalk.cyan('\nPR review focus:'));
-        console.log(`  Risk: ${summary.pr.riskLevel}`);
-        console.log(`  Changed components: ${summary.pr.changedComponents}`);
-        console.log(`  Risk reasons: ${summarizeList(summary.pr.riskReasons)}`);
-        console.log(`  Reviewer checks: ${summarizeList(summary.pr.reviewerChecks)}`);
-        console.log(`  PR impact artifact: ${summary.pr.prImpactPath || 'not written'}`);
-      }
-      console.log(chalk.cyan('\nNext action:'));
-      console.log(`  ${summary.nextAction}`);
+      printScanTextSummary(summary);
     });
 }
 

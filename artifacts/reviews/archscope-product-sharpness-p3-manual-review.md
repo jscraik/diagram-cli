@@ -1,5 +1,13 @@
 # Archscope Product Sharpness P3 Review
 
+## Table of Contents
+
+- [Scope](#scope)
+- [Simplify Pass](#simplify-pass)
+- [Code Review Findings](#code-review-findings)
+- [Fix-Bugs Pass](#fix-bugs-pass)
+- [Validation Evidence](#validation-evidence)
+
 ## Scope
 
 - Phase: P3 Scan And PR Review Summary UX.

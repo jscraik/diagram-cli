@@ -7,7 +7,7 @@ Primary command reference for the canonical `archscope` CLI.
 - [Command Set](#command-set)
 - [Core Commands](#core-commands)
 - [Workflow Commands](#workflow-commands)
-- [Video and Animation Commands](#video-and-animation-commands)
+- [Optional Advanced Media Commands](#optional-advanced-media-commands)
 - [Diagram Types](#diagram-types)
 - [Defaults and Precedence](#defaults-and-precedence)
 - [Machine Output](#machine-output)

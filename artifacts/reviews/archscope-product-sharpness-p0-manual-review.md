@@ -7,6 +7,14 @@ date: 2026-05-02
 
 # Archscope Product Sharpness P0 Manual Review
 
+## Table of Contents
+
+- [Scope](#scope)
+- [Simplify Gate](#simplify-gate)
+- [HE Code Review Gate](#he-code-review-gate)
+- [HE Fix Bugs Gate](#he-fix-bugs-gate)
+- [Validation Evidence](#validation-evidence)
+
 ## Scope
 
 - `README.md`

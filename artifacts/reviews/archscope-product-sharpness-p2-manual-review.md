@@ -7,6 +7,14 @@ date: 2026-05-02
 
 # Archscope Product Sharpness P2 Manual Review
 
+## Table of Contents
+
+- [Scope](#scope)
+- [Pre-Change Inventory](#pre-change-inventory)
+- [Selected Contract](#selected-contract)
+- [Simplify Gate](#simplify-gate)
+- [Validation Evidence](#validation-evidence)
+
 ## Scope
 
 - `src/commands/scan.js`

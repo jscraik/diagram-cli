@@ -2,7 +2,7 @@
 schema_version: 1
 title: "feat: Archscope product sharpness and agent UX plan"
 type: feat
-status: draft
+status: complete
 date: 2026-05-02
 origin: docs/specs/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-spec.md
 spec: docs/specs/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-spec.md
@@ -10,9 +10,10 @@ source_spec: docs/specs/2026-05-02-feat-archscope-product-sharpness-and-agent-ux
 plan_route: fresh
 plan_depth: standard
 traceability_required: false
-tracking_status: untracked
-branch: pending
-pr: pending
+tracking_status: tracked
+branch: codex/archscope-product-sharpness-agent-ux
+pr: 79
+completion_evidence: "Execution Ledger P0-P5 complete; validation ladder recorded; PR #79 carries the implementation branch."
 ---
 
 # feat: Archscope product sharpness and agent UX plan
@@ -37,7 +38,7 @@ pr: pending
 - [Risks & Dependencies](#risks--dependencies)
 - [Documentation / Operational Notes](#documentation--operational-notes)
 - [Validation Ladder](#validation-ladder)
-- [Execution Ledger (Planning Mode)](#execution-ledger-planning-mode)
+- [Execution Ledger](#execution-ledger)
 - [First he-work Handoff](#first-he-work-handoff)
 - [Sources & References](#sources--references)
 
@@ -131,22 +132,22 @@ No Linear issue is attached to the source spec.
 ## Spec / Plan / PR Traceability
 
 | Requirement | Source acceptance IDs | Plan units | Acceptance IDs | PR evidence |
-| --- | --- | --- | --- | --- |
-| R1 | SA1 | P0 | AC1 | complete |
-| R2 | SA2 | P0 | AC2 | complete |
-| R3 | SA3 | P4 | AC3 | complete |
-| R4 | SA4 | P3 | AC4 | complete |
-| R5 | SA5 | P3 | AC5 | complete |
-| R6 | SA6 | P2 | AC6 | complete |
-| R7 | SA7 | P2 | AC7 | complete |
-| R8 | SA8 | P2 | AC8 | complete |
-| R9 | SA9 | P1 | AC9 | complete |
-| R10 | SA10 | P1, P5 | AC10 | complete |
-| R11 | SA11 | P0, P1, P5 | AC11 | complete |
-| R12 | SA12 | P0, P4 | AC12 | complete |
-| R13 | SA13 | P5 | AC13 | complete |
-| R14 | SA14 | P2, P5 | AC14 | complete |
-| R15 | SA15 | P0-P5 | AC15 | complete |
+| ----------- | --------------------- | ---------- | -------------- | ----------- |
+| R1          | SA1                   | P0         | AC1            | complete    |
+| R2          | SA2                   | P0         | AC2            | complete    |
+| R3          | SA3                   | P4         | AC3            | complete    |
+| R4          | SA4                   | P3         | AC4            | complete    |
+| R5          | SA5                   | P3         | AC5            | complete    |
+| R6          | SA6                   | P2         | AC6            | complete    |
+| R7          | SA7                   | P2         | AC7            | complete    |
+| R8          | SA8                   | P2         | AC8            | complete    |
+| R9          | SA9                   | P1         | AC9            | complete    |
+| R10         | SA10                  | P1, P5     | AC10           | complete    |
+| R11         | SA11                  | P0, P1, P5 | AC11           | complete    |
+| R12         | SA12                  | P0, P4     | AC12           | complete    |
+| R13         | SA13                  | P5         | AC13           | complete    |
+| R14         | SA14                  | P2, P5     | AC14           | complete    |
+| R15         | SA15                  | P0-P5      | AC15           | complete    |
 
 ## Scope Boundaries
 
@@ -278,11 +279,11 @@ without changing runtime behavior.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| First-read docs | README and getting-started | Review command order | `scan`, PR scan, and agent handoff appear before media commands. |
-| CLI reference | `docs/cli-reference.md` | Review command summary | `scan` and PR evidence are prominent; media commands are not headline features. |
-| Help text, if touched | `node src/diagram.js nope` | Inspect stderr | Core evidence commands appear before advanced media commands. |
+| Scenario              | Input                      | Action                 | Expected                                                                        |
+| --------------------- | -------------------------- | ---------------------- | ------------------------------------------------------------------------------- |
+| First-read docs       | README and getting-started | Review command order   | `scan`, PR scan, and agent handoff appear before media commands.                |
+| CLI reference         | `docs/cli-reference.md`    | Review command summary | `scan` and PR evidence are prominent; media commands are not headline features. |
+| Help text, if touched | `node src/diagram.js nope` | Inspect stderr         | Core evidence commands appear before advanced media commands.                   |
 
 **Validation:**
 
@@ -324,11 +325,11 @@ commands.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Agent repository recipe | docs | Search recipe | Deterministic repository scan command is present. |
-| Agent PR recipe | docs | Search recipe | Deterministic PR scan command is present. |
-| No premature aliases | docs and source | Search `archscope agent` | Alias is only discussed as deferred, not documented as implemented. |
+| Scenario                | Input           | Action                   | Expected                                                            |
+| ----------------------- | --------------- | ------------------------ | ------------------------------------------------------------------- |
+| Agent repository recipe | docs            | Search recipe            | Deterministic repository scan command is present.                   |
+| Agent PR recipe         | docs            | Search recipe            | Deterministic PR scan command is present.                           |
+| No premature aliases    | docs and source | Search `archscope agent` | Alias is only discussed as deferred, not documented as implemented. |
 
 **Validation:**
 
@@ -382,13 +383,13 @@ commands.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Successful scan | fixture repo | Run scan machine mode | Exit `0`, outcome `success`. |
-| Current exit inventory | fixture and failure cases | Run scan before patch | Baseline exit codes and machine fields are recorded in the P2 ledger. |
-| Partial artifact write | output path with artifact collision | Run scan machine mode | Exit matches the selected P2 contract, outcome `partial`, category `artifact_write_failed`. |
-| Invalid PR refs | bad refs | Run PR scan | Repository artifacts remain where possible; PR error category is stable. |
-| Deterministic scan | fixture repo | Run deterministic JSON twice | Sorted artifact/warning lists and no volatile machine timestamp. |
+| Scenario               | Input                               | Action                       | Expected                                                                                    |
+| ---------------------- | ----------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------- |
+| Successful scan        | fixture repo                        | Run scan machine mode        | Exit `0`, outcome `success`.                                                                |
+| Current exit inventory | fixture and failure cases           | Run scan before patch        | Baseline exit codes and machine fields are recorded in the P2 ledger.                       |
+| Partial artifact write | output path with artifact collision | Run scan machine mode        | Exit matches the selected P2 contract, outcome `partial`, category `artifact_write_failed`. |
+| Invalid PR refs        | bad refs                            | Run PR scan                  | Repository artifacts remain where possible; PR error category is stable.                    |
+| Deterministic scan     | fixture repo                        | Run deterministic JSON twice | Sorted artifact/warning lists and no volatile machine timestamp.                            |
 
 **Validation:**
 
@@ -429,11 +430,11 @@ commands.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Repository scan summary | fixture repo | Run `scan` | Stdout names human and agent artifacts plus next read. |
-| PR scan summary | git fixture with refs | Run `scan --base --head` | Stdout includes risk/reviewer-check signal and PR artifact path. |
-| Brief remains compact | generated `brief.md` | Inspect content | Summary is decision-oriented and does not expand into governance detail. |
+| Scenario                | Input                 | Action                   | Expected                                                                 |
+| ----------------------- | --------------------- | ------------------------ | ------------------------------------------------------------------------ |
+| Repository scan summary | fixture repo          | Run `scan`               | Stdout names human and agent artifacts plus next read.                   |
+| PR scan summary         | git fixture with refs | Run `scan --base --head` | Stdout includes risk/reviewer-check signal and PR artifact path.         |
+| Brief remains compact   | generated `brief.md`  | Inspect content          | Summary is decision-oriented and does not expand into governance detail. |
 
 **Validation:**
 
@@ -465,11 +466,11 @@ secondary.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| CLI docs | `docs/cli-reference.md` | Review command sections | Media commands remain documented but secondary. |
-| Getting started | `docs/getting-started.md` | Review first-run path | Media troubleshooting does not define the product. |
-| Command help, if touched | unknown command | Inspect help | Media commands appear after core evidence commands or under advanced wording. |
+| Scenario                 | Input                     | Action                  | Expected                                                                      |
+| ------------------------ | ------------------------- | ----------------------- | ----------------------------------------------------------------------------- |
+| CLI docs                 | `docs/cli-reference.md`   | Review command sections | Media commands remain documented but secondary.                               |
+| Getting started          | `docs/getting-started.md` | Review first-run path   | Media troubleshooting does not define the product.                            |
+| Command help, if touched | unknown command           | Inspect help            | Media commands appear after core evidence commands or under advanced wording. |
 
 **Validation:**
 
@@ -499,12 +500,12 @@ or evidence-pack behavior.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Compatibility command | package bin contract | Run existing command-identity tests | Compatibility invocation still works without relying on global `npm link`. |
-| Canonical command | package bin contract or `node src/diagram.js --help` | Run existing command-identity tests | Canonical command still works without relying on shell-local global installs. |
-| Evidence pack | fixture repo | Run focused scan tests | Core artifacts pass. |
-| Deep baseline | repository | Run baseline tests | No product correctness regression. |
+| Scenario              | Input                                                | Action                              | Expected                                                                      |
+| --------------------- | ---------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------- |
+| Compatibility command | package bin contract                                 | Run existing command-identity tests | Compatibility invocation still works without relying on global `npm link`.    |
+| Canonical command     | package bin contract or `node src/diagram.js --help` | Run existing command-identity tests | Canonical command still works without relying on shell-local global installs. |
+| Evidence pack         | fixture repo                                         | Run focused scan tests              | Core artifacts pass.                                                          |
+| Deep baseline         | repository                                           | Run baseline tests                  | No product correctness regression.                                            |
 
 **Validation:**
 
@@ -536,25 +537,25 @@ or evidence-pack behavior.
 ## Acceptance Checklist
 
 - [x] AC1: First-read docs lead with architecture evidence, PR review, and
-  agent handoff.
+      agent handoff.
 - [x] AC2: CLI reference presents `scan` and PR evidence before media commands.
 - [x] AC3: Media commands are labeled as advanced, optional, or non-core in
-  first-read docs.
+      first-read docs.
 - [x] AC4: Repository scan terminal summary names primary human and agent
-  artifacts.
+      artifacts.
 - [x] AC5: PR scan terminal summary includes risk, impact, reviewer checks, and
-  raw artifact paths.
+      raw artifact paths.
 - [x] AC6: Agent-facing output uses stable `success`, `partial`, and `failed`
-  outcomes.
+      outcomes.
 - [x] AC7: Agent-facing failures include documented error categories.
 - [x] AC8: Exit-code behavior is documented and tested.
 - [x] AC9: Agent docs include deterministic repository and PR scan recipes.
 - [x] AC10: `archscope agent` and `archscope agent-pr` remain deferred unless a
-  later plan proves safe delegation.
+      later plan proves safe delegation.
 - [x] AC11: `manifest.json`, `brief.md`, and `agent-context.json` remain core
-  artifacts.
+      artifacts.
 - [x] AC12: Governance and migration details remain discoverable but are not
-  first-run prerequisites.
+      first-run prerequisites.
 - [x] AC13: Compatibility surfaces remain stable.
 - [x] AC14: Deterministic outputs remain stable.
 - [x] AC15: No broad `src/core` refactor is included.
@@ -571,13 +572,13 @@ or evidence-pack behavior.
 
 ## Risks & Dependencies
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
+| Risk                                          | Impact                                                     | Mitigation                                                               |
+| --------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------ |
 | Partial exit code `3` breaks existing scripts | CI or user scripts may expect any scan partial to exit `1` | Isolate to P2, document explicitly, and run compatibility-focused tests. |
-| Docs become too agent-heavy | Human first-read path becomes noisy | Keep recipes compact; create `docs/agent-workflows.md` only if needed. |
-| Media de-emphasis looks like removal | Existing users may think features are deprecated | Use advanced/optional language, not removal language. |
-| New summaries become verbose | Terminal and brief output lose scanability | Keep tests/assertions focused on concise required fields. |
-| Scope drifts into architecture refactor | Work expands beyond product sharpness | AC15 and P0-P5 boundaries block broad `src/core` work. |
+| Docs become too agent-heavy                   | Human first-read path becomes noisy                        | Keep recipes compact; create `docs/agent-workflows.md` only if needed.   |
+| Media de-emphasis looks like removal          | Existing users may think features are deprecated           | Use advanced/optional language, not removal language.                    |
+| New summaries become verbose                  | Terminal and brief output lose scanability                 | Keep tests/assertions focused on concise required fields.                |
+| Scope drifts into architecture refactor       | Work expands beyond product sharpness                      | AC15 and P0-P5 boundaries block broad `src/core` work.                   |
 
 ## Documentation / Operational Notes
 
@@ -618,16 +619,16 @@ or evidence-pack behavior.
    - `npm run ci:artifacts`
    - `npm run migration:readiness`
 
-## Execution Ledger (Planning Mode)
+## Execution Ledger
 
-| Unit | Status | Owner | Notes |
-| --- | --- | --- | --- |
-| P0 | complete | Codex | 2026-05-02: sharpened README, getting-started, and CLI reference so the first-read path leads with PR review, `archscope scan .`, and agent handoff before media commands; split CLI reference command inventory into core evidence/review commands and advanced media commands; kept runtime behavior, aliases, exit codes, package/repo names, and compatibility surfaces unchanged. Validation: focused docs grep passed with scan/PR scan before media commands; `vale --config .vale.ini README.md docs/getting-started.md docs/cli-reference.md docs/specs/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-spec.md docs/plans/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-plan.md` pass (0 errors, 0 warnings, 0 suggestions); `bash scripts/verify-work.sh --fast` pass with known optional Local Memory health warning only; `git diff --check` pass. Review gates: `$simplify` removed duplicated README promise wording; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p0-manual-review.md`. |
-| P1 | complete | Codex | 2026-05-02: documented the deterministic PR scan recipe `archscope scan . --base origin/main --head HEAD --format json --deterministic` in README, getting-started, and CLI reference alongside the existing repository deterministic scan recipe; kept agent-specific aliases deferred and absent from active docs/source. Validation: recipe presence grep passed across active docs; premature alias guard `rg -n "archscope agent" README.md docs/getting-started.md docs/cli-reference.md src test .github || true` passed with no matches; `vale --config .vale.ini README.md docs/getting-started.md docs/cli-reference.md docs/plans/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-plan.md` pass (0 errors, 0 warnings, 0 suggestions); `bash scripts/verify-work.sh --fast` pass with known optional Local Memory health warning only; `git diff --check` pass. Review gates: `$simplify` found no smaller safe patch because all three active docs need the recipe; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p1-manual-review.md`. |
-| P2 | complete | Codex | 2026-05-02: inventoried scan exit behavior before editing, then preserved partial scan exit `1` for compatibility while documenting `data.outcome: "partial"` plus `errors[].category` as the agent-safe discriminator; standardized touched scan categories to `git_refs_missing`, `analysis_partial`, and `artifact_write_failed`; aligned active scan docs and report/evidence specs with the category vocabulary. Validation: inventory captured success exit `0`, partial artifact-write exit `1`, invalid format exit `2`, and missing-ref partial exit `1`; `npm test -- test/scan-error-categories.test.js test/scan-manifest.test.js test/scan-pr-evidence.test.js test/scan-report-html.test.js` pass (11 passing); `npm test -- test/generate-output-json.test.js test/machine-command-coverage.test.js test/json-capability-discovery.test.js` pass (9 passing); `vale --config .vale.ini docs/cli-reference.md docs/architecture-testing.md docs/ui-specs/2026-05-01-archscope-evidence-report-ui-spec.md docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md docs/plans/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-plan.md` pass (0 errors, 0 warnings, 0 suggestions); `git diff --check` pass. Review gates: `$simplify` found no smaller safe patch; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p2-manual-review.md`. |
-| P3 | complete | Codex | 2026-05-02: enriched text-mode `archscope scan` summaries with pack status, component count, primary human and agent artifacts, warnings, and next manifest read; added PR text summary focus with risk level, changed components, risk reasons, reviewer checks, and PR impact artifact path; added compact decision-oriented brief copy without expanding the evidence brief beyond the existing line-count guard. Validation: `npm test -- test/scan-command.test.js test/scan-pr-evidence.test.js test/scan-evidence-pack.test.js` pass (8 passing). Review gates: `$simplify` removed an unused summary field and kept the text-only slice local; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` fixed the initial overly exact PR reviewer-check assertion and no product bug remained after focused validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p3-manual-review.md`. |
-| P4 | complete | Codex | 2026-05-02: kept `generate-video` and `generate-animated` available while labeling them as optional advanced media in README, getting-started troubleshooting, CLI reference, and unknown-command guidance; preserved compatibility aliases and runtime command registration. Validation: `rg -n "generate-video|generate-animated|advanced|optional|media" README.md docs/getting-started.md docs/cli-reference.md src/diagram.js` pass with media commands still discoverable and optional/advanced wording present; `npm test -- test/generated-output-identity.test.js test/command-identity.test.js` pass (6 passing); `vale --config .vale.ini README.md docs/getting-started.md docs/cli-reference.md` pass (0 errors, 0 warnings, 0 suggestions). Review gates: `$simplify` found no smaller safe patch because docs and unknown-command help both needed the same classification; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p4-manual-review.md`. |
-| P5 | complete | Codex | 2026-05-02: completed compatibility and closeout validation without additional source changes; confirmed canonical and compatibility command identity, scan evidence pack behavior, deterministic machine output, CI artifact generation, migration readiness, and repo-local validation contract. Validation: `npm test -- test/command-identity.test.js test/scan-command.test.js test/scan-manifest.test.js test/scan-error-categories.test.js test/scan-pr-evidence.test.js` pass (15 passing); `npm test` pass (177 passing); `npm run test:deep` pass (`deep-regression: OK`); `npm run ci:artifacts` pass (`ci artifact assertions: OK`); `npm run migration:readiness` pass (`status: pass`, `migrationState: compatibility`, `finalizationReady: false` as expected without release finalization evidence); `bash scripts/verify-work.sh --fast` pass with known optional Local Memory health warning only. Review gates: `$simplify` found no source simplification because P5 was validation-only; `$he-code-review` manual closeout review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after baseline validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p5-manual-review.md`. |
+| Unit | Status   | Owner | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---- | -------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0   | complete | Codex | 2026-05-02: sharpened README, getting-started, and CLI reference so the first-read path leads with PR review, `archscope scan .`, and agent handoff before media commands; split CLI reference command inventory into core evidence/review commands and advanced media commands; kept runtime behavior, aliases, exit codes, package/repo names, and compatibility surfaces unchanged. Validation: focused docs grep passed with scan/PR scan before media commands; `vale --config .vale.ini README.md docs/getting-started.md docs/cli-reference.md docs/specs/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-spec.md docs/plans/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-plan.md` pass (0 errors, 0 warnings, 0 suggestions); `bash scripts/verify-work.sh --fast` pass with known optional Local Memory health warning only; `git diff --check` pass. Review gates: `$simplify` removed duplicated README promise wording; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p0-manual-review.md`.                                                                                                                                                                                                                                                                                                                                                      |
+| P1   | complete | Codex | 2026-05-02: documented the deterministic PR scan recipe `archscope scan . --base origin/main --head HEAD --format json --deterministic` in README, getting-started, and CLI reference alongside the existing repository deterministic scan recipe; kept agent-specific aliases deferred and absent from active docs/source. Validation: recipe presence grep passed across active docs; premature alias guard `rg -n "archscope agent" README.md docs/getting-started.md docs/cli-reference.md src test .github                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |                   | true`passed with no matches;`vale --config .vale.ini README.md docs/getting-started.md docs/cli-reference.md docs/plans/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-plan.md`pass (0 errors, 0 warnings, 0 suggestions);`bash scripts/verify-work.sh --fast`pass with known optional Local Memory health warning only;`git diff --check`pass. Review gates:`$simplify` found no smaller safe patch because all three active docs need the recipe; `$he-code-review`manual phase review found no P0/P1/P2 findings;`$he-fix-bugs`had no reproduced bug to repair after validation. Artifact:`artifacts/reviews/archscope-product-sharpness-p1-manual-review.md`. |
+| P2   | complete | Codex | 2026-05-02: inventoried scan exit behavior before editing, then preserved partial scan exit `1` for compatibility while documenting `data.outcome: "partial"` plus `errors[].category` as the agent-safe discriminator; standardized touched scan categories to `git_refs_missing`, `analysis_partial`, and `artifact_write_failed`; aligned active scan docs and report/evidence specs with the category vocabulary. Validation: inventory captured success exit `0`, partial artifact-write exit `1`, invalid format exit `2`, and missing-ref partial exit `1`; `npm test -- test/scan-error-categories.test.js test/scan-manifest.test.js test/scan-pr-evidence.test.js test/scan-report-html.test.js` pass (11 passing); `npm test -- test/generate-output-json.test.js test/machine-command-coverage.test.js test/json-capability-discovery.test.js` pass (9 passing); `vale --config .vale.ini docs/cli-reference.md docs/architecture-testing.md docs/ui-specs/2026-05-01-archscope-evidence-report-ui-spec.md docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md docs/plans/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-plan.md` pass (0 errors, 0 warnings, 0 suggestions); `git diff --check` pass. Review gates: `$simplify` found no smaller safe patch; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p2-manual-review.md`. |
+| P3   | complete | Codex | 2026-05-02: enriched text-mode `archscope scan` summaries with pack status, component count, primary human and agent artifacts, warnings, and next manifest read; added PR text summary focus with risk level, changed components, risk reasons, reviewer checks, and PR impact artifact path; added compact decision-oriented brief copy without expanding the evidence brief beyond the existing line-count guard. Validation: `npm test -- test/scan-command.test.js test/scan-pr-evidence.test.js test/scan-evidence-pack.test.js` pass (8 passing). Review gates: `$simplify` removed an unused summary field and kept the text-only slice local; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` fixed the initial overly exact PR reviewer-check assertion and no product bug remained after focused validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p3-manual-review.md`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| P4   | complete | Codex | 2026-05-02: kept `generate-video` and `generate-animated` available while labeling them as optional advanced media in README, getting-started troubleshooting, CLI reference, and unknown-command guidance; preserved compatibility aliases and runtime command registration. Validation: `rg -n "generate-video                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | generate-animated | advanced                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | optional | media" README.md docs/getting-started.md docs/cli-reference.md src/diagram.js`pass with media commands still discoverable and optional/advanced wording present;`npm test -- test/generated-output-identity.test.js test/command-identity.test.js`pass (6 passing);`vale --config .vale.ini README.md docs/getting-started.md docs/cli-reference.md`pass (0 errors, 0 warnings, 0 suggestions). Review gates:`$simplify` found no smaller safe patch because docs and unknown-command help both needed the same classification; `$he-code-review`manual phase review found no P0/P1/P2 findings;`$he-fix-bugs`had no reproduced bug to repair after validation. Artifact:`artifacts/reviews/archscope-product-sharpness-p4-manual-review.md`. |
+| P5   | complete | Codex | 2026-05-02: completed compatibility and closeout validation without additional source changes; confirmed canonical and compatibility command identity, scan evidence pack behavior, deterministic machine output, CI artifact generation, migration readiness, and repo-local validation contract. Validation: `npm test -- test/command-identity.test.js test/scan-command.test.js test/scan-manifest.test.js test/scan-error-categories.test.js test/scan-pr-evidence.test.js` pass (15 passing); `npm test` pass (177 passing); `npm run test:deep` pass (`deep-regression: OK`); `npm run ci:artifacts` pass (`ci artifact assertions: OK`); `npm run migration:readiness` pass (`status: pass`, `migrationState: compatibility`, `finalizationReady: false` as expected without release finalization evidence); `bash scripts/verify-work.sh --fast` pass with known optional Local Memory health warning only. Review gates: `$simplify` found no source simplification because P5 was validation-only; `$he-code-review` manual closeout review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after baseline validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p5-manual-review.md`.                                                                                                                                                                                                                                                                                     |
 
 ## First he-work Handoff
 

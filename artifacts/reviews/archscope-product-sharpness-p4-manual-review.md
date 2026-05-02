@@ -1,5 +1,13 @@
 # Archscope Product Sharpness P4 Review
 
+## Table of Contents
+
+- [Scope](#scope)
+- [Simplify Pass](#simplify-pass)
+- [Code Review Findings](#code-review-findings)
+- [Fix-Bugs Pass](#fix-bugs-pass)
+- [Validation Evidence](#validation-evidence)
+
 ## Scope
 
 - Phase: P4 Media Surface De-Emphasis.

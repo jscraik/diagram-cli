@@ -69,7 +69,9 @@ function buildArchitectureBrief({
     || null;
   const decisionLine = prImpact
     ? `- Review decision: inspect ${prImpactPath || 'the PR evidence outcome'} before approving architecture-sensitive changes.`
-    : '- Review decision: read the manifest and brief before handing this repo to a reviewer or coding agent.';
+    : prError
+      ? '- Review decision: resolve PR evidence failure before approving architecture-sensitive changes.'
+      : '- Review decision: read the manifest and brief before handing this repo to a reviewer or coding agent.';
   let prLines;
   if (prImpact) {
     prLines = [
