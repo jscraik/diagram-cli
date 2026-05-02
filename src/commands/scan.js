@@ -154,6 +154,7 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
   const result = spawnSync(process.execPath, args, {
     cwd: root,
     encoding: 'utf8',
+    timeout: 120_000, // 2 minutes
   });
   const payload = parseWorkflowPrPayload(result.stdout);
   if (result.status !== 0 || !payload?.data?.prImpact) {
