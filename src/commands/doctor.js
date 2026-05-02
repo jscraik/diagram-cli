@@ -306,7 +306,7 @@ function registerDoctorCommand(program) {
         process.exit(exitCode);
       }
 
-      console.log(chalk.blue('\n🩺 diagram doctor'));
+      console.log(chalk.blue('\n🩺 archscope doctor'));
       for (const check of checks) {
         const icon = check.status === 'pass' ? '✅' : (check.status === 'warn' ? '⚠️' : '❌');
         const line = `${icon} ${check.label}: ${check.message}`;

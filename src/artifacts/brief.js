@@ -48,6 +48,10 @@ function buildArchitectureBrief({
     errors.map((error) => `${error.category}: ${error.message}`),
     'No errors recorded.'
   );
+  const prImpactPath = prImpact?.prImpactPath
+    || manifest.artifacts.find((entry) => entry.id === 'pr-impact' && entry.status === 'written')?.path
+    || manifest.artifacts.find((entry) => entry.id === 'pr-impact')?.path
+    || 'pr-impact/pr-impact.json';
   const prLines = prImpact
     ? [
       `- PR base: ${prImpact.base}`,
@@ -56,7 +60,7 @@ function buildArchitectureBrief({
       `- Blast radius: ${prImpact.blastRadius?.impactedComponents?.length ?? 0}`,
       `- Risk reasons: ${(prImpact.agentSummary?.riskReasons || []).join(', ') || 'none'}`,
       `- Reviewer checks: ${(prImpact.agentSummary?.suggestedReviewerChecks || []).join('; ') || 'none'}`,
-      `- Validation evidence: workflow pr contract reused via .diagram/pr-impact/pr-impact.json`,
+      `- Validation evidence: workflow pr contract reused via ${prImpactPath}`,
       `- Confidence: ${prImpact.confidence?.level || 'unknown'}`,
     ]
     : ['- PR refs not supplied.'];

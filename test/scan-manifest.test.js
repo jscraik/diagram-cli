@@ -97,6 +97,16 @@ describe('scan evidence manifest', () => {
       expect(payload.data.manifestPath).to.equal('.diagram/manifest.json');
       expect(payload.data.briefPath).to.equal('.diagram/brief.md');
       expect(payload.data.agentContextPath).to.equal('.diagram/agent-context.json');
+      expect(payload.data.diagramPath).to.equal('.diagram/architecture.mmd');
+      expect(payload.data.reportPath).to.equal('.diagram/report.html');
+      expect(payload.data.partial).to.equal(false);
+      expect(payload.data.artifacts.map((entry) => entry.id)).to.include.members([
+        'manifest',
+        'brief',
+        'agent-context',
+        'architecture',
+        'report',
+      ]);
       expect(payload.data.evidencePack.primaryHumanArtifact).to.equal('.diagram/report.html');
       expect(payload.data.evidencePack.generatedAt).to.equal('1970-01-01T00:00:00.000Z');
     } finally {

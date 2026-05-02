@@ -61,17 +61,10 @@ function assertCommonScanArtifacts(manifest) {
 
 function resetScanOutputs() {
   fs.mkdirSync(outputDir, { recursive: true });
-  for (const relativePath of [
-    '.diagram/manifest.json',
-    '.diagram/brief.md',
-    '.diagram/agent-context.json',
-    '.diagram/architecture.mmd',
-    '.diagram/report.html',
-    '.diagram/architecture-results.xml',
-  ]) {
-    fs.rmSync(path.join(repoRoot, relativePath), { force: true });
+  for (const entry of fs.readdirSync(outputDir)) {
+    if (['contracts', 'migration'].includes(entry)) continue;
+    fs.rmSync(path.join(outputDir, entry), { recursive: true, force: true });
   }
-  fs.rmSync(path.join(repoRoot, '.diagram', 'pr-impact'), { recursive: true, force: true });
 }
 
 function assertRepositoryScan() {

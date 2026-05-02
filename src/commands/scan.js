@@ -91,6 +91,13 @@ function createScanSummary(manifest) {
   };
 }
 
+function manifestArtifactPath(manifest, id, { requireWritten = false } = {}) {
+  const artifact = manifest.artifacts.find((entry) => entry.id === id);
+  if (!artifact) return null;
+  if (requireWritten && artifact.status !== 'written') return null;
+  return artifact.path;
+}
+
 function errorForArtifact(artifact, category, error) {
   return {
     artifact,
@@ -368,7 +375,18 @@ function registerScanCommand(program) {
         manifest = buildManifest();
       }
       const manifestPath = path.join(outDir, 'manifest.json');
-      writeJsonFile(manifestPath, manifest);
+      try {
+        writeJsonFile(manifestPath, manifest);
+      } catch (error) {
+        markArtifactFailure({
+          ...failureState,
+          artifact: 'manifest',
+          reason: 'write_failure',
+          category: 'write_failure',
+          error,
+        });
+        manifest = buildManifest();
+      }
 
       const outcome = outcomeForManifest(manifest);
       const summary = createScanSummary(manifest);
@@ -391,10 +409,14 @@ function registerScanCommand(program) {
           status: outcome,
           data: {
             outcome,
+            partial: outcome === 'partial',
             evidencePack: manifest,
+            artifacts: manifest.artifacts,
             manifestPath: summary.manifestPath,
-            briefPath: manifest.artifactReadOrder[1],
-            agentContextPath: manifest.primaryAgentArtifact,
+            briefPath: manifestArtifactPath(manifest, 'brief', { requireWritten: true }),
+            agentContextPath: manifestArtifactPath(manifest, 'agent-context', { requireWritten: true }),
+            diagramPath: manifestArtifactPath(manifest, 'architecture', { requireWritten: true }),
+            reportPath: manifestArtifactPath(manifest, 'report', { requireWritten: true }),
             prImpactPath,
             ...(prSummary ? { pr: prSummary } : {}),
             warnings: manifest.warnings,
@@ -419,15 +441,20 @@ function registerScanCommand(program) {
         console.error(chalk.blue('Scanning'), root);
         console.error(chalk.green('✅ manifest'), '→', manifestPath);
       }
+      if (outcome !== 'success') {
+        console.error(chalk.yellow('\nArchitecture evidence pack incomplete'));
+        console.error(`  Outcome: ${outcome}`);
+        if (errors.length > 0) {
+          console.error(`  Error: ${errors[0].category}: ${errors[0].message}`);
+        }
+        process.exit(1);
+      }
       console.log(chalk.green('\nArchitecture evidence pack initialized'));
       console.log(`  Manifest: ${summary.manifestPath}`);
       console.log(`  Human artifact: ${summary.primaryHumanArtifact}`);
       console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
       console.log(chalk.cyan('\nNext action:'));
       console.log(`  ${summary.nextAction}`);
-      if (outcome !== 'success') {
-        process.exit(1);
-      }
     });
 }
 

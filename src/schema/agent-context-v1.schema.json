@@ -77,7 +77,7 @@
     "pr": { "type": "object" },
     "base": { "type": "string" },
     "head": { "type": "string" },
-    "risk": { "type": "object" }
+    "risk": { "type": ["object", "null"] }
   },
   "additionalProperties": false
 }

@@ -603,15 +603,12 @@ that unit or update the ledger with the replacement command actually run.
 
 ## First he-work Handoff
 
-Start with P0 only.
+Retired as of the completed P0-P5 execution ledger above.
 
-1. Run the identity `rg` command from P0.
-2. Create `docs/identity/archscope-identity-surface-audit.md`.
-3. Classify active identity references as canonical-now,
-   compatibility-labelled, deferred-rename, or historical-context.
-4. Do not patch product text until the audit exists.
-5. Validate the audit with Vale.
-6. Update the execution ledger with exact command outcomes.
+Current operators should use the execution ledger as the source of truth, read
+`docs/identity/archscope-identity-surface-audit.md` for the identity inventory,
+and continue with PR review or follow-up rename-readiness work rather than
+restarting P0.
 
 ## Sources & References
 

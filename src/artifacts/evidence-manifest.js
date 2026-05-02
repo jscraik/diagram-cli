@@ -166,7 +166,7 @@ function createScanEvidenceManifest({
     artifactPath('manifest.json'),
     artifactPath('brief.md'),
     artifactPath('agent-context.json'),
-    ...(statusFor('pr-impact', 'deferred') !== 'deferred' ? [artifactPath('pr-impact/pr-impact.json')] : []),
+    ...(statusFor('pr-impact', 'deferred') === 'written' ? [artifactPath('pr-impact/pr-impact.json')] : []),
   ];
 
   return {

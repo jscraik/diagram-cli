@@ -7,7 +7,7 @@ date: 2026-05-01
 origin: docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md
 spec: docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md
 source_spec: docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md
-ui_spec: pending
+ui_spec: docs/ui-specs/2026-05-01-archscope-evidence-report-ui-spec.md
 plan_route: fresh
 plan_depth: deep
 traceability_required: false
@@ -232,7 +232,7 @@ Execution posture for every unit:
 
 - Use vertical slices: behavior test, implementation, focused validation, then ledger update.
 - Run the explicitly requested `$simplify` and `$he-code-review` review steps after each completed implementation phase when this plan enters work mode; record each review outcome or blocker in the ledger.
-- Resolve phase review steps through repo-local `.codex/skills/` first. If no repo-local equivalent exists, use the explicitly requested external skills at `/Users/jamiecraik/dev/agent-skills/.agents/skills/simplify/SKILL.md` and `/Users/jamiecraik/dev/agent-skills/.agents/skills/he-code-review/SKILL.md`. If those external skills cannot be loaded or executed in the active environment, record them as unavailable coverage gaps and run a findings-first manual simplify/code-review checklist against the phase diff; do not mark the external skills as passed.
+- Resolve phase review steps through repo-local `.codex/skills/` first. If no repo-local equivalent exists, use the explicitly requested external skills from the active agent-skill installation when available. If those external skills cannot be loaded or executed in the active environment, record them as unavailable coverage gaps and run a findings-first manual simplify/code-review checklist against the phase diff; do not mark the external skills as passed.
 - Manual fallback reviews must write `artifacts/reviews/archscope-evidence-p<phase>-manual-review.md` with the headings `Scope`, `Simplify Findings`, `Code Review Findings`, `Validation Evidence`, a verdict line `VERDICT: PASS` or `VERDICT: BLOCKED`, and a final completion sentinel `WROTE: artifacts/reviews/archscope-evidence-p<phase>-manual-review.md`. Any P0/P1/P2 finding or missing validation evidence makes the verdict `BLOCKED`.
 - Do not mark a unit complete until validation evidence exists.
 - Keep `report.html` incomplete or deferred until the companion UI spec is available.

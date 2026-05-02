@@ -26,6 +26,23 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+function shellArg(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=,-]+$/.test(text)) return text;
+  return `'${text.replace(/'/g, "'\\''")}'`;
+}
+
+function buildSaveHint(options) {
+  const args = ['archscope', 'generate', '.', '--type', options.type || 'architecture'];
+  if (options.focus) args.push('--focus', options.focus);
+  if (options.patterns) args.push('--patterns', options.patterns);
+  if (options.exclude) args.push('--exclude', options.exclude);
+  if (options.maxFiles) args.push('--max-files', options.maxFiles);
+  if (options.analyzer && options.analyzer !== 'default') args.push('--analyzer', options.analyzer);
+  args.push('--output', 'diagram.svg');
+  return args.map(shellArg).join(' ');
+}
+
 function cleanupTempDirectory(tempDir) {
   if (!tempDir || !fs.existsSync(tempDir)) return;
   try {
@@ -412,7 +429,7 @@ function registerGenerateCommand(program) {
 
           if (large || !url) {
             console.error(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
-            console.error(chalk.cyan('💾 Save to file:'), 'archscope generate . --output diagram.svg');
+            console.error(chalk.cyan('💾 Save to file:'), buildSaveHint(options));
           } else {
             console.error(chalk.cyan('🔗 Preview:'), url);
           }

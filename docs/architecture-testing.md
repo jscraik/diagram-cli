@@ -124,6 +124,7 @@ Repository scan outputs:
 - `.diagram/brief.md`
 - `.diagram/agent-context.json`
 - `.diagram/architecture.mmd`
+- `.diagram/report.html`
 
 PR scan outputs:
 
@@ -140,6 +141,7 @@ Key options:
 - `--patterns <list>`
 - `--exclude <list>`
 - `--max-files <n>`
+- `--analyzer <name>`
 
 Agents and CI should read `.diagram/manifest.json` first and only consume
 artifacts whose status is `written`. Repository scans keep the PR impact artifact

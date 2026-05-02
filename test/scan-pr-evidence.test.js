@@ -5,7 +5,7 @@ const { spawnSync } = require('child_process');
 const { expect } = require('chai');
 
 function run(command, args, cwd) {
-  return spawnSync(command, args, {
+  const result = spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
     env: {
@@ -16,6 +16,17 @@ function run(command, args, cwd) {
       GIT_COMMITTER_EMAIL: 'diagram-test@example.com',
     },
   });
+  if (result.error || result.status !== 0) {
+    const renderedCommand = [command, ...args].join(' ');
+    throw new Error(
+      `Command failed: ${renderedCommand}\n`
+      + `status: ${result.status}\n`
+      + `error: ${result.error?.message || 'none'}\n`
+      + `stdout: ${result.stdout || ''}\n`
+      + `stderr: ${result.stderr || ''}`
+    );
+  }
+  return result;
 }
 
 function createRepo() {
@@ -55,7 +66,7 @@ describe('scan PR evidence composition', () => {
   });
 
   it('reuses workflow pr output and indexes PR artifacts', () => {
-    const result = run('node', [
+    const result = spawnSync('node', [
       path.join(repoRoot, 'src', 'diagram.js'),
       'scan',
       workspace,
@@ -66,7 +77,10 @@ describe('scan PR evidence composition', () => {
       '--format',
       'json',
       '--deterministic',
-    ], repoRoot);
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
 
     expect(result.status, result.stderr).to.equal(0);
     const payload = JSON.parse(result.stdout.trim());
@@ -113,7 +127,7 @@ describe('scan PR evidence composition', () => {
   });
 
   it('preserves repository evidence when PR refs are unavailable', () => {
-    const result = run('node', [
+    const result = spawnSync('node', [
       path.join(repoRoot, 'src', 'diagram.js'),
       'scan',
       workspace,
@@ -124,7 +138,10 @@ describe('scan PR evidence composition', () => {
       '--format',
       'json',
       '--deterministic',
-    ], repoRoot);
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
 
     expect(result.status).to.equal(1);
     const payload = JSON.parse(result.stdout.trim());
@@ -135,6 +152,7 @@ describe('scan PR evidence composition', () => {
     expect(artifacts.report.status).to.equal('written');
     expect(artifacts['pr-impact'].status).to.equal('failed');
     expect(artifacts['pr-impact'].errorCategory).to.equal('pr_refs_unavailable');
+    expect(payload.data.evidencePack.artifactReadOrder).to.not.include('.diagram/pr-impact/pr-impact.json');
     expect(payload.data.pr.status).to.equal('failed');
     expect(payload.data.pr.base).to.equal('missing-ref');
     expect(payload.data.pr.head).to.equal('HEAD');
