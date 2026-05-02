@@ -537,8 +537,7 @@ function registerScanCommand(program) {
 
       const outcome = outcomeForManifest(manifest);
       const prImpactPath = prImpact
-        ? manifest.artifactReadOrder.find((entry) => entry.endsWith('pr-impact/pr-impact.json'))
-          || null
+        ? manifestArtifactPath(manifest, 'pr-impact', { requireWritten: true })
         : null;
       const prSummary = buildPrMachineSummary({
         prImpact,

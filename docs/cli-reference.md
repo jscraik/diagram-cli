@@ -104,8 +104,8 @@ Scan machine output uses `data.outcome` as the automation-safe result:
   `errors[].category` to distinguish partial evidence from gate failures
 - `failed`: exits non-zero and includes a stable error category where available
 
-Common scan error categories include `git_refs_missing`,
-`artifact_write_failed`, `analysis_partial`, `config_invalid`, and
+Common scan error categories in `scan --format json` envelopes include
+`git_refs_missing`, `artifact_write_failed`, `analysis_partial`, and
 `internal_error`.
 
 Key options:
