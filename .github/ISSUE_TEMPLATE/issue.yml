@@ -18,7 +18,7 @@ body:
       description: How can we reproduce this behavior?
       placeholder: |
         1. Run 'npm install'
-        2. Run 'npm test' (or the failing diagram command)
+        2. Run 'npm test' (or the failing archscope command; diagram remains a compatibility alias)
         3. Observe error...
     validations:
       required: true

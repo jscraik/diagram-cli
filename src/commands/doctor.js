@@ -251,7 +251,7 @@ function checkNpmCacheHealth() {
 function registerDoctorCommand(program) {
   program
     .command('doctor [path]')
-    .description('Run environment diagnostics for diagram workflows')
+    .description('Run environment diagnostics for architecture evidence workflows')
     .option('--format <type>', 'Output format (text, json)', 'text')
     .option('--strict', 'Fail when diagnostics include warnings', false)
     .option('--deterministic', 'Use deterministic machine output', false)
@@ -323,8 +323,8 @@ function registerDoctorCommand(program) {
       }
 
       console.log(chalk.cyan('\nNext steps:'));
-      console.log('  1) Resolve any ❌ checks first, then rerun `diagram doctor`.');
-      console.log('  2) Run `diagram generate-all . --artifact-profile agent` once diagnostics are clean.');
+      console.log('  1) Resolve any ❌ checks first, then rerun `archscope doctor`.');
+      console.log('  2) Run `archscope generate-all . --artifact-profile agent` once diagnostics are clean.');
 
       process.exit(exitCode);
     });

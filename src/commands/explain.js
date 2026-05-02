@@ -262,8 +262,8 @@ function registerExplainCommand(program) {
         console.log(mermaid);
         console.log('```');
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Run `diagram validate .` if this component crosses protected boundaries.');
-        console.log('  2) Run `diagram workflow pr` to estimate blast-radius risk for current changes.');
+        console.log('  1) Run `archscope validate .` if this component crosses protected boundaries.');
+        console.log('  2) Run `archscope workflow pr` to estimate blast-radius risk for current changes.');
       }
     });
 }

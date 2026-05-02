@@ -159,7 +159,7 @@ function registerGenerateAllCommand(program) {
         }
         console.error(chalk.cyan('\n🔗 Preview all at: https://mermaid.live'));
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Run `diagram context .` to refresh compact AI context pack files.');
+        console.log('  1) Run `archscope context .` to refresh compact AI context pack files.');
         console.log('  2) Upload `.diagram` artifacts in CI for PR analysis workflows.');
       }
     });
