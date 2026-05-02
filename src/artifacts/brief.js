@@ -42,7 +42,8 @@ function buildArchitectureBrief({
   const areaText = summary.areas.length > 0
     ? summary.areas.map(([name, count]) => `${name} (${count})`).join(', ')
     : 'unknown';
-  const modeText = prImpact ? 'pr scan' : 'repository scan';
+  const prError = errors.find((error) => error.artifact === 'pr-impact');
+  const modeText = prImpact || prError ? 'pr scan' : 'repository scan';
   const warningLines = formatList(warnings, 'No warnings recorded.');
   const errorLines = formatList(
     errors.map((error) => `${error.category}: ${error.message}`),
@@ -50,20 +51,26 @@ function buildArchitectureBrief({
   );
   const prImpactPath = prImpact?.prImpactPath
     || manifest.artifacts.find((entry) => entry.id === 'pr-impact' && entry.status === 'written')?.path
-    || manifest.artifacts.find((entry) => entry.id === 'pr-impact')?.path
-    || 'pr-impact/pr-impact.json';
-  const prLines = prImpact
-    ? [
+    || null;
+  let prLines;
+  if (prImpact) {
+    prLines = [
       `- PR base: ${prImpact.base}`,
       `- PR head: ${prImpact.head}`,
       `- Changed components: ${prImpact.agentSummary?.changedComponents ?? prImpact.changedComponents?.length ?? 0}`,
       `- Blast radius: ${prImpact.blastRadius?.impactedComponents?.length ?? 0}`,
       `- Risk reasons: ${(prImpact.agentSummary?.riskReasons || []).join(', ') || 'none'}`,
       `- Reviewer checks: ${(prImpact.agentSummary?.suggestedReviewerChecks || []).join('; ') || 'none'}`,
-      `- Validation evidence: workflow pr contract reused via ${prImpactPath}`,
+      prImpactPath
+        ? `- Validation evidence: workflow pr contract reused via ${prImpactPath}`
+        : `- Validation evidence: PR impact artifact not written (${prImpact._meta?.status || 'not_written'}).`,
       `- Confidence: ${prImpact.confidence?.level || 'unknown'}`,
-    ]
-    : ['- PR refs not supplied.'];
+    ];
+  } else if (prError) {
+    prLines = [`- PR evidence generation failed: ${prError.category}: ${prError.message}`];
+  } else {
+    prLines = ['- PR refs not supplied.'];
+  }
 
   const lines = [
     titleHeading,

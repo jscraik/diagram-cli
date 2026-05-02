@@ -294,7 +294,12 @@ function registerScanCommand(program) {
         try {
           const prEvidence = runWorkflowPrEvidence({ root, outDir, options });
           prImpact = prEvidence;
-          artifactStatuses['pr-impact'] = 'written';
+          if (prEvidence?._meta?.status === 'complete') {
+            artifactStatuses['pr-impact'] = 'written';
+          } else {
+            artifactStatuses['pr-impact'] = 'deferred';
+            artifactReasons['pr-impact'] = prEvidence?._meta?.status || 'no_pr_impact_artifact';
+          }
         } catch (error) {
           markArtifactFailure({
             ...failureState,
@@ -395,6 +400,7 @@ function registerScanCommand(program) {
       if (formatStr === 'json') {
         const prImpactPath = prImpact
           ? manifest.artifactReadOrder.find((entry) => entry.endsWith('pr-impact/pr-impact.json'))
+            || null
           : null;
         const prSummary = buildPrMachineSummary({
           prImpact,
@@ -430,7 +436,7 @@ function registerScanCommand(program) {
               : (prImpact?.agentSummary?.riskReasons || manifest.warnings),
             suggestedReviewerChecks: [
               ...(prImpact?.agentSummary?.suggestedReviewerChecks || []),
-              'Read `.diagram/manifest.json` before consuming evidence artifacts.',
+              `Read \`${summary.manifestPath}\` before consuming evidence artifacts.`,
             ],
           },
         });

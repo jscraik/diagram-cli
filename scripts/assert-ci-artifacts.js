@@ -110,17 +110,25 @@ function assertPrScan() {
   if (payload.status !== 'success') {
     fail(`PR scan machine status was ${payload.status}, expected success`);
   }
-  if (payload.data.pr?.status !== 'complete') {
-    fail(`PR scan data.pr.status was ${payload.data.pr?.status}, expected complete`);
+  const prStatus = payload.data.pr?.status;
+  if (!['complete', 'no_changes'].includes(prStatus)) {
+    fail(`PR scan data.pr.status was ${prStatus}, expected complete or no_changes`);
   }
 
   const manifest = readJson('.diagram/manifest.json');
   assertCommonScanArtifacts(manifest);
-  assertArtifact(manifest, 'pr-impact', 'written', '.diagram/pr-impact/pr-impact.json');
+  if (prStatus === 'complete') {
+    assertArtifact(manifest, 'pr-impact', 'written', '.diagram/pr-impact/pr-impact.json');
+    readJson('.diagram/pr-impact/pr-impact.json');
+  } else {
+    assertArtifact(manifest, 'pr-impact', 'deferred', '.diagram/pr-impact/pr-impact.json');
+    if (fs.existsSync(path.join(repoRoot, '.diagram', 'pr-impact', 'pr-impact.json'))) {
+      fail('no_changes PR scan must not leave a PR impact artifact');
+    }
+  }
   if (!fs.existsSync(path.join(repoRoot, '.diagram', 'report.html'))) {
     fail('PR scan must write report.html');
   }
-  readJson('.diagram/pr-impact/pr-impact.json');
 }
 
 function assertValidationArtifact() {

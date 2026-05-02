@@ -161,6 +161,40 @@ describe('scan PR evidence composition', () => {
     expect(payload.data.pr.head).to.equal('HEAD');
     expect(payload.data.pr.errorCategory).to.equal('pr_refs_unavailable');
     expect(payload.errors.map((error) => error.category)).to.include('pr_refs_unavailable');
+
+    const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
+    expect(brief).to.include('- Mode: pr scan');
+    expect(brief).to.include('- PR evidence generation failed: pr_refs_unavailable:');
+    expect(brief).to.not.include('- PR refs not supplied.');
+  });
+
+  it('keeps PR impact deferred when no PR artifact is written', () => {
+    const result = run('node', [
+      path.join(repoRoot, 'src', 'diagram.js'),
+      'scan',
+      workspace,
+      '--base',
+      'HEAD',
+      '--head',
+      'HEAD',
+      '--format',
+      'json',
+      '--deterministic',
+    ], repoRoot);
+
+    const payload = JSON.parse(result.stdout.trim());
+    const manifest = payload.data.evidencePack;
+    const artifacts = Object.fromEntries(manifest.artifacts.map((entry) => [entry.id, entry]));
+    expect(payload.data.pr.status).to.equal('no_changes');
+    expect(payload.data.prImpactPath).to.equal(null);
+    expect(artifacts['pr-impact'].status).to.equal('deferred');
+    expect(artifacts['pr-impact'].reason).to.equal('no_changes');
+    expect(manifest.artifactReadOrder).to.not.include('.diagram/pr-impact/pr-impact.json');
+    expect(fs.existsSync(path.join(workspace, '.diagram', 'pr-impact', 'pr-impact.json'))).to.equal(false);
+
+    const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
+    expect(brief).to.include('- Mode: pr scan');
+    expect(brief).to.include('- Validation evidence: PR impact artifact not written (no_changes).');
   });
 
   it('keeps PR artifact paths consistent with custom output directories', () => {
@@ -183,6 +217,9 @@ describe('scan PR evidence composition', () => {
     const payload = JSON.parse(result.stdout.trim());
     expect(payload.data.prImpactPath).to.equal('artifacts/scan/pr-impact/pr-impact.json');
     expect(payload.data.pr.prImpactPath).to.equal('artifacts/scan/pr-impact/pr-impact.json');
+    expect(payload.agentSummary.suggestedReviewerChecks).to.include(
+      'Read `artifacts/scan/manifest.json` before consuming evidence artifacts.'
+    );
     expect(fs.existsSync(path.join(workspace, 'artifacts', 'scan', 'pr-impact', 'pr-impact.json'))).to.equal(true);
   });
 });
