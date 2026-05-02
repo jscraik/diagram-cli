@@ -40,7 +40,7 @@ archscope workflow pr [path]
 archscope diff <base> <head>
 ```
 
-Advanced media commands:
+Optional advanced media commands:
 
 ```bash
 archscope generate-video [path]
@@ -256,11 +256,12 @@ archscope diff origin/main HEAD
 archscope diff origin/main HEAD --format json --deterministic
 ```
 
-## Video and Animation Commands
+## Optional Advanced Media Commands
 
 ### `archscope generate-video [path]`
 
-Generate animated video output (`.mp4`, `.webm`, `.mov`).
+Generate optional animated video output (`.mp4`, `.webm`, `.mov`) after the
+core evidence pack or PR review output is already in place.
 
 ```bash
 archscope generate-video . --duration 8 --fps 60 --width 1920 --height 1080
@@ -268,7 +269,8 @@ archscope generate-video . --duration 8 --fps 60 --width 1920 --height 1080
 
 ### `archscope generate-animated [path]`
 
-Generate animated SVG output.
+Generate optional animated SVG output after the core evidence pack or PR review
+output is already in place.
 
 ```bash
 archscope generate-animated . --type architecture --output diagram-animated.svg

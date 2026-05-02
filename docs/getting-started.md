@@ -122,6 +122,8 @@ Expected results:
   - Run `archscope doctor .`.
   - Install Mermaid CLI if needed: `npm install -g @mermaid-js/mermaid-cli`.
 - `archscope generate-video` or `archscope generate-animated` fails:
+  - Treat video and animation as optional advanced media surfaces; run
+    `archscope scan .` first if you only need architecture evidence.
   - Install Playwright runtime: `npx playwright install chromium`.
   - Install ffmpeg: `brew install ffmpeg` (macOS).
 - Large repositories produce oversized preview URLs:

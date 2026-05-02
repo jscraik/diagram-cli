@@ -112,6 +112,14 @@ archscope workflow pr . --base origin/main --head HEAD --risk-threshold medium -
 archscope scan . --base origin/main --head HEAD
 ```
 
+Optional advanced media output remains available after the evidence path is
+working:
+
+```bash
+archscope generate-video .
+archscope generate-animated .
+```
+
 ## AI Agent Workflows
 
 ```bash
