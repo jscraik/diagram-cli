@@ -21,13 +21,16 @@ Architecture evidence for humans and AI coding agents.
 The compatibility command `diagram` remains available during the migration
 window for existing scripts.
 
+Before you review a PR, run Archscope. Before an AI agent edits a repo, give it
+Archscope evidence.
+
 The CLI scans your repository and produces architecture evidence:
 
 - A default evidence pack (`scan`) for first-run review and agent handoff
-- Mermaid diagrams (`generate`, `generate-all`), including schema-backed ERD output
-- Architecture policy validation (`validate`)
 - PR architecture impact reports (`workflow pr`)
 - AI-context artifacts (`context`)
+- Architecture policy validation (`validate`)
+- Mermaid diagrams (`generate`, `generate-all`), including schema-backed ERD output
 
 Default resolution precedence for scan parameters is explicit:
 
@@ -50,6 +53,9 @@ After `npm link`, use `archscope ...` for new workflows. Without `npm link`, run
 commands with `node src/diagram.js ...`.
 
 ## Architecture Evidence Pack
+
+The default evidence pack gives humans a short architecture brief and gives AI
+coding agents a manifest-first context path.
 
 Use this path for new repositories:
 

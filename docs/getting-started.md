@@ -34,6 +34,9 @@ npm link
 
 ## First Run
 
+Before you review a PR, run Archscope. The first scan writes a compact evidence
+pack for both human reviewers and AI coding agents.
+
 ```bash
 archscope init .
 archscope doctor .

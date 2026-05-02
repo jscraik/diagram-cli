@@ -16,6 +16,15 @@ Primary command reference for the canonical `archscope` CLI.
 
 ## Command Set
 
+Default review path:
+
+```bash
+archscope scan .
+archscope scan . --base origin/main --head HEAD
+```
+
+Core evidence and review commands:
+
 ```bash
 archscope init [path]
 archscope doctor [path]
@@ -29,6 +38,11 @@ archscope explain <component> [path]
 archscope validate [path]
 archscope workflow pr [path]
 archscope diff <base> <head>
+```
+
+Advanced media commands:
+
+```bash
 archscope generate-video [path]
 archscope generate-animated [path]
 ```
