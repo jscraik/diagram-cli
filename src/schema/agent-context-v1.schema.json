@@ -65,10 +65,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["category", "message"],
+        "required": ["category", "artifact", "message"],
         "properties": {
           "category": { "type": "string" },
-          "artifact": { "type": ["string", "null"] },
+          "artifact": { "type": "string" },
           "message": { "type": "string" }
         },
         "additionalProperties": false

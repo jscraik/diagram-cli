@@ -42,7 +42,7 @@ function createGenerateAllManifest({
     generatedAt: getGeneratedAt(deterministic),
     schemaVersion: '1.0',
     rootPath: root,
-    diagramDir: unixPath(path.relative(realRoot, outDir) || '.'),
+    diagramDir: path.relative(realRoot, outDir) || '.',
     compaction: {
       applied: budgeted.applied,
       profile: artifactProfile.name,

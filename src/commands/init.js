@@ -12,21 +12,21 @@ const DEFAULT_DIAGRAMRC = Object.freeze({
   theme: 'default',
 });
 
-const DEFAULT_CI_STEP = `# Sample GitHub Actions steps for diagram-cli
+const DEFAULT_CI_STEP = `# Sample GitHub Actions steps for Archscope
 - name: Install dependencies
   run: npm ci
 
-- name: Install diagram CLI
+- name: Install Archscope CLI
   run: npm install --no-save @brainwav/diagram
 
 - name: Validate architecture rules
-  run: npx --no-install diagram validate .
+  run: npx --no-install archscope validate .
 
 - name: Generate compact architecture artifacts
-  run: npx --no-install diagram generate-all . --output-dir .diagram --artifact-profile agent
+  run: npx --no-install archscope generate-all . --output-dir .diagram --artifact-profile agent
 
 - name: Refresh AI context pack
-  run: npx --no-install diagram context .
+  run: npx --no-install archscope context .
 
 - name: Upload diagram artifacts
   uses: actions/upload-artifact@v4
@@ -81,7 +81,7 @@ function registerInitCommand(program) {
         if (existingFiles.length > 0) {
           console.error(chalk.red('❌ Initialization blocked: one or more files already exist.'));
           existingFiles.forEach(file => console.error(chalk.gray(`   - ${file}`)));
-          console.error(chalk.gray('Fix: rerun with `diagram init . --force` to overwrite generated starter files.'));
+          console.error(chalk.gray('Fix: rerun with `archscope init . --force` to overwrite generated starter files.'));
           process.exit(2);
         }
       }
@@ -101,19 +101,19 @@ function registerInitCommand(program) {
       } catch (error) {
         if (error.code === 'EEXIST') {
           console.error(chalk.red('❌ Initialization blocked: one or more files already exist.'));
-          console.error(chalk.gray('Fix: rerun with `diagram init . --force` to overwrite generated starter files.'));
+          console.error(chalk.gray('Fix: rerun with `archscope init . --force` to overwrite generated starter files.'));
           process.exit(2);
         }
         throw error;
       }
 
-      console.log(chalk.green('✅ diagram init complete'));
+      console.log(chalk.green('✅ archscope init complete'));
       console.log(chalk.gray(`  Created: ${architecturePath}`));
       console.log(chalk.gray(`  Created: ${diagramRcPath}`));
       console.log(chalk.gray(`  Created: ${ciSamplePath}`));
       console.log(chalk.cyan('\nNext steps:'));
       console.log('  1) Edit `.architecture.yml` to match your real layer boundaries.');
-      console.log('  2) Run `diagram validate .` and commit passing rules.');
+      console.log('  2) Run `archscope validate .` and commit passing rules.');
       console.log('  3) Copy `.diagram/ci/github-actions-step.yml` into your workflow YAML.');
     });
 }

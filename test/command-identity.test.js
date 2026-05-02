@@ -20,6 +20,7 @@ describe('command identity and compatibility', () => {
       [CANONICAL_COMMAND_NAME]: 'src/diagram.js',
       [COMPATIBILITY_COMMAND_NAME]: 'src/diagram.js',
     });
+    expect(packageJson.description).to.equal('Generate architecture evidence for humans and AI agents');
   });
 
   it('detects compatibility invocation by argv script name', () => {
@@ -38,6 +39,7 @@ describe('command identity and compatibility', () => {
     });
     expect(help.status, help.stderr).to.equal(0);
     expect(help.stdout).to.include(`Usage: ${CANONICAL_COMMAND_NAME}`);
+    expect(help.stdout).to.include('Generate architecture evidence for humans and AI agents');
     expect(help.stdout).to.not.include(`Usage: ${COMPATIBILITY_COMMAND_NAME}`);
 
     const unknown = spawnSync('node', ['src/diagram.js', 'unknown-command'], {

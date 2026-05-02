@@ -75,7 +75,7 @@ function applyBaseline(results, config, saveBaseline, configPath, root, quiet = 
       fs.writeFileSync(configPath, yaml);
       if (!quiet) {
         console.log(chalk.green('✅ Baseline saved:'), configPath);
-        console.log(chalk.gray('   Run `diagram validate` to verify'));
+        console.log(chalk.gray('   Run `archscope validate` to verify'));
       }
     } else if (!quiet) {
       console.log(chalk.gray('ℹ️  Baseline already up to date'));
@@ -189,7 +189,7 @@ function registerValidateCommand(program) {
         }
         console.log(chalk.green('✅ Created configuration:'), configPath);
         console.log(chalk.gray('\nEdit the file to define your architecture rules, then run:'));
-        console.log(chalk.cyan('  diagram validate'));
+        console.log(chalk.cyan('  archscope validate'));
         process.exit(0);
       }
 
@@ -198,13 +198,13 @@ function registerValidateCommand(program) {
       if (!fs.existsSync(configPath)) {
         if (configProvidedByCli) {
           console.error(chalk.red('❌ Config file not found:'), configPath);
-          console.error(chalk.gray('Fix: run `diagram init .` or `diagram validate --init` to scaffold rules.'));
+          console.error(chalk.gray('Fix: run `archscope init .` or `archscope validate --init` to scaffold rules.'));
           process.exit(2);
         }
         const found = engine.findConfig(root);
         if (!found) {
           console.error(chalk.red('❌ No .architecture.yml found.'));
-          console.error(chalk.gray('Fix: run `diagram init .` or `diagram validate --init` to scaffold rules.'));
+          console.error(chalk.gray('Fix: run `archscope init .` or `archscope validate --init` to scaffold rules.'));
           process.exit(2);
         }
         configPath = resolveConfigPathOrExit(root, found);
@@ -314,8 +314,8 @@ function registerValidateCommand(program) {
 
       if (!quietMachineOutput && exitCode === 0) {
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Run `diagram workflow pr . --base origin/main --head HEAD` before opening a PR.');
-        console.log('  2) Add `diagram validate` to CI using `diagram init` sample workflow.');
+        console.log('  1) Run `archscope workflow pr . --base origin/main --head HEAD` before opening a PR.');
+        console.log('  2) Add `archscope validate` to CI using the `archscope init` sample workflow.');
       }
 
       process.exit(exitCode);

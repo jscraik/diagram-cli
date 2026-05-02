@@ -112,8 +112,8 @@ function registerChangedCommand(program) {
         }
         console.log(chalk.green('✅ No changed files detected.'));
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Continue with `diagram validate .` for full rule coverage.');
-        console.log('  2) Re-run `diagram changed .` after new branch edits.');
+        console.log('  1) Continue with `archscope validate .` for full rule coverage.');
+        console.log('  2) Re-run `archscope changed .` after new branch edits.');
         return;
       }
 
@@ -147,7 +147,7 @@ function registerChangedCommand(program) {
             riskReasons: [],
             suggestedReviewerChecks: [
               'Review changed-file coupling for unexpected cross-layer imports.',
-              'Use `diagram workflow pr` for blast-radius scoring before merge.',
+              'Use `archscope workflow pr` for blast-radius scoring before merge.',
             ],
           },
         });
@@ -175,8 +175,8 @@ function registerChangedCommand(program) {
       }
 
       console.log(chalk.cyan('\nNext steps:'));
-      console.log('  1) Run `diagram workflow pr . --base origin/main --head HEAD` for risk scoring.');
-      console.log('  2) Run `diagram validate .` if changed scope touched architecture boundaries.');
+      console.log('  1) Run `archscope workflow pr . --base origin/main --head HEAD` for risk scoring.');
+      console.log('  2) Run `archscope validate .` if changed scope touched architecture boundaries.');
     });
 }
 

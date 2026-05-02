@@ -32,48 +32,6 @@ function run(args, label) {
   return result;
 }
 
-function runGit(args) {
-  return spawnSync('git', args, {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  });
-}
-
-function gitRefExists(ref) {
-  return runGit(['rev-parse', '--verify', `${ref}^{commit}`]).status === 0;
-}
-
-function previousHeadCommit() {
-  const result = runGit(['rev-list', '--max-count=2', 'HEAD']);
-  if (result.status !== 0) return null;
-  const commits = result.stdout.trim().split(/\r?\n/).filter(Boolean);
-  return commits[1] || null;
-}
-
-function resolvePrScanRefs() {
-  const requested = { base: baseRef, head: headRef };
-  if (gitRefExists(requested.base) && gitRefExists(requested.head)) {
-    return requested;
-  }
-
-  if (!gitRefExists('HEAD')) {
-    fail(`PR scan head ref unavailable: ${requested.head}`);
-  }
-
-  const fallbackBase = previousHeadCommit();
-  if (fallbackBase) {
-    console.warn(
-      `ci artifact assertion warning: ${requested.base} or ${requested.head} was unavailable; using ${fallbackBase}..HEAD`
-    );
-    return { base: fallbackBase, head: 'HEAD' };
-  }
-
-  console.warn(
-    `ci artifact assertion warning: ${requested.base} or ${requested.head} unavailable in shallow history; using HEAD..HEAD`
-  );
-  return { base: 'HEAD', head: 'HEAD' };
-}
-
 function readJson(relativePath) {
   const absolutePath = path.join(repoRoot, relativePath);
   if (!fs.existsSync(absolutePath)) {
@@ -103,17 +61,10 @@ function assertCommonScanArtifacts(manifest) {
 
 function resetScanOutputs() {
   fs.mkdirSync(outputDir, { recursive: true });
-  for (const relativePath of [
-    '.diagram/manifest.json',
-    '.diagram/brief.md',
-    '.diagram/agent-context.json',
-    '.diagram/architecture.mmd',
-    '.diagram/report.html',
-    '.diagram/architecture-results.xml',
-  ]) {
-    fs.rmSync(path.join(repoRoot, relativePath), { force: true });
+  for (const entry of fs.readdirSync(outputDir)) {
+    if (['contracts', 'migration'].includes(entry)) continue;
+    fs.rmSync(path.join(outputDir, entry), { recursive: true, force: true });
   }
-  fs.rmSync(path.join(repoRoot, '.diagram', 'pr-impact'), { recursive: true, force: true });
 }
 
 function assertRepositoryScan() {
@@ -142,16 +93,15 @@ function assertRepositoryScan() {
 
 function assertPrScan() {
   resetScanOutputs();
-  const refs = resolvePrScanRefs();
   const result = run([
     'scan',
     '.',
     '--output-dir',
     '.diagram',
     '--base',
-    refs.base,
+    baseRef,
     '--head',
-    refs.head,
+    headRef,
     '--format',
     'json',
     '--deterministic',
@@ -160,17 +110,25 @@ function assertPrScan() {
   if (payload.status !== 'success') {
     fail(`PR scan machine status was ${payload.status}, expected success`);
   }
-  if (!['complete', 'no_changes'].includes(payload.data.pr?.status)) {
-    fail(`PR scan data.pr.status was ${payload.data.pr?.status}, expected complete or no_changes`);
+  const prStatus = payload.data.pr?.status;
+  if (!['complete', 'no_changes'].includes(prStatus)) {
+    fail(`PR scan data.pr.status was ${prStatus}, expected complete or no_changes`);
   }
 
   const manifest = readJson('.diagram/manifest.json');
   assertCommonScanArtifacts(manifest);
-  assertArtifact(manifest, 'pr-impact', 'written', '.diagram/pr-impact/pr-impact.json');
+  if (prStatus === 'complete') {
+    assertArtifact(manifest, 'pr-impact', 'written', '.diagram/pr-impact/pr-impact.json');
+    readJson('.diagram/pr-impact/pr-impact.json');
+  } else {
+    assertArtifact(manifest, 'pr-impact', 'deferred', '.diagram/pr-impact/pr-impact.json');
+    if (fs.existsSync(path.join(repoRoot, '.diagram', 'pr-impact', 'pr-impact.json'))) {
+      fail('no_changes PR scan must not leave a PR impact artifact');
+    }
+  }
   if (!fs.existsSync(path.join(repoRoot, '.diagram', 'report.html'))) {
     fail('PR scan must write report.html');
   }
-  readJson('.diagram/pr-impact/pr-impact.json');
 }
 
 function assertValidationArtifact() {

@@ -26,6 +26,34 @@ const {
 } = require('./shared');
 const { buildMachineEnvelope } = require('./output');
 
+function shellArg(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=,-]+$/.test(text)) return text;
+  return `'${text.replace(/'/g, "'\\''")}'`;
+}
+
+function buildGenerateHintArgs(options, targetPath = '.', extraArgs = []) {
+  const args = ['archscope', 'generate', targetPath || '.', '--type', options.type || 'architecture'];
+  if (options.focus) args.push('--focus', options.focus);
+  if (options.patterns) args.push('--patterns', options.patterns);
+  if (options.exclude) args.push('--exclude', options.exclude);
+  if (options.maxFiles) args.push('--max-files', options.maxFiles);
+  if (options.analyzer && options.analyzer !== 'default') args.push('--analyzer', options.analyzer);
+  args.push(...extraArgs);
+  return args;
+}
+
+function buildGenerateHint(options, targetPath = '.', extraArgs = []) {
+  const args = buildGenerateHintArgs(options, targetPath, extraArgs);
+  return args.map(shellArg).join(' ');
+}
+
+function buildSaveHint(options, targetPath = '.') {
+  const args = buildGenerateHintArgs(options, targetPath);
+  args.push('--output', 'diagram.svg');
+  return args.map(shellArg).join(' ');
+}
+
 function cleanupTempDirectory(tempDir) {
   if (!tempDir || !fs.existsSync(tempDir)) return;
   try {
@@ -288,7 +316,7 @@ function registerGenerateCommand(program) {
           if (options.failOnValidationError) {
             if (!isJson) {
               console.error(chalk.red('❌ Validation failed (exit 1)'));
-              console.error(chalk.gray('Fix: run `diagram generate . --type architecture --validate` and address listed lines.'));
+              console.error(chalk.gray(`Fix: run \`${buildGenerateHint(options, targetPath, ['--validate'])}\` and address listed lines.`));
             }
             failOnValidationErrorTriggered = true;
           }
@@ -412,7 +440,7 @@ function registerGenerateCommand(program) {
 
           if (large || !url) {
             console.error(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
-            console.error(chalk.cyan('💾 Save to file:'), 'diagram generate . --output diagram.svg');
+            console.error(chalk.cyan('💾 Save to file:'), buildSaveHint(options, targetPath));
           } else {
             console.error(chalk.cyan('🔗 Preview:'), url);
           }
@@ -482,8 +510,8 @@ function registerGenerateCommand(program) {
 
       if (!isJson && !options.quiet) {
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Run `diagram validate .` to enforce architecture policy constraints.');
-        console.log('  2) Run `diagram generate-all . --artifact-profile agent` for AI-friendly context pack artifacts.');
+        console.log('  1) Run `archscope validate .` to enforce architecture policy constraints.');
+        console.log('  2) Run `archscope generate-all . --artifact-profile agent` for AI-friendly context pack artifacts.');
       }
     });
 }

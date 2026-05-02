@@ -95,7 +95,7 @@ function registerContextCommand(program) {
       console.log(chalk.green('✅ Context pack refreshed.'));
       console.log(chalk.cyan('\nNext steps:'));
       console.log('  1) Attach `.diagram/context/diagram-context.md` to AI review workflows.');
-      console.log('  2) Run `diagram generate-all . --artifact-profile agent` if source graph changed significantly.');
+      console.log('  2) Run `archscope generate-all . --artifact-profile agent` if source graph changed significantly.');
     });
 }
 

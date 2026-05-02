@@ -91,8 +91,11 @@ function createScanSummary(manifest) {
   };
 }
 
-function artifactPathFor(manifest, artifactId) {
-  return manifest.artifacts.find((entry) => entry.id === artifactId)?.path || null;
+function manifestArtifactPath(manifest, id, { requireWritten = false } = {}) {
+  const artifact = manifest.artifacts.find((entry) => entry.id === id);
+  if (!artifact) return null;
+  if (requireWritten && artifact.status !== 'written') return null;
+  return artifact.path;
 }
 
 function errorForArtifact(artifact, category, error) {
@@ -151,24 +154,8 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
   const result = spawnSync(process.execPath, args, {
     cwd: root,
     encoding: 'utf8',
-    timeout: 120000,
-    maxBuffer: 10 * 1024 * 1024,
+    timeout: 120_000, // 2 minutes
   });
-  if (result.error?.code === 'ETIMEDOUT') {
-    const timeoutError = new Error('workflow pr evidence timed out');
-    timeoutError.category = 'pr_timeout';
-    throw timeoutError;
-  }
-  if (result.error?.code === 'ENOBUFS') {
-    const bufferError = new Error('workflow pr evidence exceeded max output buffer');
-    bufferError.category = 'pr_output_too_large';
-    throw bufferError;
-  }
-  if (result.error) {
-    const spawnError = new Error(result.error.message || 'workflow pr evidence failed to start');
-    spawnError.category = 'pr_refs_unavailable';
-    throw spawnError;
-  }
   const payload = parseWorkflowPrPayload(result.stdout);
   if (result.status !== 0 || !payload?.data?.prImpact) {
     const error = new Error(
@@ -306,14 +293,13 @@ function registerScanCommand(program) {
       if (options.base || options.head) {
         try {
           const prEvidence = runWorkflowPrEvidence({ root, outDir, options });
-          const prImpactFile = path.join(outDir, 'pr-impact', 'pr-impact.json');
-          if (!fs.existsSync(prImpactFile)) {
-            const error = new Error('workflow pr completed without writing pr-impact/pr-impact.json');
-            error.category = 'pr_artifact_missing';
-            throw error;
-          }
           prImpact = prEvidence;
-          artifactStatuses['pr-impact'] = 'written';
+          if (prEvidence?._meta?.status === 'complete') {
+            artifactStatuses['pr-impact'] = 'written';
+          } else {
+            artifactStatuses['pr-impact'] = 'deferred';
+            artifactReasons['pr-impact'] = prEvidence?._meta?.status || 'no_pr_impact_artifact';
+          }
         } catch (error) {
           markArtifactFailure({
             ...failureState,
@@ -394,45 +380,27 @@ function registerScanCommand(program) {
         });
         manifest = buildManifest();
       }
-      if (analysis && artifactStatuses.brief === 'written') {
-        const briefPath = path.join(outDir, 'brief.md');
-        writeArtifact({
-          artifact: 'brief',
-          write: () => writeArchitectureBrief(briefPath, {
-            manifest,
-            analysis,
-            prImpact,
-            warnings,
-            errors,
-          }),
-          failureState,
+      const manifestPath = path.join(outDir, 'manifest.json');
+      try {
+        writeJsonFile(manifestPath, manifest);
+      } catch (error) {
+        markArtifactFailure({
+          ...failureState,
+          artifact: 'manifest',
+          reason: 'write_failure',
+          category: 'write_failure',
+          error,
         });
         manifest = buildManifest();
-        if (artifactStatuses.brief === 'failed' && artifactStatuses['agent-context'] === 'written') {
-          const agentContextPath = path.join(outDir, 'agent-context.json');
-          writeArtifact({
-            artifact: 'agent-context',
-            write: () => writeAgentContext(agentContextPath, {
-              manifest,
-              analysis,
-              prImpact,
-              warnings,
-              errors,
-            }),
-            failureState,
-          });
-          manifest = buildManifest();
-        }
       }
-      const manifestPath = path.join(outDir, 'manifest.json');
-      writeJsonFile(manifestPath, manifest);
 
       const outcome = outcomeForManifest(manifest);
       const summary = createScanSummary(manifest);
 
       if (formatStr === 'json') {
         const prImpactPath = prImpact
-          ? artifactPathFor(manifest, 'pr-impact')
+          ? manifest.artifactReadOrder.find((entry) => entry.endsWith('pr-impact/pr-impact.json'))
+            || null
           : null;
         const prSummary = buildPrMachineSummary({
           prImpact,
@@ -448,10 +416,14 @@ function registerScanCommand(program) {
           status: outcome,
           data: {
             outcome,
+            partial: outcome === 'partial',
             evidencePack: manifest,
+            artifacts: manifest.artifacts,
             manifestPath: summary.manifestPath,
-            briefPath: artifactPathFor(manifest, 'brief'),
-            agentContextPath: manifest.primaryAgentArtifact,
+            briefPath: manifestArtifactPath(manifest, 'brief', { requireWritten: true }),
+            agentContextPath: manifestArtifactPath(manifest, 'agent-context', { requireWritten: true }),
+            diagramPath: manifestArtifactPath(manifest, 'architecture', { requireWritten: true }),
+            reportPath: manifestArtifactPath(manifest, 'report', { requireWritten: true }),
             prImpactPath,
             ...(prSummary ? { pr: prSummary } : {}),
             warnings: manifest.warnings,
@@ -464,7 +436,7 @@ function registerScanCommand(program) {
               : (prImpact?.agentSummary?.riskReasons || manifest.warnings),
             suggestedReviewerChecks: [
               ...(prImpact?.agentSummary?.suggestedReviewerChecks || []),
-              `Read \`${summary.manifestPath || '.diagram/manifest.json'}\` before consuming evidence artifacts.`,
+              `Read \`${summary.manifestPath}\` before consuming evidence artifacts.`,
             ],
           },
         });
@@ -476,15 +448,20 @@ function registerScanCommand(program) {
         console.error(chalk.blue('Scanning'), root);
         console.error(chalk.green('✅ manifest'), '→', manifestPath);
       }
+      if (outcome !== 'success') {
+        console.error(chalk.yellow('\nArchitecture evidence pack incomplete'));
+        console.error(`  Outcome: ${outcome}`);
+        if (errors.length > 0) {
+          console.error(`  Error: ${errors[0].category}: ${errors[0].message}`);
+        }
+        process.exit(1);
+      }
       console.log(chalk.green('\nArchitecture evidence pack initialized'));
       console.log(`  Manifest: ${summary.manifestPath}`);
       console.log(`  Human artifact: ${summary.primaryHumanArtifact}`);
       console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
       console.log(chalk.cyan('\nNext action:'));
       console.log(`  ${summary.nextAction}`);
-      if (outcome !== 'success') {
-        process.exit(1);
-      }
     });
 }
 

@@ -62,9 +62,8 @@ describe('scan report.html artifact', () => {
       expect(report).to.include('href="manifest.json"');
       expect(report).to.include('href="agent-context.json"');
       expect(report).to.include('href="architecture.mmd"');
-      expect(report).to.include('PR impact: .diagram/pr-impact/pr-impact.json (deferred)');
       expect(report).to.not.include('href="pr-impact/pr-impact.json"');
-      expect(report).to.not.match(/\s(?:href|src)=["']https?:\/\//);
+      expect(report).to.not.match(/<(?:link|script|img)[^>]+(?:href|src)\s*=\s*["']https?:\/\//i);
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

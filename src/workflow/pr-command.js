@@ -448,7 +448,7 @@ function registerWorkflowCommands(program, deps) {
           console.log(chalk.green('\n✅ No architecture changes detected'));
           console.log(chalk.cyan('\nNext steps:'));
           console.log('  1) Skip architecture-risk override for this PR.');
-          console.log('  2) Re-run `diagram workflow pr` after new code changes.');
+          console.log('  2) Re-run `archscope workflow pr` after new code changes.');
         }
         process.exit(0);
       }

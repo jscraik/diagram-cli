@@ -5,7 +5,7 @@ const { spawnSync } = require('child_process');
 const { expect } = require('chai');
 
 function run(command, args, cwd) {
-  return spawnSync(command, args, {
+  const result = spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
     env: {
@@ -16,30 +16,35 @@ function run(command, args, cwd) {
       GIT_COMMITTER_EMAIL: 'diagram-test@example.com',
     },
   });
-}
-
-function runChecked(command, args, cwd) {
-  const result = run(command, args, cwd);
-  expect(result.status, `${command} ${args.join(' ')}\n${result.stderr || result.stdout}`).to.equal(0);
+  if (result.error || result.status !== 0) {
+    const renderedCommand = [command, ...args].join(' ');
+    throw new Error(
+      `Command failed: ${renderedCommand}\n`
+      + `status: ${result.status}\n`
+      + `error: ${result.error?.message || 'none'}\n`
+      + `stdout: ${result.stdout || ''}\n`
+      + `stderr: ${result.stderr || ''}`
+    );
+  }
   return result;
 }
 
 function createRepo() {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'archscope-scan-pr-'));
   fs.mkdirSync(path.join(workspace, 'src'), { recursive: true });
-  runChecked('git', ['init'], workspace);
+  run('git', ['init'], workspace);
 
   fs.writeFileSync(path.join(workspace, 'src', 'index.js'), 'module.exports = { value: 1 };\n');
-  runChecked('git', ['add', '.'], workspace);
-  runChecked('git', ['commit', '-m', 'initial'], workspace);
+  run('git', ['add', '.'], workspace);
+  run('git', ['commit', '-m', 'initial'], workspace);
 
   fs.writeFileSync(
     path.join(workspace, 'src', 'index.js'),
     "const util = require('./util');\nmodule.exports = util;\n"
   );
   fs.writeFileSync(path.join(workspace, 'src', 'util.js'), 'module.exports = { value: 2 };\n');
-  runChecked('git', ['add', '.'], workspace);
-  runChecked('git', ['commit', '-m', 'change architecture'], workspace);
+  run('git', ['add', '.'], workspace);
+  run('git', ['commit', '-m', 'change architecture'], workspace);
 
   return workspace;
 }
@@ -57,11 +62,14 @@ describe('scan PR evidence composition', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(workspace, { recursive: true, force: true });
+    if (workspace && fs.existsSync(workspace)) {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+    workspace = undefined;
   });
 
   it('reuses workflow pr output and indexes PR artifacts', () => {
-    const result = run('node', [
+    const result = spawnSync('node', [
       path.join(repoRoot, 'src', 'diagram.js'),
       'scan',
       workspace,
@@ -72,7 +80,10 @@ describe('scan PR evidence composition', () => {
       '--format',
       'json',
       '--deterministic',
-    ], repoRoot);
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
 
     expect(result.status, result.stderr).to.equal(0);
     const payload = JSON.parse(result.stdout.trim());
@@ -119,7 +130,7 @@ describe('scan PR evidence composition', () => {
   });
 
   it('preserves repository evidence when PR refs are unavailable', () => {
-    const result = run('node', [
+    const result = spawnSync('node', [
       path.join(repoRoot, 'src', 'diagram.js'),
       'scan',
       workspace,
@@ -130,7 +141,10 @@ describe('scan PR evidence composition', () => {
       '--format',
       'json',
       '--deterministic',
-    ], repoRoot);
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
 
     expect(result.status).to.equal(1);
     const payload = JSON.parse(result.stdout.trim());
@@ -147,10 +161,40 @@ describe('scan PR evidence composition', () => {
     expect(payload.data.pr.head).to.equal('HEAD');
     expect(payload.data.pr.errorCategory).to.equal('pr_refs_unavailable');
     expect(payload.errors.map((error) => error.category)).to.include('pr_refs_unavailable');
+
     const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
     expect(brief).to.include('- Mode: pr scan');
-    expect(brief).to.include('- Risk: unavailable: pr_refs_unavailable');
-    expect(brief).to.include('- PR evidence unavailable: pr_refs_unavailable');
+    expect(brief).to.include('- PR evidence generation failed: pr_refs_unavailable:');
+    expect(brief).to.not.include('- PR refs not supplied.');
+  });
+
+  it('keeps PR impact deferred when no PR artifact is written', () => {
+    const result = run('node', [
+      path.join(repoRoot, 'src', 'diagram.js'),
+      'scan',
+      workspace,
+      '--base',
+      'HEAD',
+      '--head',
+      'HEAD',
+      '--format',
+      'json',
+      '--deterministic',
+    ], repoRoot);
+
+    const payload = JSON.parse(result.stdout.trim());
+    const manifest = payload.data.evidencePack;
+    const artifacts = Object.fromEntries(manifest.artifacts.map((entry) => [entry.id, entry]));
+    expect(payload.data.pr.status).to.equal('no_changes');
+    expect(payload.data.prImpactPath).to.equal(null);
+    expect(artifacts['pr-impact'].status).to.equal('deferred');
+    expect(artifacts['pr-impact'].reason).to.equal('no_changes');
+    expect(manifest.artifactReadOrder).to.not.include('.diagram/pr-impact/pr-impact.json');
+    expect(fs.existsSync(path.join(workspace, '.diagram', 'pr-impact', 'pr-impact.json'))).to.equal(false);
+
+    const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
+    expect(brief).to.include('- Mode: pr scan');
+    expect(brief).to.include('- Validation evidence: PR impact artifact not written (no_changes).');
   });
 
   it('keeps PR artifact paths consistent with custom output directories', () => {
@@ -173,10 +217,9 @@ describe('scan PR evidence composition', () => {
     const payload = JSON.parse(result.stdout.trim());
     expect(payload.data.prImpactPath).to.equal('artifacts/scan/pr-impact/pr-impact.json');
     expect(payload.data.pr.prImpactPath).to.equal('artifacts/scan/pr-impact/pr-impact.json');
-    expect(fs.existsSync(path.join(workspace, 'artifacts', 'scan', 'pr-impact', 'pr-impact.json'))).to.equal(true);
-    const brief = fs.readFileSync(path.join(workspace, 'artifacts', 'scan', 'brief.md'), 'utf8');
-    expect(brief).to.include(
-      '- Validation evidence: workflow pr contract reused via artifacts/scan/pr-impact/pr-impact.json'
+    expect(payload.agentSummary.suggestedReviewerChecks).to.include(
+      'Read `artifacts/scan/manifest.json` before consuming evidence artifacts.'
     );
+    expect(fs.existsSync(path.join(workspace, 'artifacts', 'scan', 'pr-impact', 'pr-impact.json'))).to.equal(true);
   });
 });

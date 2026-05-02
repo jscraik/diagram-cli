@@ -500,6 +500,8 @@ Required stable error categories:
 - `missing_dependency`
 - `parse_failure`
 - `insufficient_repository_signal`
+- `artifact_write_failed`
+- `analysis_failed`
 - `write_failure`
 - `internal_error`
 - `agent_context_unavailable`

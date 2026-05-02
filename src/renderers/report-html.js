@@ -64,17 +64,12 @@ function dependencyRows(components) {
   return rows.join('\n');
 }
 
-function artifactPathCell(manifest, entry) {
-  if (entry.status !== 'written') {
-    return escapeHtml(entry.path);
-  }
-  return `<a href="${attr(hrefForArtifact(manifest, entry.path))}">${escapeHtml(entry.path)}</a>`;
-}
-
 function artifactRows(manifest) {
   return manifest.artifacts.map((entry) => `
         <tr>
-          <td>${artifactPathCell(manifest, entry)}</td>
+          <td>${entry.status === 'written'
+    ? `<a href="${attr(hrefForArtifact(manifest, entry.path))}">${escapeHtml(entry.path)}</a>`
+    : escapeHtml(entry.path)}</td>
           <td><span class="status status-${attr(entry.status)}">${escapeHtml(statusLabel(entry.status))}</span></td>
           <td>${escapeHtml(entry.role)}</td>
           <td>${escapeHtml(entry.reason || entry.errorCategory || 'ready')}</td>
@@ -85,10 +80,6 @@ function readOrderItems(manifest) {
   return manifest.artifactReadOrder
     .map((entry) => `<li><a href="${attr(hrefForArtifact(manifest, entry))}">${escapeHtml(entry)}</a></li>`)
     .join('\n');
-}
-
-function artifactById(manifest, id) {
-  return manifest.artifacts.find((entry) => entry.id === id) || null;
 }
 
 function reviewerChecks(prImpact) {
@@ -117,13 +108,15 @@ function buildArchitectureReportHtml({
   const summary = summarizeAnalysis(analysis);
   const mode = prImpact ? 'PR scan' : 'Repository scan';
   const risk = riskLevel(prImpact);
-  const artifactStatus = manifest.artifacts.some((entry) => entry.status === 'failed') ? 'partial' : 'complete';
-  const architecturePath = artifactById(manifest, 'architecture')?.path || 'architecture.mmd';
-  const prImpactArtifact = artifactById(manifest, 'pr-impact');
+  const artifactStatus = manifest.artifacts.some((entry) => ['failed', 'partial'].includes(entry.status))
+    ? 'partial'
+    : 'complete';
+  const architecturePath = manifest.artifacts.find((entry) => entry.id === 'architecture')?.path || 'architecture.mmd';
+  const prImpactArtifact = manifest.artifacts.find((entry) => entry.id === 'pr-impact');
   const prImpactPath = prImpactArtifact?.path || 'pr-impact/pr-impact.json';
-  const prImpactMarkup = prImpactArtifact?.status === 'written'
-    ? `<a href="${attr(hrefForArtifact(manifest, prImpactPath))}">${escapeHtml(prImpactPath)}</a>`
-    : `${escapeHtml(prImpactPath)} (${escapeHtml(statusLabel(prImpactArtifact?.status || 'deferred'))})`;
+  const prImpactLink = prImpactArtifact?.status === 'written'
+    ? `<p>PR impact: <a href="${attr(hrefForArtifact(manifest, prImpactPath))}">${escapeHtml(prImpactPath)}</a></p>`
+    : '';
   const warningItems = warnings.length === 0
     ? '<li>No warnings recorded.</li>'
     : warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('\n');
@@ -246,7 +239,7 @@ function buildArchitectureReportHtml({
         <thead><tr><th>Artifact</th><th>Status</th><th>Role</th><th>Note</th></tr></thead>
         <tbody>${artifactRows(manifest)}</tbody>
       </table>
-      <p>PR impact: ${prImpactMarkup}</p>
+      ${prImpactLink}
     </section>
   </main>
 </body>

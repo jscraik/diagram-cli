@@ -114,8 +114,8 @@ function registerAnalyzeCommand(program) {
 
       if (!options.quiet) {
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Run `diagram generate . --type architecture` to visualize structure.');
-        console.log('  2) Run `diagram validate .` to enforce architecture policy.');
+        console.log('  1) Run `archscope generate . --type architecture` to visualize structure.');
+        console.log('  2) Run `archscope validate .` to enforce architecture policy.');
       }
     });
 }

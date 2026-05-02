@@ -54,7 +54,7 @@ function registerGenerateVideoCommand(program) {
 
       if (!options.quiet) {
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Run `diagram doctor .` if rendering quality/tooling is unstable in CI.');
+        console.log('  1) Run `archscope doctor .` if rendering quality/tooling is unstable in CI.');
         console.log('  2) Commit generated media only when required by your release workflow.');
       }
     });

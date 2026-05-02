@@ -90,6 +90,7 @@ Key options:
 - `--patterns <list>`
 - `--exclude <list>`
 - `--max-files <n>`
+- `--analyzer <name>`: choose the analyzer plugin, defaulting to `default`
 - `--format <text|json>`
 - `--deterministic`
 

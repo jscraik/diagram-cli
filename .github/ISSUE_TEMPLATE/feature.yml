@@ -15,7 +15,7 @@ body:
     id: solution
     attributes:
       label: Proposed solution
-      description: How should the diagram-cli command/format/rule behavior work?
+      description: How should the Archscope command, format, or rule behavior work?
     validations:
       required: true
 

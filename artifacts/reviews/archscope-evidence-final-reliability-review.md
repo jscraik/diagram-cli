@@ -1,12 +1,5 @@
 # Archscope Evidence Final Reliability Review
 
-## Table of Contents
-
-- [Scope](#scope)
-- [Findings](#findings)
-- [Residual Risks](#residual-risks)
-- [Validation Evidence](#validation-evidence)
-
 ## Scope
 
 Reviewed final P0-P5 state for the architecture evidence experience plan:

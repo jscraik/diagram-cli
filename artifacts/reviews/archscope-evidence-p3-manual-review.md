@@ -1,12 +1,5 @@
 # Archscope Evidence P3 Manual Review
 
-## Table of Contents
-
-- [Scope](#scope)
-- [Simplify Findings](#simplify-findings)
-- [Code Review Findings](#code-review-findings)
-- [Validation Evidence](#validation-evidence)
-
 ## Scope
 
 Reviewed the P3 diff for documentation and CI evidence surfacing:

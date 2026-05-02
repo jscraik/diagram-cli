@@ -63,9 +63,9 @@ describe('agent context contract', () => {
         'languages',
         'architectureAreas',
       ]);
-      expect(context.artifacts.map((entry) => entry.path)).to.deep.equal(
-        [...context.artifacts.map((entry) => entry.path)].sort()
-      );
+      const paths = context.artifacts.map((entry) => entry.path);
+      expect(paths).to.deep.equal([...paths].sort());
+      expect(new Set(paths).size).to.equal(paths.length);
       expect(context.errors).to.deep.equal([]);
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });

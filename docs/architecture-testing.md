@@ -141,6 +141,7 @@ Key options:
 - `--patterns <list>`
 - `--exclude <list>`
 - `--max-files <n>`
+- `--analyzer <name>`
 
 Agents and CI should read `.diagram/manifest.json` first and only consume
 artifacts whose status is `written`. Repository scans keep the PR impact artifact
