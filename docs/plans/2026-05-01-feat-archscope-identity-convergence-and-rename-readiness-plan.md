@@ -507,8 +507,8 @@ Rollback:
 
 - [x] AC1: Identity audit exists and is classified.
 - [x] AC2: Historical docs are not rewritten as active product docs.
-- [ ] AC3: First-read docs are Archscope-first.
-- [ ] AC4: Compatibility names remain accurate and labelled.
+- [x] AC3: First-read docs are Archscope-first.
+- [x] AC4: Compatibility names remain accurate and labelled.
 - [ ] AC5: CLI help/init generated text prefer Archscope.
 - [ ] AC6: Machine JSON remains parser-safe.
 - [ ] AC7: `diagram` remains compatibility-supported.
@@ -593,13 +593,13 @@ that unit or update the ledger with the replacement command actually run.
 
 ## Execution Ledger (Planning Mode)
 
-| Unit | Status   | Owner              | Evidence                                                                                                                                                                     |
-| ---- | -------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ------- | ---------- | ------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0   | complete | Codex              | 2026-05-02: created `docs/identity/archscope-identity-surface-audit.md` from the required identity search and a focused active-surface pass. Validation: `rg -n "diagram-cli | @brainwav/diagram | diagram | \\.diagram | \\.diagramrc | archscope | Archscope" README.md docs src .github package.json test`pass (1,551 matches; expected broad inventory); focused active-surface`rg`pass;`vale --config .vale.ini docs/identity/archscope-identity-surface-audit.md`pass (0 errors, 0 warnings, 0 suggestions). Review gates:`$simplify` and `$he-code-review`manual pass with no P0/P1/P2 findings; artifact`artifacts/reviews/archscope-identity-p0-manual-review.md`. |
-| P1   | pending  | implementing-agent | Docs convergence not started.                                                                                                                                                |
-| P2   | pending  | implementing-agent | CLI/help/init convergence not started.                                                                                                                                       |
-| P3   | pending  | implementing-agent | Generated output convergence not started.                                                                                                                                    |
-| P4   | pending  | implementing-agent | Rename readiness record not started.                                                                                                                                         |
+| Unit | Status   | Owner              | Evidence |
+| ---- | -------- | ------------------ | -------- |
+| P0   | complete | Codex              | 2026-05-02: created `docs/identity/archscope-identity-surface-audit.md` from the required identity search and a focused active-surface pass. Validation: broad identity `rg` pass (1,551 matches; expected inventory); focused active-surface `rg` pass; `vale --config .vale.ini docs/identity/archscope-identity-surface-audit.md` pass (0 errors, 0 warnings, 0 suggestions). Review gates: `$simplify` and `$he-code-review` manual pass with no P0/P1/P2 findings; artifact `artifacts/reviews/archscope-identity-p0-manual-review.md`. |
+| P1   | complete | Codex              | 2026-05-02: inspected `README.md`, `docs/getting-started.md`, `docs/cli-reference.md`, `docs/architecture-testing.md`, and `docs/README.md` against the P0 audit. No product-doc wording changes required: first-read docs already lead with Archscope and architecture evidence, while `diagram`, `@brainwav/diagram`, `diagram-cli`, `.diagram`, and `.diagramrc` remain compatibility/package/repo/path facts. Validation: `vale --config .vale.ini README.md docs/getting-started.md docs/cli-reference.md docs/architecture-testing.md docs/README.md` pass (0 errors, 0 warnings, 0 suggestions); stale-phrase `rg` pass (no matches); `npm run docs:style:changed` pass (`No staged documentation changes detected for Vale`). Review gates: `$simplify` and `$he-code-review` manual pass with no P0/P1/P2 findings; artifact `artifacts/reviews/archscope-identity-p1-manual-review.md`. |
+| P2   | pending  | implementing-agent | CLI/help/init convergence not started. |
+| P3   | pending  | implementing-agent | Generated output convergence not started. |
+| P4   | pending  | implementing-agent | Rename readiness record not started. |
 | P5   | pending  | implementing-agent | Baseline validation not started.                                                                                                                                             |
 
 ## First he-work Handoff
