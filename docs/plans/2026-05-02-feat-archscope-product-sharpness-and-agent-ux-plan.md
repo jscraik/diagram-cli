@@ -132,21 +132,21 @@ No Linear issue is attached to the source spec.
 
 | Requirement | Source acceptance IDs | Plan units | Acceptance IDs | PR evidence |
 | --- | --- | --- | --- | --- |
-| R1 | SA1 | P0 | AC1 | pending |
-| R2 | SA2 | P0 | AC2 | pending |
-| R3 | SA3 | P4 | AC3 | pending |
-| R4 | SA4 | P3 | AC4 | pending |
-| R5 | SA5 | P3 | AC5 | pending |
-| R6 | SA6 | P2 | AC6 | pending |
-| R7 | SA7 | P2 | AC7 | pending |
-| R8 | SA8 | P2 | AC8 | pending |
-| R9 | SA9 | P1 | AC9 | pending |
-| R10 | SA10 | P1, P5 | AC10 | pending |
-| R11 | SA11 | P0, P1, P5 | AC11 | pending |
-| R12 | SA12 | P0, P4 | AC12 | pending |
-| R13 | SA13 | P5 | AC13 | pending |
-| R14 | SA14 | P2, P5 | AC14 | pending |
-| R15 | SA15 | P0-P5 | AC15 | pending |
+| R1 | SA1 | P0 | AC1 | complete |
+| R2 | SA2 | P0 | AC2 | complete |
+| R3 | SA3 | P4 | AC3 | complete |
+| R4 | SA4 | P3 | AC4 | complete |
+| R5 | SA5 | P3 | AC5 | complete |
+| R6 | SA6 | P2 | AC6 | complete |
+| R7 | SA7 | P2 | AC7 | complete |
+| R8 | SA8 | P2 | AC8 | complete |
+| R9 | SA9 | P1 | AC9 | complete |
+| R10 | SA10 | P1, P5 | AC10 | complete |
+| R11 | SA11 | P0, P1, P5 | AC11 | complete |
+| R12 | SA12 | P0, P4 | AC12 | complete |
+| R13 | SA13 | P5 | AC13 | complete |
+| R14 | SA14 | P2, P5 | AC14 | complete |
+| R15 | SA15 | P0-P5 | AC15 | complete |
 
 ## Scope Boundaries
 
@@ -535,29 +535,29 @@ or evidence-pack behavior.
 
 ## Acceptance Checklist
 
-- [ ] AC1: First-read docs lead with architecture evidence, PR review, and
+- [x] AC1: First-read docs lead with architecture evidence, PR review, and
   agent handoff.
-- [ ] AC2: CLI reference presents `scan` and PR evidence before media commands.
-- [ ] AC3: Media commands are labeled as advanced, optional, or non-core in
+- [x] AC2: CLI reference presents `scan` and PR evidence before media commands.
+- [x] AC3: Media commands are labeled as advanced, optional, or non-core in
   first-read docs.
-- [ ] AC4: Repository scan terminal summary names primary human and agent
+- [x] AC4: Repository scan terminal summary names primary human and agent
   artifacts.
-- [ ] AC5: PR scan terminal summary includes risk, impact, reviewer checks, and
+- [x] AC5: PR scan terminal summary includes risk, impact, reviewer checks, and
   raw artifact paths.
-- [ ] AC6: Agent-facing output uses stable `success`, `partial`, and `failed`
+- [x] AC6: Agent-facing output uses stable `success`, `partial`, and `failed`
   outcomes.
-- [ ] AC7: Agent-facing failures include documented error categories.
-- [ ] AC8: Exit-code behavior is documented and tested.
-- [ ] AC9: Agent docs include deterministic repository and PR scan recipes.
-- [ ] AC10: `archscope agent` and `archscope agent-pr` remain deferred unless a
+- [x] AC7: Agent-facing failures include documented error categories.
+- [x] AC8: Exit-code behavior is documented and tested.
+- [x] AC9: Agent docs include deterministic repository and PR scan recipes.
+- [x] AC10: `archscope agent` and `archscope agent-pr` remain deferred unless a
   later plan proves safe delegation.
-- [ ] AC11: `manifest.json`, `brief.md`, and `agent-context.json` remain core
+- [x] AC11: `manifest.json`, `brief.md`, and `agent-context.json` remain core
   artifacts.
-- [ ] AC12: Governance and migration details remain discoverable but are not
+- [x] AC12: Governance and migration details remain discoverable but are not
   first-run prerequisites.
-- [ ] AC13: Compatibility surfaces remain stable.
-- [ ] AC14: Deterministic outputs remain stable.
-- [ ] AC15: No broad `src/core` refactor is included.
+- [x] AC13: Compatibility surfaces remain stable.
+- [x] AC14: Deterministic outputs remain stable.
+- [x] AC15: No broad `src/core` refactor is included.
 
 ## System-Wide Impact
 
@@ -627,7 +627,7 @@ or evidence-pack behavior.
 | P2 | complete | Codex | 2026-05-02: inventoried scan exit behavior before editing, then preserved partial scan exit `1` for compatibility while documenting `data.outcome: "partial"` plus `errors[].category` as the agent-safe discriminator; standardized touched scan categories to `git_refs_missing`, `analysis_partial`, and `artifact_write_failed`; aligned active scan docs and report/evidence specs with the category vocabulary. Validation: inventory captured success exit `0`, partial artifact-write exit `1`, invalid format exit `2`, and missing-ref partial exit `1`; `npm test -- test/scan-error-categories.test.js test/scan-manifest.test.js test/scan-pr-evidence.test.js test/scan-report-html.test.js` pass (11 passing); `npm test -- test/generate-output-json.test.js test/machine-command-coverage.test.js test/json-capability-discovery.test.js` pass (9 passing); `vale --config .vale.ini docs/cli-reference.md docs/architecture-testing.md docs/ui-specs/2026-05-01-archscope-evidence-report-ui-spec.md docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md docs/plans/2026-05-02-feat-archscope-product-sharpness-and-agent-ux-plan.md` pass (0 errors, 0 warnings, 0 suggestions); `git diff --check` pass. Review gates: `$simplify` found no smaller safe patch; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p2-manual-review.md`. |
 | P3 | complete | Codex | 2026-05-02: enriched text-mode `archscope scan` summaries with pack status, component count, primary human and agent artifacts, warnings, and next manifest read; added PR text summary focus with risk level, changed components, risk reasons, reviewer checks, and PR impact artifact path; added compact decision-oriented brief copy without expanding the evidence brief beyond the existing line-count guard. Validation: `npm test -- test/scan-command.test.js test/scan-pr-evidence.test.js test/scan-evidence-pack.test.js` pass (8 passing). Review gates: `$simplify` removed an unused summary field and kept the text-only slice local; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` fixed the initial overly exact PR reviewer-check assertion and no product bug remained after focused validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p3-manual-review.md`. |
 | P4 | complete | Codex | 2026-05-02: kept `generate-video` and `generate-animated` available while labeling them as optional advanced media in README, getting-started troubleshooting, CLI reference, and unknown-command guidance; preserved compatibility aliases and runtime command registration. Validation: `rg -n "generate-video|generate-animated|advanced|optional|media" README.md docs/getting-started.md docs/cli-reference.md src/diagram.js` pass with media commands still discoverable and optional/advanced wording present; `npm test -- test/generated-output-identity.test.js test/command-identity.test.js` pass (6 passing); `vale --config .vale.ini README.md docs/getting-started.md docs/cli-reference.md` pass (0 errors, 0 warnings, 0 suggestions). Review gates: `$simplify` found no smaller safe patch because docs and unknown-command help both needed the same classification; `$he-code-review` manual phase review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p4-manual-review.md`. |
-| P5 | pending | Codex | Compatibility and closeout validation. |
+| P5 | complete | Codex | 2026-05-02: completed compatibility and closeout validation without additional source changes; confirmed canonical and compatibility command identity, scan evidence pack behavior, deterministic machine output, CI artifact generation, migration readiness, and repo-local validation contract. Validation: `npm test -- test/command-identity.test.js test/scan-command.test.js test/scan-manifest.test.js test/scan-error-categories.test.js test/scan-pr-evidence.test.js` pass (15 passing); `npm test` pass (177 passing); `npm run test:deep` pass (`deep-regression: OK`); `npm run ci:artifacts` pass (`ci artifact assertions: OK`); `npm run migration:readiness` pass (`status: pass`, `migrationState: compatibility`, `finalizationReady: false` as expected without release finalization evidence); `bash scripts/verify-work.sh --fast` pass with known optional Local Memory health warning only. Review gates: `$simplify` found no source simplification because P5 was validation-only; `$he-code-review` manual closeout review found no P0/P1/P2 findings; `$he-fix-bugs` had no reproduced bug to repair after baseline validation. Artifact: `artifacts/reviews/archscope-product-sharpness-p5-manual-review.md`. |
 
 ## First he-work Handoff
 
