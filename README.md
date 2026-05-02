@@ -117,6 +117,7 @@ archscope scan . --base origin/main --head HEAD
 ```bash
 # Stable machine outputs
 archscope scan . --format json --deterministic
+archscope scan . --base origin/main --head HEAD --format json --deterministic
 archscope generate . --type architecture --format json --deterministic
 archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 

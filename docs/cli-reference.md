@@ -81,6 +81,7 @@ Generate the default architecture evidence pack.
 archscope scan .
 archscope scan . --base origin/main --head HEAD
 archscope scan . --format json --deterministic
+archscope scan . --base origin/main --head HEAD --format json --deterministic
 ```
 
 Writes the first-run evidence pack to `.diagram` by default:
