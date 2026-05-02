@@ -62,7 +62,7 @@ describe('scan PR evidence composition', () => {
   });
 
   afterEach(() => {
-    if (workspace) {
+    if (workspace && fs.existsSync(workspace)) {
       fs.rmSync(workspace, { recursive: true, force: true });
     }
     workspace = undefined;
