@@ -19,6 +19,21 @@ function formatList(items, emptyText) {
   return items.map((item) => `- ${item}`);
 }
 
+/**
+ * Build a markdown "Archscope Evidence Brief" describing analysis and manifest outcomes.
+ *
+ * Produces a structured markdown string containing headings for summary, artifact read order,
+ * risk and validation, warnings, agent handoff and next actions, plus PR-specific details when
+ * PR impact information is provided or PR evidence generation failed.
+ *
+ * @param {Object} params - Input parameters.
+ * @param {Object} params.manifest - Manifest describing artifacts, read order and validation status.
+ * @param {Object} params.analysis - Analysis result used to summarise components, files, languages and areas.
+ * @param {Object|null} [params.prImpact=null] - Optional PR impact data; when present the brief includes PR base/head, changed components, blast radius, risk reasons, suggested reviewer checks, validation evidence and confidence.
+ * @param {string[]} [params.warnings=[]] - Array of warning messages to include in the brief.
+ * @param {Array<{category:string,message:string,artifact?:string}>} [params.errors=[]] - Array of error objects to include; PR evidence generation errors are surfaced in the PR section.
+ * @returns {string} A markdown-formatted evidence brief.
+ */
 function buildArchitectureBrief({
   manifest,
   analysis,

@@ -70,6 +70,16 @@ function writeArtifact({
   }
 }
 
+/**
+ * Mark given artifacts as failed because analysis failed and record their failure details.
+ *
+ * For each artifact id in `artifacts` this records status `'failed'`, reason `'analysis_failed'`,
+ * category `'analysis_partial'` and appends the provided error into the shared failure state.
+ *
+ * @param {string[]} artifacts - Artifact identifiers to mark as failed.
+ * @param {Object} failureState - Shared failure state containing `artifactStatuses`, `artifactReasons`, `artifactErrorCategories` and `errors`.
+ * @param {Error|any} error - The error that caused the analysis failure; its message is attached to each artifact's error entry.
+ */
 function failArtifactsForAnalysis(artifacts, failureState, error) {
   for (const artifact of artifacts) {
     markArtifactFailure({
@@ -82,16 +92,45 @@ function failArtifactsForAnalysis(artifacts, failureState, error) {
   }
 }
 
+/**
+ * Produce a semicolon-separated summary of warning messages or `'none'` when there are none.
+ * @param {Array<string>} warnings - Array of warning messages; any non-array or empty array is treated as no warnings.
+ * @return {string} `'none'` if `warnings` is not a non-empty array, otherwise the warnings joined with `'; '`.
+ */
 function summarizeWarnings(warnings) {
   if (!Array.isArray(warnings) || warnings.length === 0) return 'none';
   return warnings.join('; ');
 }
 
+/**
+ * Convert an array of items into a single semicolon-separated string or return 'none'.
+ *
+ * @param {Array} items - The items to summarise; may be non-array or empty.
+ * @returns {string} `'none'` if `items` is not a non-empty array, otherwise the items joined with `'; '`.
+ */
 function summarizeList(items) {
   if (!Array.isArray(items) || items.length === 0) return 'none';
   return items.join('; ');
 }
 
+/**
+ * Build a concise summary of an evidence pack suitable for CLI output and machine envelopes.
+ *
+ * @param {Object} manifest - Evidence pack manifest; must include `artifactReadOrder` and may include `primaryHumanArtifact`, `primaryAgentArtifact` and `warnings`.
+ * @param {Object} [options] - Optional inputs to augment the summary.
+ * @param {Object|null} [options.analysis=null] - Analysis result object; `analysis.components` is used to compute `componentCount`.
+ * @param {string} [options.outcome] - Overall pack outcome; defaults to a value derived from `manifest`.
+ * @param {Object|null} [options.prImpact=null] - PR impact data produced by workflow analysis; used to populate `pr` fields when present.
+ * @param {string|null} [options.prImpactPath=null] - Filesystem path to the written PR impact artifact, if any.
+ * @returns {Object} An object containing:
+ *  - `manifestPath`: path to the primary manifest entry,
+ *  - `primaryHumanArtifact` and `primaryAgentArtifact`: ids from the manifest,
+ *  - `packStatus`: overall outcome,
+ *  - `componentCount`: number of analysed components (0 if unavailable),
+ *  - `warningSummary`: human-readable summary of manifest warnings,
+ *  - `pr`: `null` or an object with `riskLevel`, `changedComponents`, `riskReasons`, `reviewerChecks`, and `prImpactPath`,
+ *  - `nextAction`: a short instruction pointing to the manifest for artefact status.
+ */
 function createScanSummary(manifest, {
   analysis = null,
   outcome = outcomeForManifest(manifest),
@@ -157,6 +196,22 @@ function parseWorkflowPrPayload(stdout) {
   }
 }
 
+/**
+ * Invoke the local diagram workflow to generate PR-impact evidence for a repository and return the parsed PR impact data.
+ *
+ * @param {Object} params
+ * @param {string} params.root - Filesystem path to the repository root to analyse.
+ * @param {string} params.outDir - Directory where PR-impact output will be written (`<outDir>/pr-impact`).
+ * @param {Object} params.options - Options forwarded to the workflow; recognised properties:
+ *   - {string} [head] - HEAD ref (defaults to `HEAD`).
+ *   - {string} [base] - Base ref for comparison.
+ *   - {string} [patterns] - File match patterns to include.
+ *   - {string} [exclude] - File match patterns to exclude.
+ *   - {number|string} [maxFiles] - Maximum files to consider.
+ *   - {boolean} [deterministic] - Whether to run the workflow in deterministic mode.
+ * @returns {Object} The PR impact data object parsed from the workflow's JSON output.
+ * @throws {Error} If the workflow process fails or does not produce a `prImpact` payload; the thrown error will have `error.category === 'git_refs_missing'`.
+ */
 function runWorkflowPrEvidence({ root, outDir, options }) {
   const prImpactDir = path.join(outDir, 'pr-impact');
   const args = [
@@ -199,6 +254,22 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
   return payload.data.prImpact;
 }
 
+/**
+ * Build a machine-oriented summary of pull-request impact analysis for inclusion in the scan envelope.
+ *
+ * When `prImpact` is provided, returns an object describing the PR analysis status, refs, risk metrics and suggested reviewer checks.
+ * When `prImpact` is absent but `options.base` or `options.head` are supplied, returns a failed summary containing the provided refs and an `errorCategory`.
+ * Returns `null` if no PR refs were supplied and no `prImpact` is available.
+ *
+ * @param {object|null} prImpact - The parsed PR impact payload produced by the workflow PR evidence run, or `null`.
+ * @param {string|null} prImpactPath - Filesystem path to the PR impact artifact, or `null`.
+ * @param {object} options - CLI options; expected to contain `base` and/or `head` when refs were supplied.
+ * @param {Array<object>} errors - Collected error objects produced while generating artifacts; used to derive an error category when `prImpact` is missing.
+ * @returns {object|null} When available, returns a summary object:
+ *  - If `prImpact` present: `{ status, base, head, prImpactPath, risk, blastRadius, reviewerChecks }`.
+ *  - If `prImpact` missing but refs provided: `{ status: 'failed', base, head, errorCategory }`.
+ *  - Otherwise `null`.
+ */
 function buildPrMachineSummary({
   prImpact,
   prImpactPath,
