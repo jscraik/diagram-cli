@@ -33,7 +33,7 @@ function shellArg(value) {
 }
 
 function buildSaveHint(options) {
-  const args = ['archscope', 'generate', '.', '--type', options.type || 'architecture'];
+  const args = ['archscope', 'generate', options.path || '.', '--type', options.type || 'architecture'];
   if (options.focus) args.push('--focus', options.focus);
   if (options.patterns) args.push('--patterns', options.patterns);
   if (options.exclude) args.push('--exclude', options.exclude);
@@ -305,7 +305,8 @@ function registerGenerateCommand(program) {
           if (options.failOnValidationError) {
             if (!isJson) {
               console.error(chalk.red('❌ Validation failed (exit 1)'));
-              console.error(chalk.gray('Fix: run `archscope generate . --type architecture --validate` and address listed lines.'));
+              const validationHint = buildSaveHint({ ...options, output: null }).replace(/--output '[^']*'/, '--validate');
+              console.error(chalk.gray(`Fix: run \`${validationHint}\` and address listed lines.`));
             }
             failOnValidationErrorTriggered = true;
           }

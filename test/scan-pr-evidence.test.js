@@ -62,7 +62,9 @@ describe('scan PR evidence composition', () => {
   });
 
   afterEach(() => {
-    fs.rmSync(workspace, { recursive: true, force: true });
+    if (typeof workspace !== 'undefined' && fs.existsSync(workspace)) {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
   });
 
   it('reuses workflow pr output and indexes PR artifacts', () => {

@@ -39,7 +39,7 @@ pr: pending
 - [Documentation / Operational Notes](#documentation--operational-notes)
 - [Validation Ladder](#validation-ladder)
 - [Execution Ledger (Planning Mode)](#execution-ledger-planning-mode)
-- [First he-work Handoff](#first-he-work-handoff)
+- [Completed Work Handoff](#completed-work-handoff)
 - [Sources & References](#sources--references)
 
 ## Plan Mode Decision
