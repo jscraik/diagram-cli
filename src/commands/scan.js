@@ -76,7 +76,7 @@ function failArtifactsForAnalysis(artifacts, failureState, error) {
       ...failureState,
       artifact,
       reason: 'analysis_failed',
-      category: 'analysis_failed',
+      category: 'analysis_partial',
       error,
     });
   }
@@ -164,7 +164,7 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
       || result.stdout.trim()
       || 'workflow pr evidence failed'
     );
-    error.category = payload?.errors?.[0]?.code || 'pr_refs_unavailable';
+    error.category = 'git_refs_missing';
     throw error;
   }
 
@@ -194,7 +194,7 @@ function buildPrMachineSummary({
       status: 'failed',
       base: options.base || null,
       head: options.head || 'HEAD',
-      errorCategory: prError?.category || 'pr_refs_unavailable',
+      errorCategory: prError?.category || 'git_refs_missing',
     };
   }
   return null;
@@ -305,7 +305,7 @@ function registerScanCommand(program) {
             ...failureState,
             artifact: 'pr-impact',
             reason: 'pr_refs_unavailable',
-            category: error.category || 'pr_refs_unavailable',
+            category: error.category || 'git_refs_missing',
             error,
           });
         }
@@ -356,7 +356,7 @@ function registerScanCommand(program) {
           }),
           failureState,
           reason: 'write_failure',
-          category: 'write_failure',
+          category: 'artifact_write_failed',
         });
       }
 
@@ -388,7 +388,7 @@ function registerScanCommand(program) {
           ...failureState,
           artifact: 'manifest',
           reason: 'write_failure',
-          category: 'write_failure',
+          category: 'artifact_write_failed',
           error,
         });
         manifest = buildManifest();

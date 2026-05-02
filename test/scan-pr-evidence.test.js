@@ -154,17 +154,17 @@ describe('scan PR evidence composition', () => {
     expect(artifacts['agent-context'].status).to.equal('written');
     expect(artifacts.report.status).to.equal('written');
     expect(artifacts['pr-impact'].status).to.equal('failed');
-    expect(artifacts['pr-impact'].errorCategory).to.equal('pr_refs_unavailable');
+    expect(artifacts['pr-impact'].errorCategory).to.equal('git_refs_missing');
     expect(payload.data.evidencePack.artifactReadOrder).to.not.include('.diagram/pr-impact/pr-impact.json');
     expect(payload.data.pr.status).to.equal('failed');
     expect(payload.data.pr.base).to.equal('missing-ref');
     expect(payload.data.pr.head).to.equal('HEAD');
-    expect(payload.data.pr.errorCategory).to.equal('pr_refs_unavailable');
-    expect(payload.errors.map((error) => error.category)).to.include('pr_refs_unavailable');
+    expect(payload.data.pr.errorCategory).to.equal('git_refs_missing');
+    expect(payload.errors.map((error) => error.category)).to.include('git_refs_missing');
 
     const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
     expect(brief).to.include('- Mode: pr scan');
-    expect(brief).to.include('- PR evidence generation failed: pr_refs_unavailable:');
+    expect(brief).to.include('- PR evidence generation failed: git_refs_missing:');
     expect(brief).to.not.include('- PR refs not supplied.');
   });
 

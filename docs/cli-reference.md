@@ -97,6 +97,17 @@ When `--base` or `--head` is supplied and refs resolve, scan also writes
 `report.html` is written by default and becomes the primary human artifact when
 report generation succeeds.
 
+Scan machine output uses `data.outcome` as the automation-safe result:
+
+- `success`: exits `0`
+- `partial`: exits `1` for compatibility; inspect `data.outcome` and
+  `errors[].category` to distinguish partial evidence from gate failures
+- `failed`: exits non-zero and includes a stable error category where available
+
+Common scan error categories include `git_refs_missing`,
+`artifact_write_failed`, `analysis_partial`, `config_invalid`, and
+`internal_error`.
+
 Key options:
 
 - `--output-dir <dir>`

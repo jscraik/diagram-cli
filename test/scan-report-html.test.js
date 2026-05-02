@@ -93,15 +93,16 @@ describe('scan report.html artifact', () => {
       expect(payload.data.evidencePack.primaryHumanArtifact).to.equal('.diagram/brief.md');
       expect(artifacts.report.status).to.equal('failed');
       expect(artifacts.report.reason).to.equal('write_failure');
-      expect(artifacts.report.errorCategory).to.equal('write_failure');
+      expect(artifacts.report.errorCategory).to.equal('artifact_write_failed');
       expect(artifacts.brief.status).to.equal('written');
       expect(artifacts['agent-context'].status).to.equal('written');
       expect(payload.errors.map((error) => error.artifact)).to.include('report');
+      expect(payload.errors.map((error) => error.category)).to.include('artifact_write_failed');
 
       const agentContext = readJson(path.join(workspace, '.diagram', 'agent-context.json'));
       const reportEntry = agentContext.artifacts.find((entry) => entry.id === 'report');
       expect(reportEntry.status).to.equal('failed');
-      expect(reportEntry.errorCategory).to.equal('write_failure');
+      expect(reportEntry.errorCategory).to.equal('artifact_write_failed');
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }
