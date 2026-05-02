@@ -120,6 +120,7 @@ function summarizeList(items) {
  * @param {Object} [options] - Optional inputs to augment the summary.
  * @param {Object|null} [options.analysis=null] - Analysis result object; `analysis.components` is used to compute `componentCount`.
  * @param {string} [options.outcome] - Overall pack outcome; defaults to a value derived from `manifest`.
+ * @param {string|null} [options.manifestPath] - Filesystem path to the written manifest artifact, if any.
  * @param {Object|null} [options.prImpact=null] - PR impact data produced by workflow analysis; used to populate `pr` fields when present.
  * @param {string|null} [options.prImpactPath=null] - Filesystem path to the written PR impact artifact, if any.
  * @param {Object|null} [options.prSummary=null] - Machine PR summary used to keep failed PR scans visible in text summaries.
@@ -135,6 +136,7 @@ function summarizeList(items) {
 function createScanSummary(manifest, {
   analysis = null,
   outcome = outcomeForManifest(manifest),
+  manifestPath = manifestArtifactPath(manifest, 'manifest', { requireWritten: true }),
   prImpact = null,
   prImpactPath = null,
   prSummary = null,
@@ -143,7 +145,7 @@ function createScanSummary(manifest, {
   const warnings = Array.isArray(manifest.warnings) ? manifest.warnings : [];
   const prAgentSummary = prImpact?.agentSummary || {};
   return {
-    manifestPath: manifest.artifactReadOrder[0],
+    manifestPath,
     primaryHumanArtifact: manifest.primaryHumanArtifact,
     primaryAgentArtifact: manifest.primaryAgentArtifact,
     packStatus: outcome,
@@ -162,7 +164,9 @@ function createScanSummary(manifest, {
       reviewerChecks: [`Resolve PR evidence failure before approving architecture-sensitive changes.`],
       prImpactPath: prSummary.prImpactPath || null,
     } : null,
-    nextAction: `Read ${manifest.artifactReadOrder[0]} for artifact status before opening optional files.`,
+    nextAction: manifestPath
+      ? `Read ${manifestPath} for artifact status before opening optional files.`
+      : 'Manifest was not written; inspect the reported errors before consuming evidence artifacts.',
   };
 }
 
@@ -280,7 +284,7 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
 function printScanTextSummary(summary) {
   console.log(`  Pack status: ${summary.packStatus}`);
   console.log(`  Components detected: ${summary.componentCount}`);
-  console.log(`  Manifest: ${summary.manifestPath}`);
+  console.log(`  Manifest: ${summary.manifestPath || 'not written'}`);
   console.log(`  Human artifact: ${summary.primaryHumanArtifact}`);
   console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
   console.log(`  Warnings: ${summary.warningSummary}`);
@@ -536,6 +540,7 @@ function registerScanCommand(program) {
       }
 
       const outcome = outcomeForManifest(manifest);
+      const writtenManifestPath = manifestArtifactPath(manifest, 'manifest', { requireWritten: true });
       const prImpactPath = prImpact
         ? manifestArtifactPath(manifest, 'pr-impact', { requireWritten: true })
         : null;
@@ -548,6 +553,7 @@ function registerScanCommand(program) {
       const summary = createScanSummary(manifest, {
         analysis,
         outcome,
+        manifestPath: writtenManifestPath,
         prImpact,
         prImpactPath,
         prSummary,
@@ -582,7 +588,9 @@ function registerScanCommand(program) {
               : (prImpact?.agentSummary?.riskReasons || manifest.warnings),
             suggestedReviewerChecks: [
               ...(prImpact?.agentSummary?.suggestedReviewerChecks || []),
-              `Read \`${summary.manifestPath}\` before consuming evidence artifacts.`,
+              summary.manifestPath
+                ? `Read \`${summary.manifestPath}\` before consuming evidence artifacts.`
+                : 'Inspect scan errors before consuming evidence artifacts.',
             ],
           },
         });

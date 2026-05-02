@@ -93,8 +93,8 @@ No Linear issue is attached to the source spec.
 - Tracker of record: not supplied
 - Traceability required: false
 - Linear status: not tracked
-- Branch: pending
-- PR: pending
+- Branch: codex/archscope-product-sharpness-agent-ux
+- PR: 79
 - Future tracking: if a Linear issue is created, update this section and add a
   Linear / Spec / Plan / PR traceability matrix before implementation closeout.
 
@@ -367,10 +367,12 @@ commands.
   - invalid path/config/ref exit code
   - current machine JSON error shape
 - Preserve `success`, `partial`, and `failed` outcome values.
-- Ensure scan errors use the documented category vocabulary where practical:
-  `config_invalid`, `repo_unreadable`, `git_refs_missing`,
-  `analysis_partial`, `policy_violation`, `risk_threshold_exceeded`,
-  `artifact_write_failed`, `dependency_unavailable`, `internal_error`.
+- Ensure scan errors use the shipped category vocabulary:
+  `git_refs_missing`, `artifact_write_failed`, `analysis_partial`,
+  `internal_error`.
+- Record broader failure categories such as `config_invalid`, `repo_unreadable`,
+  `policy_violation`, `risk_threshold_exceeded`, and
+  `dependency_unavailable` as future contract work rather than completed scope.
 - Adopt exit code `3` for `scan` partial evidence only if focused tests prove
   this does not conflict with existing compatibility expectations. If adopting
   `3` would break existing contracts, document `partial -> exit 1` as the
