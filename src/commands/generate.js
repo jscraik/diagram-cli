@@ -288,7 +288,7 @@ function registerGenerateCommand(program) {
           if (options.failOnValidationError) {
             if (!isJson) {
               console.error(chalk.red('❌ Validation failed (exit 1)'));
-              console.error(chalk.gray('Fix: run `diagram generate . --type architecture --validate` and address listed lines.'));
+              console.error(chalk.gray('Fix: run `archscope generate . --type architecture --validate` and address listed lines.'));
             }
             failOnValidationErrorTriggered = true;
           }
@@ -412,7 +412,7 @@ function registerGenerateCommand(program) {
 
           if (large || !url) {
             console.error(chalk.yellow('⚠️  Diagram is too large for preview URL.'));
-            console.error(chalk.cyan('💾 Save to file:'), 'diagram generate . --output diagram.svg');
+            console.error(chalk.cyan('💾 Save to file:'), 'archscope generate . --output diagram.svg');
           } else {
             console.error(chalk.cyan('🔗 Preview:'), url);
           }
@@ -482,8 +482,8 @@ function registerGenerateCommand(program) {
 
       if (!isJson && !options.quiet) {
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Run `diagram validate .` to enforce architecture policy constraints.');
-        console.log('  2) Run `diagram generate-all . --artifact-profile agent` for AI-friendly context pack artifacts.');
+        console.log('  1) Run `archscope validate .` to enforce architecture policy constraints.');
+        console.log('  2) Run `archscope generate-all . --artifact-profile agent` for AI-friendly context pack artifacts.');
       }
     });
 }

@@ -131,8 +131,8 @@ function registerDiffCommand(program) {
       printArchitectureDiff(diff, baseRef, headRef);
       if (!options.quiet) {
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Run `diagram workflow pr . --base <base> --head <head>` for risk scoring.');
-        console.log('  2) Use `diagram explain <component> .` to inspect local dependency neighborhoods.');
+        console.log('  1) Run `archscope workflow pr . --base <base> --head <head>` for risk scoring.');
+        console.log('  2) Use `archscope explain <component> .` to inspect local dependency neighborhoods.');
       }
     });
 }

@@ -39,8 +39,8 @@ function registerGenerateAnimatedCommand(program) {
 
       if (!options.quiet) {
         console.log(chalk.cyan('\nNext steps:'));
-        console.log('  1) Run `diagram generate-video` when you need MP4/WebM output.');
-        console.log('  2) Use `diagram doctor .` if Mermaid or Playwright toolchain checks fail.');
+        console.log('  1) Run `archscope generate-video` when you need MP4/WebM output.');
+        console.log('  2) Use `archscope doctor .` if Mermaid or Playwright toolchain checks fail.');
       }
     });
 }

@@ -36,7 +36,7 @@ const program = new Command();
 
 program
   .name(CANONICAL_COMMAND_NAME)
-  .description('Inspect architecture, governance, and diagram workflows from code')
+  .description('Generate architecture evidence for humans and AI agents')
   .version(packageJson.version);
 
 registerAnalyzeCommand(program);
