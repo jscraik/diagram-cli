@@ -2,11 +2,11 @@
 
 ## Table of Contents
 
-- [Scope](`#scope`)
-- [Simplify Findings](`#simplify-findings`)
-- [Code Review Findings](`#code-review-findings`)
-- [Validation Evidence](`#validation-evidence`)
-- [Verdict](`#verdict`)
+- [Scope](#scope)
+- [Simplify Findings](#simplify-findings)
+- [Code Review Findings](#code-review-findings)
+- [Validation Evidence](#validation-evidence)
+- [Verdict](#verdict)
 
 ## Scope
 

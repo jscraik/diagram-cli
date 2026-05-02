@@ -232,7 +232,7 @@ Execution posture for every unit:
 
 - Use vertical slices: behavior test, implementation, focused validation, then ledger update.
 - Run the explicitly requested `$simplify` and `$he-code-review` review steps after each completed implementation phase when this plan enters work mode; record each review outcome or blocker in the ledger.
-- Resolve phase review steps through repo-local `.codex/skills/` first. If no repo-local equivalent exists, use the explicitly requested external skills from the active agent-skill installation when available. If those external skills cannot be loaded or executed in the active environment, record them as unavailable coverage gaps and run a findings-first manual simplify/code-review checklist against the phase diff; do not mark the external skills as passed.
+- Resolve phase review steps through repo-tracked validation and the manual checklist first. Use explicitly requested external skills only when the active environment confirms they are available. If external skills cannot be loaded or executed, record them as unavailable coverage gaps and keep the phase evidence grounded in the repo-tracked checklist; do not mark unavailable external skills as passed.
 - Manual fallback reviews must write `artifacts/reviews/archscope-evidence-p<phase>-manual-review.md` with the headings `Scope`, `Simplify Findings`, `Code Review Findings`, `Validation Evidence`, a verdict line `VERDICT: PASS` or `VERDICT: BLOCKED`, and a final completion sentinel `WROTE: artifacts/reviews/archscope-evidence-p<phase>-manual-review.md`. Any P0/P1/P2 finding or missing validation evidence makes the verdict `BLOCKED`.
 - Do not mark a unit complete until validation evidence exists.
 - Keep `report.html` incomplete or deferred until the companion UI spec is available.
@@ -693,6 +693,6 @@ Operational notes:
 
 - Governing spec: `docs/specs/2026-05-01-feat-archscope-architecture-evidence-experience-spec.md`
 - Compatibility plan: `docs/plans/2026-04-11-feat-archscope-repositioning-and-compatibility-plan.md`
-- HE plan skill: `/Users/jamiecraik/dev/agent-skills/Plugins/harness-engineering/skills/team_automation/he-plan/SKILL.md`
-- HE plan artifact contract: `/Users/jamiecraik/dev/agent-skills/Plugins/harness-engineering/fixtures/preserved-context/skills/team_automation/he-plan/references/plan-artifacts.md`
-- HE verification-first guidance: `/Users/jamiecraik/dev/agent-skills/Plugins/harness-engineering/fixtures/preserved-context/skills/team_automation/he-plan/references/verification-first.md`
+- HE plan skill: external agent-skill reference `harness-engineering/team_automation/he-plan`
+- HE plan artifact contract: external agent-skill reference `harness-engineering/he-plan/references/plan-artifacts.md`
+- HE verification-first guidance: external agent-skill reference `harness-engineering/he-plan/references/verification-first.md`

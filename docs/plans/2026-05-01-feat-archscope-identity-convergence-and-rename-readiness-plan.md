@@ -2,7 +2,7 @@
 schema_version: 1
 title: "feat: Archscope identity convergence and rename readiness plan"
 type: feat
-status: draft
+status: complete
 date: 2026-05-01
 origin: docs/specs/2026-05-01-feat-archscope-identity-convergence-and-rename-readiness-spec.md
 spec: docs/specs/2026-05-01-feat-archscope-identity-convergence-and-rename-readiness-spec.md
@@ -14,8 +14,8 @@ tracking_status: tracked
 linear_project: diagram-cli
 linear_issue: JSC-247
 linear_status: Backlog
-branch: pending
-pr: pending
+branch: codex/archscope-identity-convergence
+pr: https://github.com/jscraik/diagram-cli/pull/78
 ---
 
 # feat: Archscope identity convergence and rename readiness plan
@@ -490,7 +490,7 @@ bash scripts/verify-work.sh --fast
 
 Rollback:
 
-- If baseline validation fails due product-text changes, revert the relevant
+- If baseline validation fails due to product-text changes, revert the relevant
   unit and rerun focused validation before moving forward.
 
 ## Execution Checkpoints
