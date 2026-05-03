@@ -726,17 +726,17 @@ whether to trust, inspect, rerun, or fail a gate.
 
 - [x] AC1: Harvest inventory classifies all branch-only release commits.
 - [x] AC2: Plan and inventory forbid direct merge/default cherry-pick.
-- [ ] AC3: Diagram requirements are mapped to current owners.
+- [x] AC3: Diagram requirements are mapped to current owners.
 - [x] AC4: AI-native metadata requirements are mapped to existing schemas or a
       schema migration.
 - [ ] AC5: Cache trust boundaries are defined before cache behavior changes.
 - [ ] AC6: Confidence signals are actionable before being surfaced.
 - [x] AC7: First runtime implementation slice covers no more than one theme.
 - [x] AC8: Deterministic output remains stable for changed artifacts.
-- [ ] AC9: Compatibility surfaces remain intact.
-- [ ] AC10: No current specs, plans, artifacts, commands, schemas, or tests are
+- [x] AC9: Compatibility surfaces remain intact.
+- [x] AC10: No current specs, plans, artifacts, commands, schemas, or tests are
       deleted as a branch-harvest side effect.
-- [ ] AC11: Release branch closeout decision is recorded.
+- [x] AC11: Release branch closeout decision is recorded.
 - [x] AC12: Baseline validation is recorded for runtime changes.
 
 ## System-Wide Impact
@@ -821,7 +821,7 @@ whether to trust, inspect, rerun, or fail a gate.
 | P2 | deferred | Deferred by P0 until a concrete current diagram fixture or snapshot gap is recorded. |
 | P3 | deferred | Deferred by P0 until current scan/PR cache usage and trust inputs are documented. |
 | P4 | deferred | Deferred by P0 until current confidence signals are inventoried and tied to recovery behavior. |
-| P5 | pending | Requires all selected candidates to be handled. |
+| P5 | complete | Updated the harvest inventory with implemented P1 evidence, deferred P2-P4 evidence, and closeout recommendation: retain `origin/release/v1.1.0` as read-only evidence until deferred themes are separately planned, discarded, or closed with evidence and explicit approval exists for pruning. Compatibility/no-deletion evidence: `git diff --name-status origin/main...HEAD` shows only added docs and modified agent-context/schema/tests, with no deleted current surfaces. Validation: `npm test -- test/command-identity.test.js test/scan-command.test.js test/scan-manifest.test.js test/scan-pr-evidence.test.js` pass (15 passing); `npm test` pass (180 passing); `npm run test:deep` pass (`deep-regression: OK`); `npm run ci:artifacts` pass (`ci artifact assertions: OK`); `git diff --check` pass. |
 
 ## First he-work Handoff
 
