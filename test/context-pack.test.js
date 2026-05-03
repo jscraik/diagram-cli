@@ -3,11 +3,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { normalizeDiagramManifest } = require('../src/context/normalize-diagram-manifest');
-const {
-  FIXED_DETERMINISTIC_TIMESTAMP,
-  buildContextPack,
-} = require('../src/context/build-context-pack');
+const { buildContextPack } = require('../src/context/build-context-pack');
 const { estimateTokensFromBytes } = require('../src/artifacts/artifact-budget');
+const { FIXED_DETERMINISTIC_TIMESTAMP } = require('../src/artifacts/evidence-manifest');
 
 function withTempDiagrams(prefix, run) {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));

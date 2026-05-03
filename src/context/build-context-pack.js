@@ -287,6 +287,5 @@ if (require.main === module) {
 }
 
 module.exports = {
-  FIXED_DETERMINISTIC_TIMESTAMP,
   buildContextPack,
 };
