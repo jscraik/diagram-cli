@@ -5,6 +5,7 @@ const {
   estimateTokensFromBytes,
   sortByPriority,
 } = require('../artifacts/artifact-budget');
+const { FIXED_DETERMINISTIC_TIMESTAMP } = require('../artifacts/evidence-manifest');
 
 function parsePositiveInt(value, fallback) {
   const parsed = Number.parseInt(String(value), 10);
@@ -129,6 +130,7 @@ function buildContextPack({
   contextMaxEmbeddedDiagrams = 3,
   contextPath,
   contextMetaPath,
+  deterministic = false,
 }) {
   if (!rootDir || !tmpDir || !contextPath) {
     throw new Error('buildContextPack requires rootDir, tmpDir, and contextPath');
@@ -136,7 +138,7 @@ function buildContextPack({
 
   const diagramsDir = join(tmpDir, 'diagrams');
   const manifestPath = join(diagramsDir, 'manifest.json');
-  const nowIso = new Date().toISOString();
+  const nowIso = deterministic ? FIXED_DETERMINISTIC_TIMESTAMP : new Date().toISOString();
 
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   const diagramEntries = Array.isArray(manifest.diagrams) ? manifest.diagrams : [];
@@ -229,13 +231,15 @@ function buildContextPack({
   contextText += omittedSection;
   const result = {
     generatedAt: nowIso,
-    rootPath: rootDir,
     embeddedCount,
-    omittedTypes,
+    omittedTypes: [...new Set(omittedTypes)].sort(),
     bytes: Buffer.byteLength(contextText, 'utf8'),
     headerCompacted: header.headerCompacted,
     indexRowsIncluded: header.indexRowsIncluded,
   };
+  if (!deterministic) {
+    result.rootPath = rootDir;
+  }
   writeFileSync(contextPath, contextText);
   if (contextMetaPath) {
     writeFileSync(contextMetaPath, `${JSON.stringify(result, null, 2)}\n`);
@@ -257,6 +261,9 @@ function runFromEnv() {
     process.env.CONTEXT_MAX_EMBEDDED_DIAGRAMS || '3',
     3
   );
+  const deterministic = ['1', 'true', 'yes'].includes(
+    String(process.env.CONTEXT_DETERMINISTIC || '').toLowerCase()
+  );
 
   buildContextPack({
     rootDir,
@@ -266,6 +273,7 @@ function runFromEnv() {
     contextMaxBytes,
     contextMaxLinesPerDiagram,
     contextMaxEmbeddedDiagrams,
+    deterministic,
   });
 }
 
@@ -279,5 +287,6 @@ if (require.main === module) {
 }
 
 module.exports = {
+  FIXED_DETERMINISTIC_TIMESTAMP,
   buildContextPack,
 };
