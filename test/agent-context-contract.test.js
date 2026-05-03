@@ -63,6 +63,16 @@ describe('agent context contract', () => {
         'languages',
         'architectureAreas',
       ]);
+      expect(context.components).to.deep.equal([{
+        kind: 'component',
+        name: 'index',
+        path: 'src/index.js',
+        type: 'file',
+        roleTags: ['general'],
+        dependencyCount: 0,
+        source: 'analysis.components',
+        derivation: 'static-analysis',
+      }]);
       const paths = context.artifacts.map((entry) => entry.path);
       expect(paths).to.deep.equal([...paths].sort());
       expect(new Set(paths).size).to.equal(paths.length);

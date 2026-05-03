@@ -53,6 +53,36 @@
         "additionalProperties": false
       }
     },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "name",
+          "path",
+          "type",
+          "roleTags",
+          "dependencyCount",
+          "source",
+          "derivation"
+        ],
+        "properties": {
+          "kind": { "const": "component" },
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "type": { "type": "string" },
+          "roleTags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "dependencyCount": { "type": "integer", "minimum": 0 },
+          "source": { "const": "analysis.components" },
+          "derivation": { "const": "static-analysis" }
+        },
+        "additionalProperties": false
+      }
+    },
     "readOrder": {
       "type": "array",
       "items": { "type": "string" }

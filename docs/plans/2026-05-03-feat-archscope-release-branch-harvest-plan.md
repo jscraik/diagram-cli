@@ -727,17 +727,17 @@ whether to trust, inspect, rerun, or fail a gate.
 - [x] AC1: Harvest inventory classifies all branch-only release commits.
 - [x] AC2: Plan and inventory forbid direct merge/default cherry-pick.
 - [ ] AC3: Diagram requirements are mapped to current owners.
-- [ ] AC4: AI-native metadata requirements are mapped to existing schemas or a
+- [x] AC4: AI-native metadata requirements are mapped to existing schemas or a
       schema migration.
 - [ ] AC5: Cache trust boundaries are defined before cache behavior changes.
 - [ ] AC6: Confidence signals are actionable before being surfaced.
 - [x] AC7: First runtime implementation slice covers no more than one theme.
-- [ ] AC8: Deterministic output remains stable for changed artifacts.
+- [x] AC8: Deterministic output remains stable for changed artifacts.
 - [ ] AC9: Compatibility surfaces remain intact.
 - [ ] AC10: No current specs, plans, artifacts, commands, schemas, or tests are
       deleted as a branch-harvest side effect.
 - [ ] AC11: Release branch closeout decision is recorded.
-- [ ] AC12: Baseline validation is recorded for runtime changes.
+- [x] AC12: Baseline validation is recorded for runtime changes.
 
 ## System-Wide Impact
 
@@ -817,7 +817,7 @@ whether to trust, inspect, rerun, or fail a gate.
 | Unit | Status | Evidence |
 | --- | --- | --- |
 | P0 | complete | Created `docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md`; classified all six branch-only commits; selected AI-native metadata for P1; deferred diagram quality, cache trust, and confidence actionability. Validation: `git log --oneline --cherry-pick --right-only main...origin/release/v1.1.0` pass; `git diff --stat main..origin/release/v1.1.0` pass; `git diff --name-status main..origin/release/v1.1.0` pass; `git show --stat --oneline --find-renames e4f8ff5 4dbf4f3 69fd67d 73d24cc 8f0156b 2da4639` pass; `git add -N docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md && git diff --check -- docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md` pass; `git diff --check` pass. |
-| P1 | selected | Selected by P0 as the next implementation theme: AI-native type metadata. |
+| P1 | complete | Artifact-field inventory: `agent-context-v1` previously exposed summary counts, artifact paths/statuses, read order, warnings/errors, and PR-only changed-component data, but repository-mode agents had no schema-defined per-component type metadata. Implemented additive `components[]` metadata in `src/artifacts/agent-context.js` and `src/schema/agent-context-v1.schema.json` with deterministic path/name sorting, component kind, path, type, role tags, dependency count, source, and derivation; updated repository and PR scan tests. Validation: `npm test -- test/agent-context-contract.test.js test/scan-manifest.test.js test/scan-pr-evidence.test.js` failed once for expected analyzer output mismatch, then pass after aligning the assertion to current analyzer output; `npm test -- test/generate-output-json.test.js test/machine-command-coverage.test.js test/json-capability-discovery.test.js` pass; `npm test` pass (180 passing); `npm run test:deep` pass (`deep-regression: OK`). |
 | P2 | deferred | Deferred by P0 until a concrete current diagram fixture or snapshot gap is recorded. |
 | P3 | deferred | Deferred by P0 until current scan/PR cache usage and trust inputs are documented. |
 | P4 | deferred | Deferred by P0 until current confidence signals are inventoried and tied to recovery behavior. |

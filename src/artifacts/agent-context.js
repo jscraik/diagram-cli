@@ -2,6 +2,31 @@ const fs = require('fs');
 const path = require('path');
 const { summarizeAnalysis } = require('./evidence-summary');
 
+function normalizeStringArray(value) {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((entry) => typeof entry === 'string' && entry.trim()))].sort()
+    : [];
+}
+
+function buildComponentMetadata(analysis) {
+  return Array.isArray(analysis?.components)
+    ? analysis.components
+      .map((component) => ({
+        kind: 'component',
+        name: component.name || component.originalName || component.filePath || 'unknown',
+        path: component.filePath || '',
+        type: component.type || 'unknown',
+        roleTags: normalizeStringArray(component.roleTags),
+        dependencyCount: Array.isArray(component.dependencies) ? component.dependencies.length : 0,
+        source: 'analysis.components',
+        derivation: 'static-analysis',
+      }))
+      .sort((left, right) =>
+        `${left.path}:${left.name}`.localeCompare(`${right.path}:${right.name}`)
+      )
+    : [];
+}
+
 function buildAgentContext({
   manifest,
   analysis = {},
@@ -35,6 +60,7 @@ function buildAgentContext({
       architectureAreas: Object.fromEntries(summary.areas),
     },
     artifacts,
+    components: buildComponentMetadata(analysis),
     readOrder: [...manifest.artifactReadOrder],
     warnings: [...warnings].sort(),
     errors: errors
