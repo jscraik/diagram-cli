@@ -271,6 +271,55 @@ describe('context pack helpers', () => {
     });
   });
 
+  it('normalizes classic architecture diagrams after Mermaid banner comments', () => {
+    withTempDiagrams('diagram-context-normalize-bannered-flowchart-', ({ tmpRoot, diagramsDir }) => {
+      const manifestPath = path.join(diagramsDir, 'manifest.json');
+      const architecturePath = path.join(diagramsDir, 'architecture.mmd');
+      const dependencyPath = path.join(diagramsDir, 'dependency.mmd');
+      fs.writeFileSync(architecturePath, [
+        '%% compacted: truncated to 4000 bytes from 12000 bytes',
+        '',
+        'graph TD',
+        '  subgraph B["Beta"]',
+        '    B1["Beta Service"]',
+        '  end',
+        '  subgraph A["Alpha"]',
+        '    A1["Alpha Service"]',
+        '  end',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(dependencyPath, [
+        'graph LR',
+        '  EXT["External"] --> A1',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(manifestPath, JSON.stringify({
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        rootPath: '/tmp/example',
+        diagramDir: '.diagram',
+        diagrams: [
+          { type: 'architecture', file: 'architecture.mmd', bytes: 100, lines: 9, isPlaceholder: false },
+          { type: 'dependency', file: 'dependency.mmd', bytes: 40, lines: 3, isPlaceholder: false },
+        ],
+      }));
+
+      normalizeDiagramManifest({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        manifestPath,
+      });
+
+      const normalizedArchitecture = fs.readFileSync(architecturePath, 'utf8');
+      expect(normalizedArchitecture).to.match(/^graph TD\n/);
+      expect(normalizedArchitecture.indexOf('Alpha')).to.be.lessThan(
+        normalizedArchitecture.indexOf('Beta')
+      );
+      const normalizedDependency = fs.readFileSync(dependencyPath, 'utf8');
+      expect(normalizedDependency).to.match(/node_alpha_alpha_service_[a-f0-9]{8}/);
+      expect(normalizedDependency).to.not.include('--> A1');
+    });
+  });
+
   it('preserves existing per-diagram metadata while recomputing derived values', () => {
     withTempDiagrams('diagram-context-normalize-merge-', ({ tmpRoot, diagramsDir }) => {
       const manifestPath = path.join(diagramsDir, 'manifest.json');

@@ -202,7 +202,9 @@ Out of scope:
   - `src/workflow/**`
 - The new governing spec is
   `docs/specs/2026-05-03-feat-archscope-release-branch-harvest-spec.md`.
-- Current working tree also contains that new uncommitted spec.
+- The governing spec and this plan are now committed on
+  `codex/archscope-release-branch-harvest`; later wake-ups should treat the
+  Execution Ledger as the source of truth before reopening any phase.
 
 ### Branch Evidence
 
@@ -376,14 +378,14 @@ and every `reimplement` candidate has a current-main owner mapping.
 
 ## Phase Gate Matrix
 
-| Phase | Entry gate | Exit gate | Blocking drift |
-| --- | --- | --- | --- |
-| P0 | Spec and plan exist; current branch is `codex/archscope-release-branch-harvest`; release branch is readable. | Inventory exists, all six commits classified, next theme selected or no-op recorded, inventory artifact check passes, `git diff --check` passes. | Missing release branch, unclassified commit, no current-main owner for a selected candidate. |
-| P1 | P0 selects AI-native metadata and maps owners/tests. | Schema/artifact gap is documented; changes, if any, are deterministic and validated. | Parallel schema, Mermaid-derived facts, unversioned schema change. |
-| P2 | P0 selects diagram quality and records concrete fixture gap. | Diagram change is traceable to machine artifacts and deterministic. | Broad `src/core` rewrite, visual-only fact, snapshot churn without rationale. |
-| P3 | P0 selects cache trust and documents current cache behavior. | Trust boundary and invalidation behavior are tested or runtime change is explicitly deferred. | Cache hides stale refs, config drift, partial analysis, or artifact write failure. |
-| P4 | P0 selects confidence actionability and records current signal inventory. | Confidence states are actionable and validated, or decorative signals are discarded. | Numeric/decorative score, non-deterministic warning order, no recovery guidance. |
-| P5 | All selected candidates handled. | Compatibility and baseline validation recorded; branch closeout recommendation made. | Any `reimplement` candidate unresolved, failed compatibility gate, branch deletion without approval. |
+| Phase | Entry gate                                                                                                   | Exit gate                                                                                                                                        | Blocking drift                                                                                       |
+| ----- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| P0    | Spec and plan exist; current branch is `codex/archscope-release-branch-harvest`; release branch is readable. | Inventory exists, all six commits classified, next theme selected or no-op recorded, inventory artifact check passes, `git diff --check` passes. | Missing release branch, unclassified commit, no current-main owner for a selected candidate.         |
+| P1    | P0 selects AI-native metadata and maps owners/tests.                                                         | Schema/artifact gap is documented; changes, if any, are deterministic and validated.                                                             | Parallel schema, Mermaid-derived facts, unversioned schema change.                                   |
+| P2    | P0 selects diagram quality and records concrete fixture gap.                                                 | Diagram change is traceable to machine artifacts and deterministic.                                                                              | Broad `src/core` rewrite, visual-only fact, snapshot churn without rationale.                        |
+| P3    | P0 selects cache trust and documents current cache behavior.                                                 | Trust boundary and invalidation behavior are tested or runtime change is explicitly deferred.                                                    | Cache hides stale refs, config drift, partial analysis, or artifact write failure.                   |
+| P4    | P0 selects confidence actionability and records current signal inventory.                                    | Confidence states are actionable and validated, or decorative signals are discarded.                                                             | Numeric/decorative score, non-deterministic warning order, no recovery guidance.                     |
+| P5    | All selected candidates handled.                                                                             | Compatibility and baseline validation recorded; branch closeout recommendation made.                                                             | Any `reimplement` candidate unresolved, failed compatibility gate, branch deletion without approval. |
 
 ## Implementation Units
 
@@ -423,11 +425,11 @@ and every `reimplement` candidate has a current-main owner mapping.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Branch commit inventory | `origin/release/v1.1.0` | List branch-only commits | Six branch-only commits are classified. |
-| Merge safety | `main..origin/release/v1.1.0` diff | Review diff stats/name-status | Inventory records why direct merge is unsafe. |
-| Theme selection | inventory dispositions | Choose next phase | At most one runtime theme is selected. |
+| Scenario                | Input                              | Action                        | Expected                                      |
+| ----------------------- | ---------------------------------- | ----------------------------- | --------------------------------------------- |
+| Branch commit inventory | `origin/release/v1.1.0`            | List branch-only commits      | Six branch-only commits are classified.       |
+| Merge safety            | `main..origin/release/v1.1.0` diff | Review diff stats/name-status | Inventory records why direct merge is unsafe. |
+| Theme selection         | inventory dispositions             | Choose next phase             | At most one runtime theme is selected.        |
 
 **Validation:**
 
@@ -480,11 +482,11 @@ selects this theme.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Agent context inventory | generated context fixture | Inspect schema/output | Existing fields are documented before changes. |
-| Type metadata output | fixture repo | Run scan/context generation | Metadata is deterministic and schema-valid. |
-| PR metadata output | PR fixture | Run PR scan | Metadata does not conflict with PR impact fields. |
+| Scenario                | Input                     | Action                      | Expected                                          |
+| ----------------------- | ------------------------- | --------------------------- | ------------------------------------------------- |
+| Agent context inventory | generated context fixture | Inspect schema/output       | Existing fields are documented before changes.    |
+| Type metadata output    | fixture repo              | Run scan/context generation | Metadata is deterministic and schema-valid.       |
+| PR metadata output      | PR fixture                | Run PR scan                 | Metadata does not conflict with PR impact fields. |
 
 **Validation:**
 
@@ -529,11 +531,11 @@ to review, while keeping diagrams as supporting evidence.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Diagram readability gap | existing fixtures | Inspect output/snapshots | Concrete improvement target is recorded. |
-| Deterministic diagram | fixture repo | Generate twice | Output ordering is stable. |
-| Artifact traceability | generated diagram + JSON | Cross-check facts | Diagram claims are present in machine artifacts. |
+| Scenario                | Input                    | Action                   | Expected                                         |
+| ----------------------- | ------------------------ | ------------------------ | ------------------------------------------------ |
+| Diagram readability gap | existing fixtures        | Inspect output/snapshots | Concrete improvement target is recorded.         |
+| Deterministic diagram   | fixture repo             | Generate twice           | Output ordering is stable.                       |
+| Artifact traceability   | generated diagram + JSON | Cross-check facts        | Diagram claims are present in machine artifacts. |
 
 **Validation:**
 
@@ -574,12 +576,12 @@ mark degraded.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Stable cache hit | unchanged fixture | Run twice | Cache is accepted only when trust inputs match. |
-| Ref change | changed base/head | Run PR scan | Cache is invalidated or bypassed. |
-| Config change | changed `.diagramrc` | Run scan | Cache is invalidated or marked degraded. |
-| Partial evidence | artifact failure | Run scan | Cache does not hide degraded state. |
+| Scenario         | Input                | Action      | Expected                                        |
+| ---------------- | -------------------- | ----------- | ----------------------------------------------- |
+| Stable cache hit | unchanged fixture    | Run twice   | Cache is accepted only when trust inputs match. |
+| Ref change       | changed base/head    | Run PR scan | Cache is invalidated or bypassed.               |
+| Config change    | changed `.diagramrc` | Run scan    | Cache is invalidated or marked degraded.        |
+| Partial evidence | artifact failure     | Run scan    | Cache does not hide degraded state.             |
 
 **Validation:**
 
@@ -627,11 +629,11 @@ whether to trust, inspect, rerun, or fail a gate.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Direct evidence | fixture with explicit facts | Generate artifacts | Confidence signal is direct or omitted if obvious. |
-| Inferred evidence | fixture requiring inference | Generate artifacts | Signal explains inference and next read. |
-| Degraded evidence | partial analysis path | Generate artifacts | Signal drives inspect/rerun behavior. |
+| Scenario          | Input                       | Action             | Expected                                           |
+| ----------------- | --------------------------- | ------------------ | -------------------------------------------------- |
+| Direct evidence   | fixture with explicit facts | Generate artifacts | Confidence signal is direct or omitted if obvious. |
+| Inferred evidence | fixture requiring inference | Generate artifacts | Signal explains inference and next read.           |
+| Degraded evidence | partial analysis path       | Generate artifacts | Signal drives inspect/rerun behavior.              |
 
 **Validation:**
 
@@ -673,11 +675,11 @@ whether to trust, inspect, rerun, or fail a gate.
 
 **Test scenarios:**
 
-| Scenario | Input | Action | Expected |
-| --- | --- | --- | --- |
-| Candidate closeout | inventory | Review dispositions | No selected candidate is unaccounted for. |
-| Compatibility | package/bin/artifacts | Run compatibility tests | Existing surfaces still work. |
-| Branch decision | final inventory | Choose retain/archive/prune | Decision is evidence-backed. |
+| Scenario           | Input                 | Action                      | Expected                                  |
+| ------------------ | --------------------- | --------------------------- | ----------------------------------------- |
+| Candidate closeout | inventory             | Review dispositions         | No selected candidate is unaccounted for. |
+| Compatibility      | package/bin/artifacts | Run compatibility tests     | Existing surfaces still work.             |
+| Branch decision    | final inventory       | Choose retain/archive/prune | Decision is evidence-backed.              |
 
 **Validation:**
 
@@ -751,28 +753,31 @@ whether to trust, inspect, rerun, or fail a gate.
 
 ## Risks & Dependencies
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| Stale branch code looks tempting to cherry-pick | Current Archscope work could regress | P0 inventory and AC2 block direct cherry-pick. |
-| Themes are too coupled | Slice grows into broad rewrite | P0 selects one theme; P1-P4 are gated. |
-| AI metadata duplicates existing artifact fields | Agent contract becomes noisy | Inventory current schema before edits. |
-| Diagram quality work becomes diagram-first product drift | Archscope north star blurs | Require JSON/artifact traceability for diagram claims. |
-| Cache behavior hides stale evidence | PR review becomes misleading | Define trust boundary and invalidation tests first. |
-| Confidence signals become decorative | Humans/agents get noise | Surface only actionable states. |
-| Branch closeout deletes useful history too early | Lost product evidence | Retain branch unless all candidates are handled. |
-| P0 inventory becomes subjective | Later work starts from vague intent | Require source commits, touched files, current owners, tests, and rationale per candidate. |
-| Runtime phase starts without a measurable gap | Implementation becomes speculative | Phase entry gates require fixture, schema, cache, or confidence inventory first. |
+| Risk                                                     | Impact                               | Mitigation                                                                                 |
+| -------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Stale branch code looks tempting to cherry-pick          | Current Archscope work could regress | P0 inventory and AC2 block direct cherry-pick.                                             |
+| Themes are too coupled                                   | Slice grows into broad rewrite       | P0 selects one theme; P1-P4 are gated.                                                     |
+| AI metadata duplicates existing artifact fields          | Agent contract becomes noisy         | Inventory current schema before edits.                                                     |
+| Diagram quality work becomes diagram-first product drift | Archscope north star blurs           | Require JSON/artifact traceability for diagram claims.                                     |
+| Cache behavior hides stale evidence                      | PR review becomes misleading         | Define trust boundary and invalidation tests first.                                        |
+| Confidence signals become decorative                     | Humans/agents get noise              | Surface only actionable states.                                                            |
+| Branch closeout deletes useful history too early         | Lost product evidence                | Retain branch unless all candidates are handled.                                           |
+| P0 inventory becomes subjective                          | Later work starts from vague intent  | Require source commits, touched files, current owners, tests, and rationale per candidate. |
+| Runtime phase starts without a measurable gap            | Implementation becomes speculative   | Phase entry gates require fixture, schema, cache, or confidence inventory first.           |
 
 ## Documentation / Operational Notes
 
 - Keep this spec/plan pair linked from any future harvest inventory.
 - Do not update historical release notes to pretend the stale branch shipped.
 - If a runtime phase changes README, package scripts, validation guidance, or
-  preflight docs, run the repo-local `$validation-contract-check` workflow
-  before closeout.
-- If CI required-check names or workflows change, run `$ci-check-name-parity`.
-- If branch pruning is requested after P5, use `$he-prune-branches` and require
-  explicit user approval before deleting remote branches.
+  preflight docs, run `bash scripts/verify-work.sh --fast` and record the exact
+  outcome before closeout.
+- If CI required-check names, workflow files, or harness contract files change,
+  run `npm run harness:check` and record any diff-budget or environment blocker
+  explicitly.
+- If branch pruning is requested after P5, stop and require explicit user
+  approval before deleting local or remote branches; branch deletion is outside
+  this harvest plan.
 
 ## Validation Ladder
 
@@ -814,36 +819,35 @@ whether to trust, inspect, rerun, or fail a gate.
 
 ## Execution Ledger
 
-| Unit | Status | Evidence |
-| --- | --- | --- |
-| P0 | complete | Created `docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md`; classified all six branch-only commits; selected AI-native metadata for P1; deferred diagram quality, cache trust, and confidence actionability. Validation: `git log --oneline --cherry-pick --right-only main...origin/release/v1.1.0` pass; `git diff --stat main..origin/release/v1.1.0` pass; `git diff --name-status main..origin/release/v1.1.0` pass; `git show --stat --oneline --find-renames e4f8ff5 4dbf4f3 69fd67d 73d24cc 8f0156b 2da4639` pass; `git add -N docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md && git diff --check -- docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md` pass; `git diff --check` pass. |
-| P1 | complete | Artifact-field inventory: `agent-context-v1` previously exposed summary counts, artifact paths/statuses, read order, warnings/errors, and PR-only changed-component data, but repository-mode agents had no schema-defined per-component type metadata. Implemented additive `components[]` metadata in `src/artifacts/agent-context.js` and `src/schema/agent-context-v1.schema.json` with deterministic path/name sorting, component kind, path, type, role tags, dependency count, source, and derivation; updated repository and PR scan tests. Validation: `npm test -- test/agent-context-contract.test.js test/scan-manifest.test.js test/scan-pr-evidence.test.js` failed once for expected analyzer output mismatch, then pass after aligning the assertion to current analyzer output; `npm test -- test/generate-output-json.test.js test/machine-command-coverage.test.js test/json-capability-discovery.test.js` pass; `npm test` pass (180 passing); `npm run test:deep` pass (`deep-regression: OK`). |
-| P2 | deferred | Deferred by P0 until a concrete current diagram fixture or snapshot gap is recorded. |
-| P3 | deferred | Deferred by P0 until current scan/PR cache usage and trust inputs are documented. |
-| P4 | deferred | Deferred by P0 until current confidence signals are inventoried and tied to recovery behavior. |
-| P5 | complete | Updated the harvest inventory with implemented P1 evidence, deferred P2-P4 evidence, and closeout recommendation: retain `origin/release/v1.1.0` as read-only evidence until deferred themes are separately planned, discarded, or closed with evidence and explicit approval exists for pruning. Compatibility/no-deletion evidence: `git diff --name-status origin/main...HEAD` shows only added docs and modified agent-context/schema/tests, with no deleted current surfaces. Validation: `npm test -- test/command-identity.test.js test/scan-command.test.js test/scan-manifest.test.js test/scan-pr-evidence.test.js` pass (15 passing); `npm test` pass (180 passing); `npm run test:deep` pass (`deep-regression: OK`); `npm run ci:artifacts` pass (`ci artifact assertions: OK`); `git diff --check` pass. |
+| Unit | Status   | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0   | complete | Created `docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md`; classified all six branch-only commits; selected AI-native metadata for P1; deferred diagram quality, cache trust, and confidence actionability. Validation: `git log --oneline --cherry-pick --right-only main...origin/release/v1.1.0` pass; `git diff --stat main..origin/release/v1.1.0` pass; `git diff --name-status main..origin/release/v1.1.0` pass; `git show --stat --oneline --find-renames e4f8ff5 4dbf4f3 69fd67d 73d24cc 8f0156b 2da4639` pass; `git add -N docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md && git diff --check -- docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md` pass; `git diff --check` pass.                                                                                                                                                                                                                                                                |
+| P1   | complete | Artifact-field inventory: `agent-context-v1` previously exposed summary counts, artifact paths/statuses, read order, warnings/errors, and PR-only changed-component data, but repository-mode agents had no schema-defined per-component type metadata. Implemented additive `components[]` metadata in `src/artifacts/agent-context.js` and `src/schema/agent-context-v1.schema.json` with deterministic path/name sorting, component kind, path, type, role tags, dependency count, source, and derivation; updated repository and PR scan tests. Validation: `npm test -- test/agent-context-contract.test.js test/scan-manifest.test.js test/scan-pr-evidence.test.js` failed once for expected analyzer output mismatch, then pass after aligning the assertion to current analyzer output; `npm test -- test/generate-output-json.test.js test/machine-command-coverage.test.js test/json-capability-discovery.test.js` pass; `npm test` pass (180 passing); `npm run test:deep` pass (`deep-regression: OK`). |
+| P2   | deferred | Deferred by P0 until a concrete current diagram fixture or snapshot gap is recorded.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| P3   | deferred | Deferred by P0 until current scan/PR cache usage and trust inputs are documented.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| P4   | deferred | Deferred by P0 until current confidence signals are inventoried and tied to recovery behavior.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| P5   | complete | Updated the harvest inventory with implemented P1 evidence, deferred P2-P4 evidence, and closeout recommendation: retain `origin/release/v1.1.0` as read-only evidence until deferred themes are separately planned, discarded, or closed with evidence and explicit approval exists for pruning. Compatibility/no-deletion evidence: `git diff --name-status origin/main...HEAD` shows only added docs and modified agent-context/schema/tests, with no deleted current surfaces. Validation: `npm test -- test/command-identity.test.js test/scan-command.test.js test/scan-manifest.test.js test/scan-pr-evidence.test.js` pass (15 passing); `npm test` pass (180 passing); `npm run test:deep` pass (`deep-regression: OK`); `npm run ci:artifacts` pass (`ci artifact assertions: OK`); `git diff --check` pass.                                                                                                                                                                                               |
 
-## First he-work Handoff
+## Current he-work Handoff
 
-Start with P0.
+The fresh-run P0 handoff has completed. Do not restart P0 unless the Execution
+Ledger is explicitly reset by a later plan update.
 
-1. Re-read the governing spec and this plan.
+1. Re-read the governing spec, this plan, and the Execution Ledger.
 2. Confirm current branch is still
-   `codex/archscope-release-branch-harvest` and the working tree
-   contains only expected spec/plan/inventory changes.
-3. Create `docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md`.
-4. Populate the inventory from:
-   - `git log --oneline --cherry-pick --right-only main...origin/release/v1.1.0`
-   - `git diff --stat main..origin/release/v1.1.0`
-   - `git diff --name-status main..origin/release/v1.1.0`
-   - focused `git show --stat --oneline --find-renames <commit>` calls
-5. Select at most one next implementation theme.
-6. Update this plan ledger and acceptance checklist only for completed,
-   evidenced work.
-7. Run inventory artifact hygiene:
-   `git add -N docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md`.
-8. Run `git diff --check -- docs/branch-harvest/2026-05-03-release-v1.1.0-harvest-inventory.md`.
-9. Run `git diff --check`.
+   `codex/archscope-release-branch-harvest`.
+3. Preserve unrelated dirty worktree changes; at the time of this handoff,
+   `package.json` and `package-lock.json` may contain local dependency cleanup
+   outside the harvest scope.
+4. Treat P0, P1, and P5 as complete while their validation evidence remains
+   valid.
+5. Treat P2, P3, and P4 as intentionally deferred. Do not implement them under
+   this plan without a new scope update.
+6. If PR review or CI feedback appears, fix the smallest actionable blocker,
+   rerun focused validation plus the relevant Validation Ladder command, and
+   record the evidence before committing.
+7. If no PR/CI blocker remains, the next action is PR readiness review, not a
+   new implementation phase.
 
 ## Sources & References
 

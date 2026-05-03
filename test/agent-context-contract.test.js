@@ -44,6 +44,7 @@ describe('agent context contract', () => {
         'mode',
         'summary',
         'artifacts',
+        'components',
         'readOrder',
         'warnings',
         'errors',

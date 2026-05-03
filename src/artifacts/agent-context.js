@@ -4,7 +4,9 @@ const { summarizeAnalysis } = require('./evidence-summary');
 
 function normalizeStringArray(value) {
   return Array.isArray(value)
-    ? [...new Set(value.filter((entry) => typeof entry === 'string' && entry.trim()))].sort()
+    ? [...new Set(value
+      .filter((entry) => typeof entry === 'string' && entry.trim())
+      .map((entry) => entry.trim()))].sort()
     : [];
 }
 

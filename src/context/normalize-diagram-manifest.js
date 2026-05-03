@@ -51,8 +51,19 @@ function parseArchitecture(content) {
   return subgraphs;
 }
 
+function firstMermaidDirective(content) {
+  const lines = String(content || '').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('%%')) continue;
+    return trimmed;
+  }
+  return '';
+}
+
 function isClassicFlowchartArchitecture(content) {
-  return String(content || '').trimStart().startsWith('graph TD');
+  const firstDirective = firstMermaidDirective(content);
+  return firstDirective === 'graph TD' || firstDirective.startsWith('graph TD ');
 }
 
 function buildArchitecture(subgraphs) {

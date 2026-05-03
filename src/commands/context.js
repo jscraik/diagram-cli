@@ -94,6 +94,10 @@ function registerContextCommand(program) {
         console.error(chalk.red(`❌ Context refresh failed with code ${run.status}`));
         process.exit(run.status || 1);
       }
+      if (options.check) {
+        console.log(chalk.green('✅ Context pack is current.'));
+        process.exit(0);
+      }
       console.log(chalk.green('✅ Context pack refreshed.'));
       console.log(chalk.cyan('\nNext steps:'));
       console.log('  1) Attach `.diagram/context/diagram-context.md` to AI review workflows.');
