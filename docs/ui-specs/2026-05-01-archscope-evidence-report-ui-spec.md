@@ -71,7 +71,7 @@ Required behavior:
   non-visual evidence already written.
 - Failed report generation must mark the report artifact `failed` in
   `.diagram/manifest.json` with a stable `report_generation_unavailable` or
-  `write_failure` category.
+  `artifact_write_failed` category.
 - Environments that cannot render the report must still produce `brief.md`,
   `agent-context.json`, `architecture.mmd`, and `manifest.json`, with the
   manifest recording `report.html` as `failed`.

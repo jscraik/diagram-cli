@@ -117,6 +117,7 @@ describe('scan PR evidence composition', () => {
 
     const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
     expect(brief).to.include('- Mode: pr scan');
+    expect(brief).to.include('- Review decision: inspect .diagram/pr-impact/pr-impact.json');
     expect(brief).to.include('- PR base:');
     expect(brief).to.include('- Blast radius:');
     expect(brief).to.include('- Risk reasons:');
@@ -127,6 +128,57 @@ describe('scan PR evidence composition', () => {
     expect(report).to.include('PR scan');
     expect(report).to.include('Risk And Review Focus');
     expect(report).to.include('Review blast-radius components for transitive side effects.');
+  });
+
+  it('prints PR review focus in text mode', () => {
+    const result = spawnSync('node', [
+      path.join(repoRoot, 'src', 'diagram.js'),
+      'scan',
+      workspace,
+      '--base',
+      'HEAD~1',
+      '--head',
+      'HEAD',
+      '--quiet',
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+
+    expect(result.status, result.stderr).to.equal(0);
+    expect(result.stdout).to.include('Pack status: success');
+    expect(result.stdout).to.include('Components detected:');
+    expect(result.stdout).to.include('PR review focus:');
+    expect(result.stdout).to.include('Risk:');
+    expect(result.stdout).to.include('Changed components:');
+    expect(result.stdout).to.include('Risk reasons:');
+    expect(result.stdout).to.include('Reviewer checks:');
+    expect(result.stdout).to.include('Review blast-radius components for transitive side effects.');
+    expect(result.stdout).to.include('PR impact artifact: .diagram/pr-impact/pr-impact.json');
+  });
+
+  it('prints PR review focus when text-mode PR evidence is incomplete', () => {
+    const result = spawnSync('node', [
+      path.join(repoRoot, 'src', 'diagram.js'),
+      'scan',
+      workspace,
+      '--base',
+      'missing-ref',
+      '--head',
+      'HEAD',
+      '--quiet',
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+
+    expect(result.status).to.equal(1);
+    expect(result.stderr).to.include('Architecture evidence pack incomplete');
+    expect(result.stdout).to.include('Architecture evidence pack summary');
+    expect(result.stdout).to.include('Pack status: partial');
+    expect(result.stdout).to.include('PR review focus:');
+    expect(result.stdout).to.include('Risk reasons: git_refs_missing');
+    expect(result.stdout).to.include('PR impact artifact: not written');
   });
 
   it('preserves repository evidence when PR refs are unavailable', () => {
@@ -154,17 +206,17 @@ describe('scan PR evidence composition', () => {
     expect(artifacts['agent-context'].status).to.equal('written');
     expect(artifacts.report.status).to.equal('written');
     expect(artifacts['pr-impact'].status).to.equal('failed');
-    expect(artifacts['pr-impact'].errorCategory).to.equal('pr_refs_unavailable');
+    expect(artifacts['pr-impact'].errorCategory).to.equal('git_refs_missing');
     expect(payload.data.evidencePack.artifactReadOrder).to.not.include('.diagram/pr-impact/pr-impact.json');
     expect(payload.data.pr.status).to.equal('failed');
     expect(payload.data.pr.base).to.equal('missing-ref');
     expect(payload.data.pr.head).to.equal('HEAD');
-    expect(payload.data.pr.errorCategory).to.equal('pr_refs_unavailable');
-    expect(payload.errors.map((error) => error.category)).to.include('pr_refs_unavailable');
+    expect(payload.data.pr.errorCategory).to.equal('git_refs_missing');
+    expect(payload.errors.map((error) => error.category)).to.include('git_refs_missing');
 
     const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
     expect(brief).to.include('- Mode: pr scan');
-    expect(brief).to.include('- PR evidence generation failed: pr_refs_unavailable:');
+    expect(brief).to.include('- PR evidence generation failed: git_refs_missing:');
     expect(brief).to.not.include('- PR refs not supplied.');
   });
 

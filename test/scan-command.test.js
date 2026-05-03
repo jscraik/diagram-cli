@@ -43,10 +43,14 @@ describe('scan command', () => {
       });
 
       expect(result.status, result.stderr).to.equal(0);
+      expect(result.stdout).to.include('Pack status: success');
+      expect(result.stdout).to.match(/Components detected: \d+/);
       expect(result.stdout).to.include('Manifest: .diagram/manifest.json');
       expect(result.stdout).to.include('Human artifact: .diagram/report.html');
       expect(result.stdout).to.include('Agent artifact: .diagram/agent-context.json');
+      expect(result.stdout).to.include('Warnings: none');
       expect(result.stdout).to.include('Next action:');
+      expect(result.stdout).to.include('Read .diagram/manifest.json');
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

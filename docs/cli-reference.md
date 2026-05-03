@@ -7,7 +7,7 @@ Primary command reference for the canonical `archscope` CLI.
 - [Command Set](#command-set)
 - [Core Commands](#core-commands)
 - [Workflow Commands](#workflow-commands)
-- [Video and Animation Commands](#video-and-animation-commands)
+- [Optional Advanced Media Commands](#optional-advanced-media-commands)
 - [Diagram Types](#diagram-types)
 - [Defaults and Precedence](#defaults-and-precedence)
 - [Machine Output](#machine-output)
@@ -15,6 +15,15 @@ Primary command reference for the canonical `archscope` CLI.
 - [Migration State](#migration-state)
 
 ## Command Set
+
+Default review path:
+
+```bash
+archscope scan .
+archscope scan . --base origin/main --head HEAD
+```
+
+Core evidence and review commands:
 
 ```bash
 archscope init [path]
@@ -29,6 +38,11 @@ archscope explain <component> [path]
 archscope validate [path]
 archscope workflow pr [path]
 archscope diff <base> <head>
+```
+
+Optional advanced media commands:
+
+```bash
 archscope generate-video [path]
 archscope generate-animated [path]
 ```
@@ -67,6 +81,7 @@ Generate the default architecture evidence pack.
 archscope scan .
 archscope scan . --base origin/main --head HEAD
 archscope scan . --format json --deterministic
+archscope scan . --base origin/main --head HEAD --format json --deterministic
 ```
 
 Writes the first-run evidence pack to `.diagram` by default:
@@ -81,6 +96,17 @@ When `--base` or `--head` is supplied and refs resolve, scan also writes
 `.diagram/pr-impact/pr-impact.json` by reusing the `workflow pr` contract.
 `report.html` is written by default and becomes the primary human artifact when
 report generation succeeds.
+
+Scan machine output uses `data.outcome` as the automation-safe result:
+
+- `success`: exits `0`
+- `partial`: exits `1` for compatibility; inspect `data.outcome` and
+  `errors[].category` to distinguish partial evidence from gate failures
+- `failed`: exits non-zero and includes a stable error category where available
+
+Common scan error categories in `scan --format json` envelopes include
+`git_refs_missing`, `artifact_write_failed`, `analysis_partial`, and
+`internal_error`.
 
 Key options:
 
@@ -230,11 +256,12 @@ archscope diff origin/main HEAD
 archscope diff origin/main HEAD --format json --deterministic
 ```
 
-## Video and Animation Commands
+## Optional Advanced Media Commands
 
 ### `archscope generate-video [path]`
 
-Generate animated video output (`.mp4`, `.webm`, `.mov`).
+Generate optional animated video output (`.mp4`, `.webm`, `.mov`) after the
+core evidence pack or PR review output is already in place.
 
 ```bash
 archscope generate-video . --duration 8 --fps 60 --width 1920 --height 1080
@@ -242,7 +269,8 @@ archscope generate-video . --duration 8 --fps 60 --width 1920 --height 1080
 
 ### `archscope generate-animated [path]`
 
-Generate animated SVG output.
+Generate optional animated SVG output after the core evidence pack or PR review
+output is already in place.
 
 ```bash
 archscope generate-animated . --type architecture --output diagram-animated.svg

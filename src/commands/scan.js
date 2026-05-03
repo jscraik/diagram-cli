@@ -70,24 +70,103 @@ function writeArtifact({
   }
 }
 
+/**
+ * Mark given artifacts as failed because analysis failed and record their failure details.
+ *
+ * For each artifact id in `artifacts` this records status `'failed'`, reason `'analysis_failed'`,
+ * category `'analysis_partial'` and appends the provided error into the shared failure state.
+ *
+ * @param {string[]} artifacts - Artifact identifiers to mark as failed.
+ * @param {Object} failureState - Shared failure state containing `artifactStatuses`, `artifactReasons`, `artifactErrorCategories` and `errors`.
+ * @param {Error|any} error - The error that caused the analysis failure; its message is attached to each artifact's error entry.
+ */
 function failArtifactsForAnalysis(artifacts, failureState, error) {
   for (const artifact of artifacts) {
     markArtifactFailure({
       ...failureState,
       artifact,
       reason: 'analysis_failed',
-      category: 'analysis_failed',
+      category: 'analysis_partial',
       error,
     });
   }
 }
 
-function createScanSummary(manifest) {
+/**
+ * Produce a semicolon-separated summary of warning messages or `'none'` when there are none.
+ * @param {Array<string>} warnings - Array of warning messages; any non-array or empty array is treated as no warnings.
+ * @return {string} `'none'` if `warnings` is not a non-empty array, otherwise the warnings joined with `'; '`.
+ */
+function summarizeWarnings(warnings) {
+  if (!Array.isArray(warnings) || warnings.length === 0) return 'none';
+  return warnings.join('; ');
+}
+
+/**
+ * Convert an array of items into a single semicolon-separated string or return 'none'.
+ *
+ * @param {Array} items - The items to summarise; may be non-array or empty.
+ * @returns {string} `'none'` if `items` is not a non-empty array, otherwise the items joined with `'; '`.
+ */
+function summarizeList(items) {
+  if (!Array.isArray(items) || items.length === 0) return 'none';
+  return items.join('; ');
+}
+
+/**
+ * Build a concise summary of an evidence pack suitable for CLI output and machine envelopes.
+ *
+ * @param {Object} manifest - Evidence pack manifest; must include `artifactReadOrder` and may include `primaryHumanArtifact`, `primaryAgentArtifact` and `warnings`.
+ * @param {Object} [options] - Optional inputs to augment the summary.
+ * @param {Object|null} [options.analysis=null] - Analysis result object; `analysis.components` is used to compute `componentCount`.
+ * @param {string} [options.outcome] - Overall pack outcome; defaults to a value derived from `manifest`.
+ * @param {string|null} [options.manifestPath] - Filesystem path to the written manifest artifact, if any.
+ * @param {Object|null} [options.prImpact=null] - PR impact data produced by workflow analysis; used to populate `pr` fields when present.
+ * @param {string|null} [options.prImpactPath=null] - Filesystem path to the written PR impact artifact, if any.
+ * @param {Object|null} [options.prSummary=null] - Machine PR summary used to keep failed PR scans visible in text summaries.
+ * @returns {Object} An object containing:
+ *  - `manifestPath`: path to the primary manifest entry,
+ *  - `primaryHumanArtifact` and `primaryAgentArtifact`: ids from the manifest,
+ *  - `packStatus`: overall outcome,
+ *  - `componentCount`: number of analysed components (0 if unavailable),
+ *  - `warningSummary`: human-readable summary of manifest warnings,
+ *  - `pr`: `null` or an object with `riskLevel`, `changedComponents`, `riskReasons`, `reviewerChecks`, and `prImpactPath`,
+ *  - `nextAction`: a short instruction pointing to the manifest for artefact status.
+ */
+function createScanSummary(manifest, {
+  analysis = null,
+  outcome = outcomeForManifest(manifest),
+  manifestPath = manifestArtifactPath(manifest, 'manifest', { requireWritten: true }),
+  prImpact = null,
+  prImpactPath = null,
+  prSummary = null,
+} = {}) {
+  const componentCount = Array.isArray(analysis?.components) ? analysis.components.length : 0;
+  const warnings = Array.isArray(manifest.warnings) ? manifest.warnings : [];
+  const prAgentSummary = prImpact?.agentSummary || {};
   return {
-    manifestPath: manifest.artifactReadOrder[0],
+    manifestPath,
     primaryHumanArtifact: manifest.primaryHumanArtifact,
     primaryAgentArtifact: manifest.primaryAgentArtifact,
-    nextAction: `Read ${manifest.artifactReadOrder[0]} for artifact status before opening optional files.`,
+    packStatus: outcome,
+    componentCount,
+    warningSummary: summarizeWarnings(warnings),
+    pr: prImpact ? {
+      riskLevel: prImpact.risk?.level || 'unknown',
+      changedComponents: prAgentSummary.changedComponents ?? prImpact.changedComponents?.length ?? 0,
+      riskReasons: prAgentSummary.riskReasons || [],
+      reviewerChecks: prAgentSummary.suggestedReviewerChecks || [],
+      prImpactPath,
+    } : prSummary ? {
+      riskLevel: prSummary.risk?.level || 'unknown',
+      changedComponents: 0,
+      riskReasons: [prSummary.errorCategory || 'pr_evidence_unavailable'],
+      reviewerChecks: [`Resolve PR evidence failure before approving architecture-sensitive changes.`],
+      prImpactPath: prSummary.prImpactPath || null,
+    } : null,
+    nextAction: manifestPath
+      ? `Read ${manifestPath} for artifact status before opening optional files.`
+      : 'Manifest was not written; inspect the reported errors before consuming evidence artifacts.',
   };
 }
 
@@ -129,6 +208,37 @@ function parseWorkflowPrPayload(stdout) {
   }
 }
 
+function inferWorkflowPrErrorCategory({ payload, result }) {
+  const payloadCategory = payload?.errors?.[0]?.category
+    || payload?.errors?.[0]?.extensions?.code
+    || payload?.data?.prImpact?.errorCategory;
+  const output = `${result?.stderr || ''}\n${result?.stdout || ''}`;
+  if (/bad revision|unknown revision|ambiguous argument|not a valid object name|invalid ref|unknown ref|git ref not found|needed a single revision|revision or path not in the working tree/i.test(output)) {
+    return 'git_refs_missing';
+  }
+  if (payloadCategory) return payloadCategory;
+  if (/permission denied|eacces|enoent|no such file|timed out|timeout|unexpected token|invalid json/i.test(output)) {
+    return 'internal_error';
+  }
+  return 'internal_error';
+}
+
+/**
+ * Invoke the local diagram workflow to generate PR-impact evidence for a repository and return the parsed PR impact data.
+ *
+ * @param {Object} params
+ * @param {string} params.root - Filesystem path to the repository root to analyse.
+ * @param {string} params.outDir - Directory where PR-impact output will be written (`<outDir>/pr-impact`).
+ * @param {Object} params.options - Options forwarded to the workflow; recognised properties:
+ *   - {string} [head] - HEAD ref (defaults to `HEAD`).
+ *   - {string} [base] - Base ref for comparison.
+ *   - {string} [patterns] - File match patterns to include.
+ *   - {string} [exclude] - File match patterns to exclude.
+ *   - {number|string} [maxFiles] - Maximum files to consider.
+ *   - {boolean} [deterministic] - Whether to run the workflow in deterministic mode.
+ * @returns {Object} The PR impact data object parsed from the workflow's JSON output.
+ * @throws {Error} If the workflow process fails or does not produce a `prImpact` payload; the thrown error carries the workflow category when available.
+ */
 function runWorkflowPrEvidence({ root, outDir, options }) {
   const prImpactDir = path.join(outDir, 'pr-impact');
   const args = [
@@ -164,13 +274,48 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
       || result.stdout.trim()
       || 'workflow pr evidence failed'
     );
-    error.category = payload?.errors?.[0]?.code || 'pr_refs_unavailable';
+    error.category = inferWorkflowPrErrorCategory({ payload, result });
     throw error;
   }
 
   return payload.data.prImpact;
 }
 
+function printScanTextSummary(summary) {
+  console.log(`  Pack status: ${summary.packStatus}`);
+  console.log(`  Components detected: ${summary.componentCount}`);
+  console.log(`  Manifest: ${summary.manifestPath || 'not written'}`);
+  console.log(`  Human artifact: ${summary.primaryHumanArtifact}`);
+  console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
+  console.log(`  Warnings: ${summary.warningSummary}`);
+  if (summary.pr) {
+    console.log(chalk.cyan('\nPR review focus:'));
+    console.log(`  Risk: ${summary.pr.riskLevel}`);
+    console.log(`  Changed components: ${summary.pr.changedComponents}`);
+    console.log(`  Risk reasons: ${summarizeList(summary.pr.riskReasons)}`);
+    console.log(`  Reviewer checks: ${summarizeList(summary.pr.reviewerChecks)}`);
+    console.log(`  PR impact artifact: ${summary.pr.prImpactPath || 'not written'}`);
+  }
+  console.log(chalk.cyan('\nNext action:'));
+  console.log(`  ${summary.nextAction}`);
+}
+
+/**
+ * Build a machine-oriented summary of pull-request impact analysis for inclusion in the scan envelope.
+ *
+ * When `prImpact` is provided, returns an object describing the PR analysis status, refs, risk metrics and suggested reviewer checks.
+ * When `prImpact` is absent but `options.base` or `options.head` are supplied, returns a failed summary containing the provided refs and an `errorCategory`.
+ * Returns `null` if no PR refs were supplied and no `prImpact` is available.
+ *
+ * @param {object|null} prImpact - The parsed PR impact payload produced by the workflow PR evidence run, or `null`.
+ * @param {string|null} prImpactPath - Filesystem path to the PR impact artifact, or `null`.
+ * @param {object} options - CLI options; expected to contain `base` and/or `head` when refs were supplied.
+ * @param {Array<object>} errors - Collected error objects produced while generating artifacts; used to derive an error category when `prImpact` is missing.
+ * @returns {object|null} When available, returns a summary object:
+ *  - If `prImpact` present: `{ status, base, head, prImpactPath, risk, blastRadius, reviewerChecks }`.
+ *  - If `prImpact` missing but refs provided: `{ status: 'failed', base, head, errorCategory }`.
+ *  - Otherwise `null`.
+ */
 function buildPrMachineSummary({
   prImpact,
   prImpactPath,
@@ -194,7 +339,7 @@ function buildPrMachineSummary({
       status: 'failed',
       base: options.base || null,
       head: options.head || 'HEAD',
-      errorCategory: prError?.category || 'pr_refs_unavailable',
+      errorCategory: prError?.category || 'git_refs_missing',
     };
   }
   return null;
@@ -305,7 +450,7 @@ function registerScanCommand(program) {
             ...failureState,
             artifact: 'pr-impact',
             reason: 'pr_refs_unavailable',
-            category: error.category || 'pr_refs_unavailable',
+            category: error.category || 'git_refs_missing',
             error,
           });
         }
@@ -356,7 +501,7 @@ function registerScanCommand(program) {
           }),
           failureState,
           reason: 'write_failure',
-          category: 'write_failure',
+          category: 'artifact_write_failed',
         });
       }
 
@@ -388,26 +533,33 @@ function registerScanCommand(program) {
           ...failureState,
           artifact: 'manifest',
           reason: 'write_failure',
-          category: 'write_failure',
+          category: 'artifact_write_failed',
           error,
         });
         manifest = buildManifest();
       }
 
       const outcome = outcomeForManifest(manifest);
-      const summary = createScanSummary(manifest);
+      const writtenManifestPath = manifestArtifactPath(manifest, 'manifest', { requireWritten: true });
+      const prImpactPath = prImpact
+        ? manifestArtifactPath(manifest, 'pr-impact', { requireWritten: true })
+        : null;
+      const prSummary = buildPrMachineSummary({
+        prImpact,
+        prImpactPath,
+        options,
+        errors,
+      });
+      const summary = createScanSummary(manifest, {
+        analysis,
+        outcome,
+        manifestPath: writtenManifestPath,
+        prImpact,
+        prImpactPath,
+        prSummary,
+      });
 
       if (formatStr === 'json') {
-        const prImpactPath = prImpact
-          ? manifest.artifactReadOrder.find((entry) => entry.endsWith('pr-impact/pr-impact.json'))
-            || null
-          : null;
-        const prSummary = buildPrMachineSummary({
-          prImpact,
-          prImpactPath,
-          options,
-          errors,
-        });
         const payload = buildMachineEnvelope({
           schemaVersion: '1.0',
           command: 'scan',
@@ -436,7 +588,9 @@ function registerScanCommand(program) {
               : (prImpact?.agentSummary?.riskReasons || manifest.warnings),
             suggestedReviewerChecks: [
               ...(prImpact?.agentSummary?.suggestedReviewerChecks || []),
-              `Read \`${summary.manifestPath}\` before consuming evidence artifacts.`,
+              summary.manifestPath
+                ? `Read \`${summary.manifestPath}\` before consuming evidence artifacts.`
+                : 'Inspect scan errors before consuming evidence artifacts.',
             ],
           },
         });
@@ -454,14 +608,12 @@ function registerScanCommand(program) {
         if (errors.length > 0) {
           console.error(`  Error: ${errors[0].category}: ${errors[0].message}`);
         }
+        console.log(chalk.cyan('\nArchitecture evidence pack summary'));
+        printScanTextSummary(summary);
         process.exit(1);
       }
       console.log(chalk.green('\nArchitecture evidence pack initialized'));
-      console.log(`  Manifest: ${summary.manifestPath}`);
-      console.log(`  Human artifact: ${summary.primaryHumanArtifact}`);
-      console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
-      console.log(chalk.cyan('\nNext action:'));
-      console.log(`  ${summary.nextAction}`);
+      printScanTextSummary(summary);
     });
 }
 

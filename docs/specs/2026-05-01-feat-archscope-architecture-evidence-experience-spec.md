@@ -431,7 +431,7 @@ Machine output must support deterministic mode where already promised by the com
 - `reportPath` when generated
 - `diagramPath`
 - `prImpactPath` when generated
-- `pr` when `--base` and `--head` are supplied; required fields are `status`, `base`, `head`, and either `prImpactPath` or a stable error category such as `pr_refs_unavailable`
+- `pr` when `--base` and `--head` are supplied; required fields are `status`, `base`, `head`, and either `prImpactPath` or a stable error category such as `git_refs_missing`
 - `outcome` with one of `success`, `partial`, or `failed`
 - `warnings`
 - `partial`
@@ -494,18 +494,17 @@ Artifacts explicitly marked `deferred` because they are outside the current phas
 
 Required stable error categories:
 
-- `invalid_config`
+- `config_invalid`
 - `architecture_policy_violation`
 - `risk_threshold_exceeded`
-- `missing_dependency`
+- `dependency_unavailable`
 - `parse_failure`
 - `insufficient_repository_signal`
 - `artifact_write_failed`
-- `analysis_failed`
-- `write_failure`
+- `analysis_partial`
 - `internal_error`
 - `agent_context_unavailable`
-- `pr_refs_unavailable`
+- `git_refs_missing`
 - `report_generation_unavailable`
 
 ## Observability

@@ -146,7 +146,7 @@ Key options:
 Agents and CI should read `.diagram/manifest.json` first and only consume
 artifacts whose status is `written`. Repository scans keep the PR impact artifact
 `deferred`; PR scans mark it `written` when refs resolve or `failed` with
-`pr_refs_unavailable` when they do not.
+`git_refs_missing` when they do not.
 
 ## PR Impact Command
 

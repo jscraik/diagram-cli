@@ -69,6 +69,7 @@ program.on('command:*', function (operands) {
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} validate [path]`) + chalk.gray('        - Validate architecture against .architecture.yml'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} workflow pr [path]`) + chalk.gray('     - Compute PR blast-radius and risk score'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} diff <base> <head>`) + chalk.gray('     - Compare architecture snapshots'));
+  console.error(chalk.gray('\nOptional advanced media commands:'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate-video [path]`) + chalk.gray('  - Generate animated video output'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate-animated [path]`) + chalk.gray(' - Generate animated SVG output\n'));
   console.error(chalk.white(`Use ${chalk.cyan(`${CANONICAL_COMMAND_NAME} --help`)} for full option details.`));

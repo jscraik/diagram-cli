@@ -34,6 +34,9 @@ npm link
 
 ## First Run
 
+Before you review a PR, run Archscope. The first scan writes a compact evidence
+pack for both human reviewers and AI coding agents.
+
 ```bash
 archscope init .
 archscope doctor .
@@ -78,6 +81,7 @@ Prefer `--format json` for automation:
 
 ```bash
 archscope scan . --format json --deterministic
+archscope scan . --base origin/main --head HEAD --format json --deterministic
 archscope generate . --type architecture --format json --deterministic
 archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 ```
@@ -118,6 +122,8 @@ Expected results:
   - Run `archscope doctor .`.
   - Install Mermaid CLI if needed: `npm install -g @mermaid-js/mermaid-cli`.
 - `archscope generate-video` or `archscope generate-animated` fails:
+  - Treat video and animation as optional advanced media surfaces; run
+    `archscope scan .` first if you only need architecture evidence.
   - Install Playwright runtime: `npx playwright install chromium`.
   - Install ffmpeg: `brew install ffmpeg` (macOS).
 - Large repositories produce oversized preview URLs:
