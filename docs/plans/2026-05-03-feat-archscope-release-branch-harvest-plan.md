@@ -333,7 +333,7 @@ minimum structure:
   - `date`
   - `source_branch: origin/release/v1.1.0`
   - `base_branch: main`
-  - `status: draft | complete`
+  - `status: draft | complete | blocked`
 - Summary:
   - one-paragraph verdict on whether the branch is mergeable;
   - selected next implementation theme or `none`;
@@ -816,6 +816,7 @@ whether to trust, inspect, rerun, or fail a gate.
    - `npm test`
    - `npm run test:deep`
    - `npm run ci:artifacts`
+   - `npm run harness:check`
    - `git diff --check`
 
 ## Execution Ledger
