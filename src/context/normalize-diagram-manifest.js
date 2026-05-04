@@ -51,6 +51,21 @@ function parseArchitecture(content) {
   return subgraphs;
 }
 
+function firstMermaidDirective(content) {
+  const lines = String(content || '').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('%%')) continue;
+    return trimmed;
+  }
+  return '';
+}
+
+function isClassicFlowchartArchitecture(content) {
+  const firstDirective = firstMermaidDirective(content);
+  return firstDirective === 'graph TD' || firstDirective.startsWith('graph TD ');
+}
+
 function buildArchitecture(subgraphs) {
   const nodeMap = new Map();
   const lines = ['graph TD'];
@@ -161,23 +176,27 @@ function normalizeDiagramManifest({ rootDir, tmpDir, manifestPath }) {
 
   if (diagramFiles.includes('architecture.mmd')) {
     const architectureContent = readFileSync(architecturePath, 'utf8');
-    const parsedArchitecture = parseArchitecture(architectureContent);
-    const hasParsedNodes = parsedArchitecture.some((subgraph) =>
-      Array.isArray(subgraph.nodes) && subgraph.nodes.length > 0
-    );
-    if (!hasParsedNodes) {
-      throw new Error('Failed to normalize architecture.mmd: parsed structure was empty.');
-    }
+    if (!isClassicFlowchartArchitecture(architectureContent)) {
+      writeFileSync(architecturePath, ensureTrailingNewline(architectureContent.trimEnd()));
+    } else {
+      const parsedArchitecture = parseArchitecture(architectureContent);
+      const hasParsedNodes = parsedArchitecture.some((subgraph) =>
+        Array.isArray(subgraph.nodes) && subgraph.nodes.length > 0
+      );
+      if (!hasParsedNodes) {
+        throw new Error('Failed to normalize architecture.mmd: parsed structure was empty.');
+      }
 
-    const { content: canonicalArchitecture, nodeMap } = buildArchitecture(parsedArchitecture);
-    if (!(nodeMap instanceof Map) || nodeMap.size === 0) {
-      throw new Error('Failed to normalize architecture.mmd: canonical node map was empty.');
-    }
-    writeFileSync(architecturePath, canonicalArchitecture);
+      const { content: canonicalArchitecture, nodeMap } = buildArchitecture(parsedArchitecture);
+      if (!(nodeMap instanceof Map) || nodeMap.size === 0) {
+        throw new Error('Failed to normalize architecture.mmd: canonical node map was empty.');
+      }
+      writeFileSync(architecturePath, canonicalArchitecture);
 
-    if (diagramFiles.includes('dependency.mmd')) {
-      const dependencyContent = readFileSync(dependencyPath, 'utf8');
-      writeFileSync(dependencyPath, buildDependency(dependencyContent, nodeMap));
+      if (diagramFiles.includes('dependency.mmd')) {
+        const dependencyContent = readFileSync(dependencyPath, 'utf8');
+        writeFileSync(dependencyPath, buildDependency(dependencyContent, nodeMap));
+      }
     }
   }
 

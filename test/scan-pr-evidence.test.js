@@ -110,6 +110,15 @@ describe('scan PR evidence composition', () => {
 
     const agentContext = readJson(path.join(workspace, '.diagram', 'agent-context.json'));
     expect(agentContext.mode).to.equal('pr');
+    expect(agentContext.components.map((component) => component.path)).to.deep.equal([
+      'src/index.js',
+      'src/util.js',
+    ]);
+    expect(agentContext.components[0]).to.include({
+      kind: 'component',
+      source: 'analysis.components',
+      derivation: 'static-analysis',
+    });
     expect(agentContext.pr.reviewerChecks).to.include(
       'Review blast-radius components for transitive side effects.'
     );

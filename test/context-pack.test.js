@@ -5,6 +5,7 @@ const path = require('node:path');
 const { normalizeDiagramManifest } = require('../src/context/normalize-diagram-manifest');
 const { buildContextPack } = require('../src/context/build-context-pack');
 const { estimateTokensFromBytes } = require('../src/artifacts/artifact-budget');
+const { FIXED_DETERMINISTIC_TIMESTAMP } = require('../src/artifacts/evidence-manifest');
 
 function withTempDiagrams(prefix, run) {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -101,6 +102,52 @@ describe('context pack helpers', () => {
     });
   });
 
+  it('writes deterministic context metadata without volatile local fields', () => {
+    withTempDiagrams('diagram-context-deterministic-meta-', ({ tmpRoot, diagramsDir }) => {
+      fs.writeFileSync(path.join(diagramsDir, 'architecture.mmd'), 'graph TD\nA --> B\n');
+      fs.writeFileSync(path.join(diagramsDir, 'dependency.mmd'), 'graph LR\nX --> Y\n');
+      fs.writeFileSync(path.join(diagramsDir, 'manifest.json'), JSON.stringify({
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        rootPath: '/tmp/example',
+        diagramDir: '.diagram',
+        diagrams: [
+          { type: 'dependency', file: 'dependency.mmd', bytes: 16, lines: 2, isPlaceholder: false },
+          { type: 'architecture', file: 'architecture.mmd', bytes: 17, lines: 2, isPlaceholder: false },
+        ],
+      }));
+
+      const firstOutputPath = path.join(tmpRoot, 'first-context.md');
+      const firstMetaPath = path.join(tmpRoot, 'first-context.meta.json');
+      const first = buildContextPack({
+        rootDir: '/tmp/example-one',
+        tmpDir: tmpRoot,
+        contextPath: firstOutputPath,
+        contextMetaPath: firstMetaPath,
+        deterministic: true,
+      });
+
+      const secondOutputPath = path.join(tmpRoot, 'second-context.md');
+      const secondMetaPath = path.join(tmpRoot, 'second-context.meta.json');
+      const second = buildContextPack({
+        rootDir: '/tmp/example-two',
+        tmpDir: tmpRoot,
+        contextPath: secondOutputPath,
+        contextMetaPath: secondMetaPath,
+        deterministic: true,
+      });
+
+      const firstMeta = JSON.parse(fs.readFileSync(firstMetaPath, 'utf8'));
+      const secondMeta = JSON.parse(fs.readFileSync(secondMetaPath, 'utf8'));
+
+      expect(first.generatedAt).to.equal(FIXED_DETERMINISTIC_TIMESTAMP);
+      expect(second.generatedAt).to.equal(FIXED_DETERMINISTIC_TIMESTAMP);
+      expect(firstMeta).to.not.have.property('rootPath');
+      expect(secondMeta).to.not.have.property('rootPath');
+      expect(firstMeta).to.deep.equal(secondMeta);
+      expect(fs.readFileSync(firstOutputPath, 'utf8')).to.equal(fs.readFileSync(secondOutputPath, 'utf8'));
+    });
+  });
+
   it('compacts the header/index when the context budget is tight', () => {
     withTempDiagrams('diagram-context-header-budget-', ({ tmpRoot, diagramsDir }) => {
       const diagrams = [];
@@ -189,6 +236,87 @@ describe('context pack helpers', () => {
 
       expect(fs.readFileSync(architecturePath, 'utf8')).to.equal(architectureInput);
       expect(fs.readFileSync(dependencyPath, 'utf8')).to.equal(dependencyInput);
+    });
+  });
+
+  it('preserves architecture-beta diagrams instead of applying flowchart normalization', () => {
+    withTempDiagrams('diagram-context-normalize-architecture-beta-', ({ tmpRoot, diagramsDir }) => {
+      const manifestPath = path.join(diagramsDir, 'manifest.json');
+      const architectureInput = [
+        '%% compacted: truncated to 4000 bytes from 12000 bytes',
+        'architecture-beta',
+        '  group src(cloud)[src]',
+        '    service commands(server)[commands] in src',
+        '',
+      ].join('\n');
+
+      fs.writeFileSync(path.join(diagramsDir, 'architecture.mmd'), architectureInput);
+      fs.writeFileSync(manifestPath, JSON.stringify({
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        rootPath: '/tmp/example',
+        diagramDir: '.diagram',
+        diagrams: [
+          { type: 'architecture', file: 'architecture.mmd', bytes: 100, lines: 4, isPlaceholder: false },
+        ],
+      }));
+
+      const manifest = normalizeDiagramManifest({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        manifestPath,
+      });
+
+      expect(fs.readFileSync(path.join(diagramsDir, 'architecture.mmd'), 'utf8')).to.equal(architectureInput);
+      expect(manifest.diagrams.map((entry) => entry.file)).to.deep.equal(['architecture.mmd']);
+    });
+  });
+
+  it('normalizes classic architecture diagrams after Mermaid banner comments', () => {
+    withTempDiagrams('diagram-context-normalize-bannered-flowchart-', ({ tmpRoot, diagramsDir }) => {
+      const manifestPath = path.join(diagramsDir, 'manifest.json');
+      const architecturePath = path.join(diagramsDir, 'architecture.mmd');
+      const dependencyPath = path.join(diagramsDir, 'dependency.mmd');
+      fs.writeFileSync(architecturePath, [
+        '%% compacted: truncated to 4000 bytes from 12000 bytes',
+        '',
+        'graph TD',
+        '  subgraph B["Beta"]',
+        '    B1["Beta Service"]',
+        '  end',
+        '  subgraph A["Alpha"]',
+        '    A1["Alpha Service"]',
+        '  end',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(dependencyPath, [
+        'graph LR',
+        '  EXT["External"] --> A1',
+        '',
+      ].join('\n'));
+      fs.writeFileSync(manifestPath, JSON.stringify({
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        rootPath: '/tmp/example',
+        diagramDir: '.diagram',
+        diagrams: [
+          { type: 'architecture', file: 'architecture.mmd', bytes: 100, lines: 9, isPlaceholder: false },
+          { type: 'dependency', file: 'dependency.mmd', bytes: 40, lines: 3, isPlaceholder: false },
+        ],
+      }));
+
+      normalizeDiagramManifest({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        manifestPath,
+      });
+
+      const normalizedArchitecture = fs.readFileSync(architecturePath, 'utf8');
+      expect(normalizedArchitecture).to.match(/^graph TD\n/);
+      expect(normalizedArchitecture.indexOf('Alpha')).to.be.lessThan(
+        normalizedArchitecture.indexOf('Beta')
+      );
+      const normalizedDependency = fs.readFileSync(dependencyPath, 'utf8');
+      expect(normalizedDependency).to.match(/node_alpha_alpha_service_[a-f0-9]{8}/);
+      expect(normalizedDependency).to.not.include('--> A1');
     });
   });
 

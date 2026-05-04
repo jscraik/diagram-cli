@@ -8,7 +8,7 @@ const { buildMachineEnvelope } = require('./output');
 /**
  * Register the `context [path]` CLI subcommand that refreshes AI-focused context pack artifacts under `.diagram/context`.
  *
- * The command accepts flags `--force`, `--dry-run`, `--quiet`, `--format <type>` (text|json, default `text`) and
+ * The command accepts flags `--force`, `--dry-run`, `--check`, `--quiet`, `--format <type>` (text|json, default `text`) and
  * `--deterministic`. In `text` mode it streams script output and prints a success or failure message; in `json` mode
  * it emits a structured machine envelope containing execution results and parsed `.diagram/context/diagram-context.meta.json`.
  *
@@ -23,6 +23,7 @@ function registerContextCommand(program) {
     .description('Refresh AI-focused context pack artifacts under .diagram/context')
     .option('--force', 'Force refresh even during cooldown', false)
     .option('--dry-run', 'Preview actions without generating files', false)
+    .option('--check', 'Fail if context artifacts are stale without rewriting files', false)
     .option('--quiet', 'Suppress script logs', false)
     .option('--format <type>', 'Output format (text, json)', 'text')
     .option('--deterministic', 'Use deterministic machine output', false)
@@ -38,6 +39,7 @@ function registerContextCommand(program) {
       const args = [];
       if (options.force) args.push('--force');
       if (options.dryRun) args.push('--dry-run');
+      if (options.check) args.push('--check');
       if (options.quiet) args.push('--quiet');
 
       const run = spawnSync('bash', [scriptPath, ...args], {
@@ -91,6 +93,10 @@ function registerContextCommand(program) {
       if (run.status !== 0) {
         console.error(chalk.red(`❌ Context refresh failed with code ${run.status}`));
         process.exit(run.status || 1);
+      }
+      if (options.check) {
+        console.log(chalk.green('✅ Context pack is current.'));
+        process.exit(0);
       }
       console.log(chalk.green('✅ Context pack refreshed.'));
       console.log(chalk.cyan('\nNext steps:'));
