@@ -47,7 +47,7 @@
     "commander": "^14.0.3",
     "glob": "^10.0.0",
     "picomatch": "^4.0.3",
-    "yaml": "^2.8.2",
+    "yaml": "^2.8.4",
     "zod": "^4.3.6"
   },
   "repository": {
