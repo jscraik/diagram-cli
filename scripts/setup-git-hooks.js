@@ -7,11 +7,12 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const PREK_CONFIG_PATH = resolve(process.cwd(), "prek.toml");
 const COMMIT_MSG_VALIDATOR_PATH = resolve(process.cwd(), "scripts/validate-commit-msg.js");
+const REPO_LOCAL_PREK_HOME = resolve(process.cwd(), ".git/.cache/prek");
 const INSTALLED_HOOKS = [
 	"pre-commit: make hooks-pre-commit",
 	"pre-push: make hooks-pre-push",
@@ -107,7 +108,14 @@ function main() {
 	console.info("Installing prek hooks from prek.toml...");
 	try {
 		clearLegacyLocalHooksPath();
-		execFileSync("prek", ["install"], { stdio: "inherit" });
+		mkdirSync(REPO_LOCAL_PREK_HOME, { recursive: true });
+		execFileSync("prek", ["install"], {
+			env: {
+				...process.env,
+				PREK_HOME: process.env.PREK_HOME || REPO_LOCAL_PREK_HOME,
+			},
+			stdio: "inherit",
+		});
 		const patchedCount = patchInstalledPrekHooks();
 		if (patchedCount > 0) {
 			console.info(`Patched ${patchedCount} prek hook shim(s) with repo-local PREK_HOME`);

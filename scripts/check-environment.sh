@@ -75,7 +75,7 @@ if [[ ! -f "$PREK_CONFIG_PATH" ]]; then
 	exit 1
 fi
 
-required_support_files=("scripts/codex-preflight.sh" "scripts/codex-learn" "scripts/codex-enforced" "scripts/verify-work.sh" "scripts/prepare-worktree.sh" "scripts/check-staged-secrets.sh" "scripts/check-doc-style.sh" "scripts/check-related-tests.sh" "scripts/check-semgrep-changed.sh" "scripts/semgrep-pre-push.yml")
+required_support_files=("scripts/codex-preflight.sh" "scripts/codex-learn" "scripts/codex-enforced" "scripts/verify-work.sh" "scripts/prepare-worktree.sh" "scripts/check-prek-hooks.sh" "scripts/check-staged-secrets.sh" "scripts/check-doc-style.sh" "scripts/check-related-tests.sh" "scripts/check-semgrep-changed.sh" "scripts/semgrep-pre-push.yml")
 for support_file in "${required_support_files[@]}"; do
 	if [[ ! -f "$REPO_ROOT/${support_file}" ]]; then
 		echo "Error: missing required hook support file at $REPO_ROOT/${support_file}"
@@ -324,6 +324,8 @@ for hook_spec in "${required_prek_hooks[@]}"; do
 		exit 1
 	fi
 done
+
+bash "$REPO_ROOT/scripts/check-prek-hooks.sh"
 
 if [[ -f "$PACKAGE_JSON_PATH" ]]; then
 	required_package_scripts=("secrets:staged|bash scripts/check-staged-secrets.sh" "docs:style:changed|bash scripts/check-doc-style.sh" "test:related|bash scripts/check-related-tests.sh" "semgrep:changed|bash scripts/check-semgrep-changed.sh")
