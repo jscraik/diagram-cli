@@ -29,12 +29,157 @@ function buildComponentMetadata(analysis) {
     : [];
 }
 
+function artifactPathById(manifest, id) {
+  return manifest.artifacts.find((entry) => entry.id === id)?.path || null;
+}
+
+function writtenArtifactPaths(manifest) {
+  return new Set(manifest.artifacts
+    .filter((entry) => entry.status === 'written')
+    .map((entry) => entry.path));
+}
+
+function buildBeforeEditing({ prImpact, warnings, errors }) {
+  const instructions = [
+    'Read only artifacts whose status is written before using their contents.',
+    'Inspect artifact statuses before editing architecture-sensitive code.',
+  ];
+  if (prImpact) {
+    instructions.push('Compare changedComponents and blastRadius before choosing files to edit.');
+    for (const check of normalizeStringArray(prImpact.agentSummary?.suggestedReviewerChecks)) {
+      instructions.push(check);
+    }
+    for (const reason of normalizeStringArray(prImpact.agentSummary?.riskReasons)) {
+      instructions.push(`Check PR risk reason: ${reason}.`);
+    }
+  }
+  for (const warning of normalizeStringArray(warnings)) {
+    instructions.push(`Account for warning: ${warning}.`);
+  }
+  for (const error of errors) {
+    if (error?.category) {
+      instructions.push(`Resolve or report ${error.category} before relying on ${error.artifact || 'scan evidence'}.`);
+    }
+  }
+  return normalizeStringArray(instructions);
+}
+
+function buildPartialEvidence({ artifacts, errors, nextSafeAction }) {
+  const blockedArtifacts = artifacts
+    .filter((entry) =>
+      entry.status === 'failed'
+      || entry.status === 'partial'
+      || (entry.status === 'deferred'
+        && !['pr_refs_not_supplied', 'ui_spec_required'].includes(entry.reason))
+    )
+    .map((entry) => ({
+      artifact: entry.id,
+      path: entry.path,
+      status: entry.status,
+      ...(entry.reason ? { reason: entry.reason } : {}),
+      ...(entry.errorCategory ? { category: entry.errorCategory } : {}),
+    }))
+    .sort((left, right) => `${left.path}:${left.status}`.localeCompare(`${right.path}:${right.status}`));
+  return {
+    status: blockedArtifacts.length > 0 || errors.length > 0 ? 'limited' : 'complete',
+    canUseWrittenEvidence: nextSafeAction?.canUseWrittenEvidence ?? errors.length === 0,
+    instruction: blockedArtifacts.length > 0
+      ? 'Use written artifacts only and report blocked artifacts before editing.'
+      : 'All required evidence is available; continue with the read-first order.',
+    blockedArtifacts,
+  };
+}
+
+function buildWhenBlocked(nextSafeAction) {
+  const defaults = {
+    git_refs_missing: {
+      action: 'fetch_refs',
+      retryable: true,
+      humanRequired: false,
+      message: 'Fetch the missing base/head refs, then rerun the PR evidence scan.',
+    },
+    artifact_write_failed: {
+      action: 'retry_artifact_write',
+      retryable: true,
+      humanRequired: false,
+      message: 'Retry the failed artifact write when required evidence remains available.',
+    },
+    permission: {
+      action: 'fix_permissions',
+      retryable: false,
+      humanRequired: true,
+      message: 'Fix filesystem or sandbox permissions before rerunning the scan.',
+    },
+    timeout: {
+      action: 'retry_with_smaller_scope',
+      retryable: true,
+      humanRequired: false,
+      message: 'Retry with a smaller scope or investigate the timed-out operation.',
+    },
+    network: {
+      action: 'restore_network',
+      retryable: true,
+      humanRequired: false,
+      message: 'Restore network access or rerun with local-only evidence.',
+    },
+  };
+  if (!nextSafeAction?.category) return defaults;
+  return {
+    ...defaults,
+    [nextSafeAction.category]: {
+      action: nextSafeAction.action,
+      retryable: Boolean(nextSafeAction.retryable),
+      humanRequired: Boolean(nextSafeAction.humanRequired),
+      message: nextSafeAction.message,
+      ...(nextSafeAction.fallbackAction ? { fallbackAction: nextSafeAction.fallbackAction } : {}),
+    },
+  };
+}
+
+function buildAgentInstructions({
+  manifest,
+  artifacts,
+  prImpact,
+  warnings,
+  errors,
+  nextSafeAction,
+}) {
+  const writtenPaths = writtenArtifactPaths(manifest);
+  const readFirst = manifest.artifactReadOrder.filter((artifactPath) => writtenPaths.has(artifactPath));
+  const safeToSkip = manifest.artifacts
+    .filter((entry) =>
+      entry.optional || entry.role === 'supporting-diagram' || entry.role === 'human-report'
+    )
+    .map((entry) => entry.path)
+    .filter((artifactPath) => !readFirst.includes(artifactPath))
+    .sort();
+  const manifestPath = artifactPathById(manifest, 'manifest');
+  return {
+    readFirst,
+    safeToSkip,
+    beforeEditing: buildBeforeEditing({ prImpact, warnings, errors }),
+    whenBlocked: buildWhenBlocked(nextSafeAction),
+    partialEvidence: buildPartialEvidence({ artifacts, errors, nextSafeAction }),
+    nextSafeAction: nextSafeAction || {
+      action: 'read_manifest',
+      category: null,
+      retryable: false,
+      humanRequired: false,
+      canUseWrittenEvidence: true,
+      message: manifestPath
+        ? `Read ${manifestPath} for artifact status before opening optional files.`
+        : 'Read written evidence artifacts in manifest order.',
+    },
+  };
+}
+
 function buildAgentContext({
   manifest,
   analysis = {},
   prImpact = null,
   warnings = [],
   errors = [],
+  nextSafeAction = null,
   mode = 'repository',
 }) {
   const summary = summarizeAnalysis(analysis);
@@ -64,6 +209,14 @@ function buildAgentContext({
     artifacts,
     components: buildComponentMetadata(analysis),
     readOrder: [...manifest.artifactReadOrder],
+    agentInstructions: buildAgentInstructions({
+      manifest,
+      artifacts,
+      prImpact,
+      warnings,
+      errors,
+      nextSafeAction,
+    }),
     warnings: [...warnings].sort(),
     errors: errors
       .map((error) => ({

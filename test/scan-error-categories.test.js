@@ -94,6 +94,30 @@ describe('scan error categories', () => {
         canUseWrittenEvidence: false,
         artifact: 'manifest',
       });
+
+      const agentContext = JSON.parse(fs.readFileSync(
+        path.join(workspace, '.diagram', 'agent-context.json'),
+        'utf8'
+      ));
+      expect(agentContext.agentInstructions.nextSafeAction).to.deep.include({
+        action: 'stop_and_fix_artifact_output',
+        category: 'artifact_write_failed',
+        retryable: false,
+        humanRequired: true,
+        canUseWrittenEvidence: false,
+        artifact: 'manifest',
+      });
+      expect(agentContext.agentInstructions.partialEvidence).to.deep.include({
+        status: 'limited',
+        canUseWrittenEvidence: false,
+      });
+      expect(agentContext.agentInstructions.partialEvidence.blockedArtifacts).to.deep.include({
+        artifact: 'manifest',
+        path: '.diagram/manifest.json',
+        status: 'failed',
+        reason: 'write_failure',
+        category: 'artifact_write_failed',
+      });
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

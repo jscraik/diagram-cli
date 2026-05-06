@@ -103,6 +103,15 @@ describe('scan report.html artifact', () => {
       const reportEntry = agentContext.artifacts.find((entry) => entry.id === 'report');
       expect(reportEntry.status).to.equal('failed');
       expect(reportEntry.errorCategory).to.equal('artifact_write_failed');
+      expect(agentContext.agentInstructions.nextSafeAction).to.deep.include({
+        action: 'retry_artifact_write',
+        category: 'artifact_write_failed',
+        retryable: true,
+        humanRequired: false,
+        canUseWrittenEvidence: true,
+        artifact: 'report',
+      });
+      expect(agentContext.agentInstructions.partialEvidence.canUseWrittenEvidence).to.equal(true);
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

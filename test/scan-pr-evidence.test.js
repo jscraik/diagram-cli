@@ -122,6 +122,13 @@ describe('scan PR evidence composition', () => {
     expect(agentContext.pr.reviewerChecks).to.include(
       'Review blast-radius components for transitive side effects.'
     );
+    expect(agentContext.agentInstructions.readFirst).to.include('.diagram/pr-impact/pr-impact.json');
+    expect(agentContext.agentInstructions.beforeEditing).to.include(
+      'Compare changedComponents and blastRadius before choosing files to edit.'
+    );
+    expect(agentContext.agentInstructions.beforeEditing).to.include(
+      'Review blast-radius components for transitive side effects.'
+    );
     expect(agentContext.risk.level).to.be.a('string');
 
     const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
@@ -263,6 +270,24 @@ describe('scan PR evidence composition', () => {
     expect(brief).to.include('- Mode: pr scan');
     expect(brief).to.include('- PR evidence generation failed: git_refs_missing:');
     expect(brief).to.not.include('- PR refs not supplied.');
+
+    const agentContext = readJson(path.join(workspace, '.diagram', 'agent-context.json'));
+    expect(agentContext.agentInstructions.nextSafeAction).to.deep.include({
+      action: 'fetch_refs',
+      category: 'git_refs_missing',
+      retryable: true,
+      humanRequired: false,
+      canUseWrittenEvidence: true,
+      fallbackAction: 'rerun_repository_scan',
+    });
+    expect(agentContext.agentInstructions.partialEvidence.status).to.equal('limited');
+    expect(agentContext.agentInstructions.partialEvidence.blockedArtifacts).to.deep.include({
+      artifact: 'pr-impact',
+      path: '.diagram/pr-impact/pr-impact.json',
+      status: 'failed',
+      reason: 'pr_refs_unavailable',
+      category: 'git_refs_missing',
+    });
   });
 
   it('keeps PR impact deferred when no PR artifact is written', () => {

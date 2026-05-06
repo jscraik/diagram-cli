@@ -469,6 +469,12 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
         prImpact,
         warnings,
         errors,
+        nextSafeAction: buildNextSafeAction({
+          outcome: outcomeForManifest(manifest),
+          manifest,
+          manifestPath: manifestArtifactPath(manifest, 'manifest'),
+          errors,
+        }),
       }),
       failureState,
     });
@@ -484,6 +490,12 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
         prImpact,
         warnings,
         errors,
+        nextSafeAction: buildNextSafeAction({
+          outcome: outcomeForManifest(manifest),
+          manifest,
+          manifestPath: manifestArtifactPath(manifest, 'manifest'),
+          errors,
+        }),
       }),
       failureState,
     });
@@ -521,6 +533,12 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
         prImpact,
         warnings,
         errors,
+        nextSafeAction: buildNextSafeAction({
+          outcome: outcomeForManifest(manifest),
+          manifest,
+          manifestPath: manifestArtifactPath(manifest, 'manifest'),
+          errors,
+        }),
       }),
       failureState,
     });
@@ -536,6 +554,32 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
       reason: 'write_failure',
       category: 'artifact_write_failed',
       error,
+    });
+    manifest = buildManifest();
+  }
+
+  if (
+    analysis
+    && artifactStatuses.manifest === 'failed'
+    && artifactStatuses['agent-context'] === 'written'
+  ) {
+    const agentContextPath = path.join(outDir, 'agent-context.json');
+    writeArtifact({
+      artifact: 'agent-context',
+      write: () => writeAgentContext(agentContextPath, {
+        manifest,
+        analysis,
+        prImpact,
+        warnings,
+        errors,
+        nextSafeAction: buildNextSafeAction({
+          outcome: outcomeForManifest(manifest),
+          manifest,
+          manifestPath: manifestArtifactPath(manifest, 'manifest', { requireWritten: true }),
+          errors,
+        }),
+      }),
+      failureState,
     });
     manifest = buildManifest();
   }

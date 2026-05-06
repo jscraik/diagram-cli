@@ -11,6 +11,7 @@
     "artifacts",
     "components",
     "readOrder",
+    "agentInstructions",
     "warnings",
     "errors",
     "partial"
@@ -87,6 +88,99 @@
     "readOrder": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "agentInstructions": {
+      "type": "object",
+      "required": [
+        "readFirst",
+        "safeToSkip",
+        "beforeEditing",
+        "whenBlocked",
+        "partialEvidence",
+        "nextSafeAction"
+      ],
+      "properties": {
+        "readFirst": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "safeToSkip": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "beforeEditing": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "whenBlocked": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["action", "retryable", "humanRequired", "message"],
+            "properties": {
+              "action": { "type": "string" },
+              "retryable": { "type": "boolean" },
+              "humanRequired": { "type": "boolean" },
+              "message": { "type": "string" },
+              "fallbackAction": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "partialEvidence": {
+          "type": "object",
+          "required": [
+            "status",
+            "canUseWrittenEvidence",
+            "instruction",
+            "blockedArtifacts"
+          ],
+          "properties": {
+            "status": { "enum": ["complete", "limited"] },
+            "canUseWrittenEvidence": { "type": "boolean" },
+            "instruction": { "type": "string" },
+            "blockedArtifacts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["artifact", "path", "status"],
+                "properties": {
+                  "artifact": { "type": "string" },
+                  "path": { "type": "string" },
+                  "status": { "enum": ["written", "deferred", "partial", "failed"] },
+                  "reason": { "type": "string" },
+                  "category": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "nextSafeAction": {
+          "type": "object",
+          "required": [
+            "action",
+            "category",
+            "retryable",
+            "humanRequired",
+            "canUseWrittenEvidence",
+            "message"
+          ],
+          "properties": {
+            "action": { "type": "string" },
+            "category": { "type": ["string", "null"] },
+            "retryable": { "type": "boolean" },
+            "humanRequired": { "type": "boolean" },
+            "canUseWrittenEvidence": { "type": "boolean" },
+            "message": { "type": "string" },
+            "artifact": { "type": "string" },
+            "fallbackAction": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     },
     "warnings": {
       "type": "array",

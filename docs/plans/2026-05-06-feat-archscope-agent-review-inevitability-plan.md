@@ -655,6 +655,57 @@ Validation evidence:
   `observe A failed`, then the wrapper continued in optional mode and completed
   successfully.
 
+### P3 Prescriptive Agent Context
+
+Status: complete on
+`jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers`.
+
+Implementation evidence:
+
+- Added `agentInstructions` to `agent-context.json` and its v1 schema with
+  `readFirst`, `safeToSkip`, `beforeEditing`, `whenBlocked`,
+  `partialEvidence`, and `nextSafeAction`.
+- Repository scans now tell agents to read written evidence in manifest order,
+  keep optional human/report/diagram artifacts skippable, and inspect artifact
+  statuses before editing.
+- PR scans now include changed-component and blast-radius guidance, reviewer
+  checks, risk reasons, and missing-ref remediation.
+- Partial evidence now lists blocked artifacts with stable status, reason, and
+  category values so agents know what can be trusted and what must be reported.
+- Manifest-write failures now refresh the already-written agent context so it
+  does not tell agents to read a manifest that was not actually written.
+
+Review evidence:
+
+- `$simplify` pass launched three scoped reviewers for reuse, quality, and
+  efficiency; all three stalled and were closed after two waits, so coverage
+  continued as an inline simplify review.
+- Inline simplify review found and fixed stale manifest-read guidance inside
+  `agent-context.json` when final manifest writing fails.
+- `$he-code-review` pass found no additional blocking P3 findings after the
+  focused contract tests passed.
+
+Validation evidence:
+
+- Command:
+  `npm test -- test/agent-context-contract.test.js test/scan-evidence-pack.test.js test/scan-pr-evidence.test.js test/scan-error-categories.test.js` -> pass
+  (`12 passing`).
+- Command: `npm test` -> pass (`193 passing`).
+- Command: `npm run test:deep` -> blocked on first attempt after eight minutes
+  of no output; process `67152` was stopped.
+- Command: `node scripts/deep-regression.js` -> pass (`deep-regression: OK`).
+- Command: `npm run test:deep` -> pass on retry (`deep-regression: OK`).
+- Command: `npm run docs:style:changed` -> pass after staging
+  (`0 errors, 0 warnings and 0 suggestions in 1 file`).
+- Command: `npm run test:related` -> pass after staging; wrapper exited 0 and
+  reported no Vitest-style test files while Mocha-focused and full suites above
+  covered the changed commands.
+- Command: `git diff --cached --check` -> pass.
+- Command: `bash scripts/verify-work.sh --fast` -> pass after staging; optional
+  Local Memory observe check reported `curl: (52) Empty reply from server` and
+  `observe A failed`, then the wrapper continued in optional mode and completed
+  successfully.
+
 ## Execution Checkpoints
 
 - P0 complete: runner strategy and wrapper semantics confirmed.
