@@ -139,6 +139,34 @@ describe('scan PR evidence composition', () => {
     expect(report).to.include('Review blast-radius components for transitive side effects.');
   });
 
+  it('runs agent-pr as a scan-delegating PR evidence wrapper', () => {
+    const result = spawnSync('node', [
+      path.join(repoRoot, 'src', 'diagram.js'),
+      'agent-pr',
+      workspace,
+      '--base',
+      'HEAD~1',
+      '--format',
+      'json',
+      '--deterministic',
+    ], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+
+    expect(result.status, result.stderr).to.equal(0);
+    const payload = JSON.parse(result.stdout.trim());
+    expect(payload.command).to.equal('agent-pr');
+    expect(payload.data.delegatedCommand).to.equal('scan');
+    expect(payload.data.scanEquivalent).to.equal(
+      `archscope scan ${workspace} --base 'HEAD~1' --head HEAD --format json --deterministic`
+    );
+    expect(payload.data.pr.status).to.equal('complete');
+    expect(payload.data.pr.head).to.be.a('string');
+    expect(payload.data.prImpactPath).to.equal('.diagram/pr-impact/pr-impact.json');
+    expect(payload.data.evidencePack.command).to.equal('scan');
+  });
+
   it('prints PR review focus in text mode', () => {
     const result = spawnSync('node', [
       path.join(repoRoot, 'src', 'diagram.js'),

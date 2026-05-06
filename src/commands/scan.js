@@ -353,10 +353,8 @@ function buildPrMachineSummary({
  *
  * @param {import('commander').Command} program - Commander program instance.
  */
-function registerScanCommand(program) {
-  program
-    .command('scan [path]')
-    .description('Generate architecture evidence pack')
+function addScanOptions(command) {
+  return command
     .option('-O, --output-dir <dir>', 'Output directory', '.diagram')
     .option('-p, --patterns <list>', 'File patterns')
     .option('-e, --exclude <list>', 'Exclude patterns')
@@ -366,259 +364,276 @@ function registerScanCommand(program) {
     .option('--head <ref>', 'Head git ref for PR evidence')
     .option('-f, --format <type>', 'Output format (text, json)', 'text')
     .option('--deterministic', 'Use deterministic machine output', false)
-    .option('-q, --quiet', 'Suppress non-essential logging', false)
-    .action(async (targetPath, rawOptions) => {
-      const options = applyDiagramRcDefaults(
-        rawOptions,
-        getDiagramRcFromProgram(program),
-        ['patterns', 'exclude', 'maxFiles']
-      );
-      const root = resolveRootPathOrExit(targetPath);
-      const formatStr = String(options.format || 'text').toLowerCase().trim();
-      if (!['text', 'json'].includes(formatStr)) {
-        console.error(chalk.red('❌ Invalid format:'), options.format);
-        console.error(chalk.gray('Fix: use --format text or --format json.'));
-        process.exit(2);
-      }
+    .option('-q, --quiet', 'Suppress non-essential logging', false);
+}
 
-      let outDir;
-      try {
-        outDir = validateOutputPath(options.outputDir, root);
-      } catch (error) {
-        console.error(chalk.red('❌ Configuration error:'), error.message);
-        process.exit(2);
-      }
-      fs.mkdirSync(outDir, { recursive: true });
+async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
+  const options = applyDiagramRcDefaults(
+    rawOptions,
+    getDiagramRcFromProgram(program),
+    ['patterns', 'exclude', 'maxFiles']
+  );
+  const root = resolveRootPathOrExit(targetPath);
+  const formatStr = String(options.format || 'text').toLowerCase().trim();
+  if (!['text', 'json'].includes(formatStr)) {
+    console.error(chalk.red('❌ Invalid format:'), options.format);
+    console.error(chalk.gray('Fix: use --format text or --format json.'));
+    process.exit(2);
+  }
 
-      const warnings = [];
-      const artifactStatuses = {
-        manifest: 'written',
-        brief: 'written',
-        'agent-context': 'written',
-        architecture: 'written',
-        report: 'written',
-        'pr-impact': 'deferred',
-      };
-      const artifactReasons = {};
-      const artifactErrorCategories = {};
-      const errors = [];
-      const failureState = {
-        artifactStatuses,
-        artifactReasons,
-        artifactErrorCategories,
-        errors,
-      };
-      let analysis = null;
-      let prImpact = null;
-      const buildManifest = () => createScanEvidenceManifest({
-        root,
-        outDir,
-        deterministic: Boolean(options.deterministic),
-        warnings,
-        artifactStatuses,
-        artifactReasons,
-        artifactErrorCategories,
+  let outDir;
+  try {
+    outDir = validateOutputPath(options.outputDir, root);
+  } catch (error) {
+    console.error(chalk.red('❌ Configuration error:'), error.message);
+    process.exit(2);
+  }
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const warnings = [];
+  const artifactStatuses = {
+    manifest: 'written',
+    brief: 'written',
+    'agent-context': 'written',
+    architecture: 'written',
+    report: 'written',
+    'pr-impact': 'deferred',
+  };
+  const artifactReasons = {};
+  const artifactErrorCategories = {};
+  const errors = [];
+  const failureState = {
+    artifactStatuses,
+    artifactReasons,
+    artifactErrorCategories,
+    errors,
+  };
+  let analysis = null;
+  let prImpact = null;
+  const buildManifest = () => createScanEvidenceManifest({
+    root,
+    outDir,
+    deterministic: Boolean(options.deterministic),
+    warnings,
+    artifactStatuses,
+    artifactReasons,
+    artifactErrorCategories,
+  });
+
+  try {
+    const pipeline = await runAnalysisPipeline(root, options, 'scan');
+    analysis = pipeline.analysis;
+  } catch (error) {
+    failArtifactsForAnalysis(['brief', 'agent-context', 'architecture', 'report'], failureState, error);
+  }
+
+  if (analysis) {
+    writeArtifact({
+      artifact: 'architecture',
+      write: () => writeArchitectureArtifact({ outDir, analysis }),
+      failureState,
+    });
+  }
+
+  if (options.base || options.head) {
+    try {
+      const prEvidence = runWorkflowPrEvidence({ root, outDir, options });
+      prImpact = prEvidence;
+      if (prEvidence?._meta?.status === 'complete') {
+        artifactStatuses['pr-impact'] = 'written';
+      } else {
+        artifactStatuses['pr-impact'] = 'deferred';
+        artifactReasons['pr-impact'] = prEvidence?._meta?.status || 'no_pr_impact_artifact';
+      }
+    } catch (error) {
+      markArtifactFailure({
+        ...failureState,
+        artifact: 'pr-impact',
+        reason: 'pr_refs_unavailable',
+        category: error.category || 'git_refs_missing',
+        error,
       });
+    }
+  }
 
-      try {
-        const pipeline = await runAnalysisPipeline(root, options, 'scan');
-        analysis = pipeline.analysis;
-      } catch (error) {
-        failArtifactsForAnalysis(['brief', 'agent-context', 'architecture', 'report'], failureState, error);
-      }
+  let manifest = buildManifest();
 
-      if (analysis) {
-        writeArtifact({
-          artifact: 'architecture',
-          write: () => writeArchitectureArtifact({ outDir, analysis }),
-          failureState,
-        });
-      }
-
-      if (options.base || options.head) {
-        try {
-          const prEvidence = runWorkflowPrEvidence({ root, outDir, options });
-          prImpact = prEvidence;
-          if (prEvidence?._meta?.status === 'complete') {
-            artifactStatuses['pr-impact'] = 'written';
-          } else {
-            artifactStatuses['pr-impact'] = 'deferred';
-            artifactReasons['pr-impact'] = prEvidence?._meta?.status || 'no_pr_impact_artifact';
-          }
-        } catch (error) {
-          markArtifactFailure({
-            ...failureState,
-            artifact: 'pr-impact',
-            reason: 'pr_refs_unavailable',
-            category: error.category || 'git_refs_missing',
-            error,
-          });
-        }
-      }
-
-      let manifest = buildManifest();
-
-      if (analysis) {
-        const briefPath = path.join(outDir, 'brief.md');
-        writeArtifact({
-          artifact: 'brief',
-          write: () => writeArchitectureBrief(briefPath, {
-            manifest,
-            analysis,
-            prImpact,
-            warnings,
-            errors,
-          }),
-          failureState,
-        });
-
-        manifest = buildManifest();
-
-        const agentContextPath = path.join(outDir, 'agent-context.json');
-        writeArtifact({
-          artifact: 'agent-context',
-          write: () => writeAgentContext(agentContextPath, {
-            manifest,
-            analysis,
-            prImpact,
-            warnings,
-            errors,
-          }),
-          failureState,
-        });
-
-        manifest = buildManifest();
-
-        const reportPath = path.join(outDir, 'report.html');
-        writeArtifact({
-          artifact: 'report',
-          write: () => writeArchitectureReport(reportPath, {
-            manifest,
-            analysis,
-            prImpact,
-            warnings,
-            errors,
-          }),
-          failureState,
-          reason: 'write_failure',
-          category: 'artifact_write_failed',
-        });
-      }
-
-      manifest = buildManifest();
-      if (
-        analysis
-        && artifactStatuses.report === 'failed'
-        && artifactStatuses['agent-context'] === 'written'
-      ) {
-        const agentContextPath = path.join(outDir, 'agent-context.json');
-        writeArtifact({
-          artifact: 'agent-context',
-          write: () => writeAgentContext(agentContextPath, {
-            manifest,
-            analysis,
-            prImpact,
-            warnings,
-            errors,
-          }),
-          failureState,
-        });
-        manifest = buildManifest();
-      }
-      const manifestPath = path.join(outDir, 'manifest.json');
-      try {
-        writeJsonFile(manifestPath, manifest);
-      } catch (error) {
-        markArtifactFailure({
-          ...failureState,
-          artifact: 'manifest',
-          reason: 'write_failure',
-          category: 'artifact_write_failed',
-          error,
-        });
-        manifest = buildManifest();
-      }
-
-      const outcome = outcomeForManifest(manifest);
-      const writtenManifestPath = manifestArtifactPath(manifest, 'manifest', { requireWritten: true });
-      const prImpactPath = prImpact
-        ? manifestArtifactPath(manifest, 'pr-impact', { requireWritten: true })
-        : null;
-      const prSummary = buildPrMachineSummary({
-        prImpact,
-        prImpactPath,
-        options,
-        errors,
-      });
-      const summary = createScanSummary(manifest, {
+  if (analysis) {
+    const briefPath = path.join(outDir, 'brief.md');
+    writeArtifact({
+      artifact: 'brief',
+      write: () => writeArchitectureBrief(briefPath, {
+        manifest,
         analysis,
-        outcome,
-        manifestPath: writtenManifestPath,
         prImpact,
+        warnings,
+        errors,
+      }),
+      failureState,
+    });
+
+    manifest = buildManifest();
+
+    const agentContextPath = path.join(outDir, 'agent-context.json');
+    writeArtifact({
+      artifact: 'agent-context',
+      write: () => writeAgentContext(agentContextPath, {
+        manifest,
+        analysis,
+        prImpact,
+        warnings,
+        errors,
+      }),
+      failureState,
+    });
+
+    manifest = buildManifest();
+
+    const reportPath = path.join(outDir, 'report.html');
+    writeArtifact({
+      artifact: 'report',
+      write: () => writeArchitectureReport(reportPath, {
+        manifest,
+        analysis,
+        prImpact,
+        warnings,
+        errors,
+      }),
+      failureState,
+      reason: 'write_failure',
+      category: 'artifact_write_failed',
+    });
+  }
+
+  manifest = buildManifest();
+  if (
+    analysis
+    && artifactStatuses.report === 'failed'
+    && artifactStatuses['agent-context'] === 'written'
+  ) {
+    const agentContextPath = path.join(outDir, 'agent-context.json');
+    writeArtifact({
+      artifact: 'agent-context',
+      write: () => writeAgentContext(agentContextPath, {
+        manifest,
+        analysis,
+        prImpact,
+        warnings,
+        errors,
+      }),
+      failureState,
+    });
+    manifest = buildManifest();
+  }
+  const manifestPath = path.join(outDir, 'manifest.json');
+  try {
+    writeJsonFile(manifestPath, manifest);
+  } catch (error) {
+    markArtifactFailure({
+      ...failureState,
+      artifact: 'manifest',
+      reason: 'write_failure',
+      category: 'artifact_write_failed',
+      error,
+    });
+    manifest = buildManifest();
+  }
+
+  const outcome = outcomeForManifest(manifest);
+  const writtenManifestPath = manifestArtifactPath(manifest, 'manifest', { requireWritten: true });
+  const prImpactPath = prImpact
+    ? manifestArtifactPath(manifest, 'pr-impact', { requireWritten: true })
+    : null;
+  const prSummary = buildPrMachineSummary({
+    prImpact,
+    prImpactPath,
+    options,
+    errors,
+  });
+  const summary = createScanSummary(manifest, {
+    analysis,
+    outcome,
+    manifestPath: writtenManifestPath,
+    prImpact,
+    prImpactPath,
+    prSummary,
+  });
+
+  if (formatStr === 'json') {
+    const commandName = metadata.commandName || 'scan';
+    const delegatedCommand = metadata.delegatedCommand || null;
+    const scanEquivalent = metadata.scanEquivalent || null;
+    const payload = buildMachineEnvelope({
+      schemaVersion: '1.0',
+      command: commandName,
+      rootPath: root,
+      deterministic: Boolean(options.deterministic),
+      status: outcome,
+      data: {
+        ...(delegatedCommand ? { delegatedCommand } : {}),
+        ...(scanEquivalent ? { scanEquivalent } : {}),
+        outcome,
+        partial: outcome === 'partial',
+        evidencePack: manifest,
+        artifacts: manifest.artifacts,
+        manifestPath: summary.manifestPath,
+        briefPath: manifestArtifactPath(manifest, 'brief', { requireWritten: true }),
+        agentContextPath: manifestArtifactPath(manifest, 'agent-context', { requireWritten: true }),
+        diagramPath: manifestArtifactPath(manifest, 'architecture', { requireWritten: true }),
+        reportPath: manifestArtifactPath(manifest, 'report', { requireWritten: true }),
         prImpactPath,
-        prSummary,
-      });
+        ...(prSummary ? { pr: prSummary } : {}),
+        warnings: manifest.warnings,
+      },
+      errors,
+      agentSummary: {
+        changedComponents: prImpact?.agentSummary?.changedComponents ?? analysis?.components?.length ?? 0,
+        riskReasons: errors.length > 0
+          ? errors.map((entry) => entry.category)
+          : (prImpact?.agentSummary?.riskReasons || manifest.warnings),
+        suggestedReviewerChecks: [
+          ...(prImpact?.agentSummary?.suggestedReviewerChecks || []),
+          summary.manifestPath
+            ? `Read \`${summary.manifestPath}\` before consuming evidence artifacts.`
+            : 'Inspect scan errors before consuming evidence artifacts.',
+        ],
+      },
+    });
+    console.log(JSON.stringify(payload, null, 2));
+    process.exit(outcome === 'success' ? 0 : 1);
+  }
 
-      if (formatStr === 'json') {
-        const payload = buildMachineEnvelope({
-          schemaVersion: '1.0',
-          command: 'scan',
-          rootPath: root,
-          deterministic: Boolean(options.deterministic),
-          status: outcome,
-          data: {
-            outcome,
-            partial: outcome === 'partial',
-            evidencePack: manifest,
-            artifacts: manifest.artifacts,
-            manifestPath: summary.manifestPath,
-            briefPath: manifestArtifactPath(manifest, 'brief', { requireWritten: true }),
-            agentContextPath: manifestArtifactPath(manifest, 'agent-context', { requireWritten: true }),
-            diagramPath: manifestArtifactPath(manifest, 'architecture', { requireWritten: true }),
-            reportPath: manifestArtifactPath(manifest, 'report', { requireWritten: true }),
-            prImpactPath,
-            ...(prSummary ? { pr: prSummary } : {}),
-            warnings: manifest.warnings,
-          },
-          errors,
-          agentSummary: {
-            changedComponents: prImpact?.agentSummary?.changedComponents ?? analysis?.components?.length ?? 0,
-            riskReasons: errors.length > 0
-              ? errors.map((entry) => entry.category)
-              : (prImpact?.agentSummary?.riskReasons || manifest.warnings),
-            suggestedReviewerChecks: [
-              ...(prImpact?.agentSummary?.suggestedReviewerChecks || []),
-              summary.manifestPath
-                ? `Read \`${summary.manifestPath}\` before consuming evidence artifacts.`
-                : 'Inspect scan errors before consuming evidence artifacts.',
-            ],
-          },
-        });
-        console.log(JSON.stringify(payload, null, 2));
-        process.exit(outcome === 'success' ? 0 : 1);
-      }
+  if (!options.quiet) {
+    console.error(chalk.blue('Scanning'), root);
+    console.error(chalk.green('✅ manifest'), '→', manifestPath);
+  }
+  if (outcome !== 'success') {
+    console.error(chalk.yellow('\nArchitecture evidence pack incomplete'));
+    console.error(`  Outcome: ${outcome}`);
+    if (errors.length > 0) {
+      console.error(`  Error: ${errors[0].category}: ${errors[0].message}`);
+    }
+    console.log(chalk.cyan('\nArchitecture evidence pack summary'));
+    printScanTextSummary(summary);
+    process.exit(1);
+  }
+  console.log(chalk.green('\nArchitecture evidence pack initialized'));
+  printScanTextSummary(summary);
+}
 
-      if (!options.quiet) {
-        console.error(chalk.blue('Scanning'), root);
-        console.error(chalk.green('✅ manifest'), '→', manifestPath);
-      }
-      if (outcome !== 'success') {
-        console.error(chalk.yellow('\nArchitecture evidence pack incomplete'));
-        console.error(`  Outcome: ${outcome}`);
-        if (errors.length > 0) {
-          console.error(`  Error: ${errors[0].category}: ${errors[0].message}`);
-        }
-        console.log(chalk.cyan('\nArchitecture evidence pack summary'));
-        printScanTextSummary(summary);
-        process.exit(1);
-      }
-      console.log(chalk.green('\nArchitecture evidence pack initialized'));
-      printScanTextSummary(summary);
+function registerScanCommand(program) {
+  addScanOptions(program
+    .command('scan [path]')
+    .description('Generate architecture evidence pack'))
+    .action(async (targetPath, rawOptions) => {
+      await runScanCommand(program, targetPath, rawOptions, { commandName: 'scan' });
     });
 }
 
 module.exports = {
+  addScanOptions,
   createScanSummary,
   outcomeForManifest,
   registerScanCommand,
+  runScanCommand,
 };

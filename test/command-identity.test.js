@@ -48,6 +48,8 @@ describe('command identity and compatibility', () => {
     });
     expect(unknown.status).to.equal(1);
     expect(unknown.stderr).to.include(`${CANONICAL_COMMAND_NAME} analyze [path]`);
+    expect(unknown.stderr).to.include(`${CANONICAL_COMMAND_NAME} agent [path]`);
+    expect(unknown.stderr).to.include(`${CANONICAL_COMMAND_NAME} agent-pr [path]`);
     expect(unknown.stderr).to.include('Optional advanced media commands:');
     expect(unknown.stderr).to.include(`${CANONICAL_COMMAND_NAME} generate-video [path]`);
     expect(unknown.stderr).to.include(`Use ${CANONICAL_COMMAND_NAME} --help`);

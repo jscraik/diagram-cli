@@ -29,6 +29,7 @@ function discoverFromCommandModule(relativePath) {
   const commandMatch = source.match(/\.command\((['"])(.*?)\1/);
   if (!commandMatch) return null;
   const supportsJson = source.includes('Output format (text, json)')
+    || source.includes('addScanOptions(')
     || source.includes('Output format: console, json');
   const ignoresFormat = source.includes('Output format (ignored');
   if (!supportsJson || ignoresFormat) return null;

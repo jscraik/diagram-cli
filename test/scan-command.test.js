@@ -14,6 +14,47 @@ function createWorkspace(prefix = 'archscope-scan-command-') {
 describe('scan command', () => {
   const repoRoot = path.resolve(__dirname, '..');
 
+  it('lists agent entrypoints with scan-compatible options', () => {
+    const agent = spawnSync('node', ['src/diagram.js', 'agent', '--help'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    const agentPr = spawnSync('node', ['src/diagram.js', 'agent-pr', '--help'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+
+    expect(agent.status, agent.stderr).to.equal(0);
+    expect(agent.stdout).to.include('Usage: archscope agent [options] [path]');
+    expect(agent.stdout).to.include('--format <type>');
+    expect(agent.stdout).to.include('--deterministic');
+    expect(agentPr.status, agentPr.stderr).to.equal(0);
+    expect(agentPr.stdout).to.include('Usage: archscope agent-pr [options] [path]');
+    expect(agentPr.stdout).to.include('--base <ref>');
+    expect(agentPr.stdout).to.include('--head <ref>');
+  });
+
+  it('requires a base ref for agent-pr', () => {
+    const workspace = createWorkspace();
+    try {
+      const result = spawnSync('node', [
+        path.join(repoRoot, 'src', 'diagram.js'),
+        'agent-pr',
+        workspace,
+        '--format',
+        'json',
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).to.equal(2);
+      expect(result.stderr).to.include('agent-pr requires --base <ref>.');
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('is listed in help with P0 options', () => {
     const result = spawnSync('node', ['src/diagram.js', 'scan', '--help'], {
       cwd: repoRoot,

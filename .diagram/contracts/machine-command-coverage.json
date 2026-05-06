@@ -3,6 +3,18 @@
   "description": "Exhaustive inventory of CLI commands that support parser-safe JSON machine output.",
   "commands": [
     {
+      "command": "agent",
+      "module": "src/commands/agent.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
+      "command": "agent-pr",
+      "module": "src/commands/agent-pr.js",
+      "schemaVersion": "1.0",
+      "deterministic": true
+    },
+    {
       "command": "analyze",
       "module": "src/commands/analyze.js",
       "schemaVersion": "1.0",
