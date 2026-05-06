@@ -77,9 +77,11 @@ describe('scan evidence pack writers', () => {
 
       const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
       expect(brief).to.include('# Archscope Evidence Brief');
+      expect(brief).to.include('## Review Decision');
       expect(brief).to.include('## Artifact Read Order');
       expect(brief).to.include('## Agent Handoff');
-      expect(brief).to.include('- Review decision: read the manifest and brief before handing this repo to a reviewer or coding agent.');
+      expect(brief).to.include('- Review readiness: repository evidence is ready for orientation; PR review needs base/head refs.');
+      expect(brief).to.include('- Missing artifacts: none');
       expect(brief.trimEnd().split(/\r?\n/).length).to.be.lessThan(60);
 
       const agentContext = readJson(path.join(workspace, '.diagram', 'agent-context.json'));

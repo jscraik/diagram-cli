@@ -153,12 +153,14 @@ function createScanSummary(manifest, {
     componentCount,
     warningSummary: summarizeWarnings(warnings),
     pr: prImpact ? {
+      status: prImpact._meta?.status || 'complete',
       riskLevel: prImpact.risk?.level || 'unknown',
       changedComponents: prAgentSummary.changedComponents ?? prImpact.changedComponents?.length ?? 0,
       riskReasons: prAgentSummary.riskReasons || [],
       reviewerChecks: prAgentSummary.suggestedReviewerChecks || [],
       prImpactPath,
     } : prSummary ? {
+      status: prSummary.status || 'failed',
       riskLevel: prSummary.risk?.level || 'unknown',
       changedComponents: 0,
       riskReasons: [prSummary.errorCategory || 'pr_evidence_unavailable'],
@@ -277,20 +279,22 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
 }
 
 function printScanTextSummary(summary, nextSafeAction = null) {
+  if (summary.pr) {
+    const blocked = summary.pr.status === 'failed';
+    console.log(chalk.cyan(`Architecture review: ${blocked ? 'blocked' : `${summary.pr.riskLevel} risk`}`));
+    console.log(`  Readiness: ${blocked ? 'blocked until PR evidence is available' : 'ready after reviewer checks'}`);
+    console.log(`  Changed components: ${summary.pr.changedComponents}`);
+    console.log(`  Risk reasons: ${summarizeList(summary.pr.riskReasons)}`);
+    console.log(`  Reviewer checks: ${summarizeList(summary.pr.reviewerChecks)}`);
+    console.log(`  PR impact artifact: ${summary.pr.prImpactPath || 'not written'}`);
+    console.log('');
+  }
   console.log(`  Pack status: ${summary.packStatus}`);
   console.log(`  Components detected: ${summary.componentCount}`);
   console.log(`  Manifest: ${summary.manifestPath || 'not written'}`);
   console.log(`  Human artifact: ${summary.primaryHumanArtifact}`);
   console.log(`  Agent artifact: ${summary.primaryAgentArtifact}`);
   console.log(`  Warnings: ${summary.warningSummary}`);
-  if (summary.pr) {
-    console.log(chalk.cyan('\nPR review focus:'));
-    console.log(`  Risk: ${summary.pr.riskLevel}`);
-    console.log(`  Changed components: ${summary.pr.changedComponents}`);
-    console.log(`  Risk reasons: ${summarizeList(summary.pr.riskReasons)}`);
-    console.log(`  Reviewer checks: ${summarizeList(summary.pr.reviewerChecks)}`);
-    console.log(`  PR impact artifact: ${summary.pr.prImpactPath || 'not written'}`);
-  }
   console.log(chalk.cyan('\nNext action:'));
   console.log(`  ${nextSafeAction?.message || summary.nextAction}`);
   if (nextSafeAction?.category) {

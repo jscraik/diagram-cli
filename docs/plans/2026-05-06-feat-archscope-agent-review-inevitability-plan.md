@@ -706,6 +706,56 @@ Validation evidence:
   `observe A failed`, then the wrapper continued in optional mode and completed
   successfully.
 
+### P4 Review Decision Brief and Summary Output
+
+Status: complete on
+`jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers`.
+
+Implementation evidence:
+
+- Reworked `.diagram/brief.md` into explicit decision sections:
+  review decision, changed areas, risk and reasons, reviewer checks, evidence
+  status, read next, and next safe action.
+- Kept repository briefs concise by reporting missing/blocked artifacts instead
+  of dumping every successful artifact row.
+- PR briefs now answer whether review can proceed, what changed, what the blast
+  radius is, what checks reviewers should run, which evidence backs the result,
+  and what action is safe next.
+- Terminal text for PR scans now leads with `Architecture review: ...` and
+  readiness/risk before generic pack status.
+
+Review evidence:
+
+- `$simplify` continued inline after the P3 reviewer swarm stalled; the cleanup
+  reduced the brief evidence-status section to blocked/missing artifacts only.
+- `$he-code-review` found no blocking P4 issues after focused text/brief
+  assertions passed.
+
+Validation evidence:
+
+- Command:
+  `npm test -- test/scan-pr-evidence.test.js test/scan-command.test.js test/scan-evidence-pack.test.js` -> fail
+  (`8 passing`, `4 failing`) before updating tests from the old
+  `Review decision` / `PR review focus` wording.
+- Command:
+  `npm test -- test/scan-pr-evidence.test.js test/scan-command.test.js test/scan-evidence-pack.test.js` -> pass
+  (`12 passing`) after test updates.
+- Command:
+  `npm test -- test/scan-pr-evidence.test.js test/scan-command.test.js test/scan-evidence-pack.test.js test/scan-error-categories.test.js test/scan-report-html.test.js` -> pass
+  (`18 passing`).
+- Command: `npm test` -> pass (`193 passing`).
+- Command: `npm run test:deep` -> pass (`deep-regression: OK`).
+- Command: `npm run docs:style:changed` -> pass after staging
+  (`0 errors, 0 warnings and 0 suggestions in 1 file`).
+- Command: `npm run test:related` -> pass after staging; wrapper exited 0 and
+  reported no Vitest-style test files while Mocha-focused and full suites above
+  covered the changed commands.
+- Command: `git diff --cached --check` -> pass.
+- Command: `bash scripts/verify-work.sh --fast` -> pass after staging; optional
+  Local Memory observe check reported `curl: (52) Empty reply from server` and
+  `observe A failed`, then the wrapper continued in optional mode and completed
+  successfully.
+
 ## Execution Checkpoints
 
 - P0 complete: runner strategy and wrapper semantics confirmed.
