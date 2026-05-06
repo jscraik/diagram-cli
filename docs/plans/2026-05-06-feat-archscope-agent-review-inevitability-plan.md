@@ -148,8 +148,8 @@ agent / agent-pr wrappers
 | Agent context becomes prescriptive | SA5-SA6, SA11, SA17, SA22 | P3, P4 | AC5-AC8 | pending |
 | Brief becomes a review decision artifact | SA7, SA11, SA17, SA23 | P4 | AC9-AC11 | pending |
 | Terminal and machine output expose next safe action | SA8-SA11, SA20-SA23 | P2, P4 | AC12-AC16 | pending |
-| Docs make agent and PR review front door obvious | SA12-SA13 | P5 | AC17-AC18 | pending |
-| Validation truthfulness is explicit | SA14, SA20 | P5 | AC19-AC20 | pending |
+| Docs make agent and PR review front door obvious | SA12-SA13 | P5 | AC17-AC18 | P5 diff puts `agent-pr`/`agent` first in README, getting started, CLI reference, and unknown-command help. |
+| Validation truthfulness is explicit | SA14, SA20 | P5 | AC19-AC20 | P5 diff makes `lint`, `typecheck`, and `docs:lint` emit `not_configured` JSON and documents real gates. |
 | Compatibility and bounded architecture are preserved | SA3-SA4, SA15, SA24 | P0, P1, P6 | AC21-AC24 | pending |
 | Linear/spec/plan/PR traceability is maintained | SA16, SA18-SA19 | P0, P6 | AC25-AC27 | pending |
 
@@ -756,6 +756,61 @@ Validation evidence:
   `observe A failed`, then the wrapper continued in optional mode and completed
   successfully.
 
+### P5 Docs, Help, and Validation Truthfulness
+
+Status: complete on
+`jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers`.
+
+Implementation evidence:
+
+- README and getting-started first-run flows now lead with
+  `archscope agent-pr . --base origin/main --head HEAD` for PR review evidence
+  and `archscope agent .` for coding-agent repository orientation.
+- CLI reference now lists `agent` and `agent-pr` in the default review path and
+  core command set before generic diagram generation.
+- Unknown-command help now suggests `agent-pr`, `agent`, and `scan` before
+  analysis/generation commands while keeping media output under optional
+  advanced commands.
+- Placeholder `lint`, `typecheck`, and `docs:lint` scripts now emit
+  machine-readable `not_configured` JSON instead of prose-only green no-ops.
+
+Review evidence:
+
+- `$simplify` launched scoped reuse, quality, and efficiency reviewers for the
+  P5 diff. The efficiency reviewer returned scope-only output, and the remaining
+  reviewers timed out without findings, so the phase continued with inline
+  simplify review.
+- Inline simplify review fixed a malformed CLI-reference PR-impact sentence and
+  found no further behavior-preserving cleanup.
+- `$he-code-review` found no blocking P5 findings after focused help-order,
+  validation-script, full test, and deep-regression checks passed.
+
+Validation evidence:
+
+- Command:
+  `npm test -- test/command-identity.test.js test/generated-output-identity.test.js` -> pass
+  (`7 passing`).
+- Command: `npm run lint --silent` -> pass
+  (`{"status":"not_configured","check":"lint",...}`).
+- Command: `npm run typecheck --silent` -> pass
+  (`{"status":"not_configured","check":"typecheck",...}`).
+- Command: `npm run docs:lint --silent` -> pass
+  (`{"status":"not_configured","check":"docs:lint",...}`).
+- Command: `npm test` -> pass (`194 passing`).
+- Command: `npm run test:deep` -> pass (`deep-regression: OK`).
+- Command: `git diff --check` -> pass.
+- Command: `npm run docs:style:changed` -> pass after staging
+  (`0 errors, 0 warnings and 0 suggestions in 4 files`).
+- Command: `npm run test:related` -> pass after staging; wrapper exited 0 and
+  reported no Vitest-style test files while Mocha-focused and full suites above
+  covered the changed command/help tests.
+- Command: `git diff --cached --check` -> pass.
+- Command: `bash scripts/verify-work.sh --fast` -> pass after staging; optional
+  Local Memory observe check reported `curl: (52) Empty reply from server` and
+  `observe A failed`, then the wrapper continued in optional mode and completed
+  successfully. The wrapper printed the new `not_configured` JSON for `lint`
+  and `typecheck`.
+
 ## Execution Checkpoints
 
 - P0 complete: runner strategy and wrapper semantics confirmed.
@@ -764,7 +819,7 @@ Validation evidence:
 - P3 complete: agent context guidance validates against schema.
 - P4 complete: brief and terminal output are review-decision oriented.
 - P5 complete: docs/help/validation truthfulness updated.
-- P6 complete: JSC-280, spec, plan, PR, and validation evidence align.
+- P6 pending: final JSC-280/spec/plan/PR traceability and release readiness.
 
 ## First he-work Handoff
 

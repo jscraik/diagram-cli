@@ -61,12 +61,12 @@ registerWorkflowPrCommand(program);
 program.on('command:*', function (operands) {
   console.error(chalk.red(`\n🤖 AI Agent Error: Unknown command '${operands[0]}'\n`));
   console.error(chalk.white('Use the canonical command set:\n'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} agent-pr [path]`) + chalk.gray('        - Generate PR evidence for reviewers and AI coding agents'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} agent [path]`) + chalk.gray('           - Generate repository evidence for an AI coding agent'));
+  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} scan [path]`) + chalk.gray('            - Generate the architecture evidence pack'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} init [path]`) + chalk.gray('            - Scaffold .architecture.yml, .diagramrc, and CI sample step'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} doctor [path]`) + chalk.gray('          - Check local tooling and environment health'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} analyze [path]`) + chalk.gray('         - Analyze codebase structure'));
-  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} scan [path]`) + chalk.gray('            - Initialize architecture evidence pack manifest'));
-  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} agent [path]`) + chalk.gray('           - Generate evidence for an AI coding agent'));
-  console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} agent-pr [path]`) + chalk.gray('        - Generate PR evidence for an AI coding agent'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate [path]`) + chalk.gray('        - Generate one diagram type'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} generate-all [path]`) + chalk.gray('    - Generate all diagram types'));
   console.error(chalk.cyan(`  ${CANONICAL_COMMAND_NAME} changed [path]`) + chalk.gray('         - Analyze only git-changed files'));
