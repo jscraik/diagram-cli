@@ -17,11 +17,24 @@
       "session_id": "pr-triage/75",
       "source": "codex",
       "observed_at": "2026-04-30T23:40:00.000Z"
+    },
+    {
+      "level": "learning",
+      "content": "For diagram-cli npm releases, use the GitHub Release workflow on main with auth_mode=trusted. Local npm publish can require an npm OTP even when ~/.npmrc has a valid token; trusted publishing run 25435539149 shipped @brainwav/diagram@1.1.0 and created tag v1.1.0.",
+      "tags": [
+        "repo:diagram-cli",
+        "area:release",
+        "type:npm",
+        "workflow:trusted-publishing"
+      ],
+      "session_id": "npm-release/1.1.0",
+      "source": "codex",
+      "observed_at": "2026-05-06T12:35:41.000Z"
     }
   ],
   "closeout": {
     "forjamie_updated": true,
-    "date": "2026-04-30T00:00:00.000Z"
+    "date": "2026-05-06T12:35:41.000Z"
   },
   "meta": {
     "created_at": "2026-01-01T00:00:00.000Z",

@@ -15,16 +15,16 @@
 ## Status
 
 <!-- STATUS_START — agents update this block -->
-**Last updated:** 2026-04-30
+**Last updated:** 2026-05-06
 **Production status:** LIVE
-**Overall health:** 🟡 PR #75 triage in progress — local gate recovery underway
+**Overall health:** 🟢 npm release path confirmed
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Build / CI | 🟡 | PR #75 still needs final PR readiness pass and CodeRabbit to settle |
-| Tests | 🟡 | `npm test` green; deep regression and harness gates being rerun |
-| Open PRs | 1 | #75 [codex] Align governance scope defaults |
-| Blockers | 2 | Deep regression hit npm cache ownership drift; harness closeout metadata was stale |
+| Build / CI | 🟢 | Release workflow active and trusted publishing verified |
+| Tests | 🟢 | Release workflow reran publish guard before shipping v1.1.0 |
+| Open PRs | 0 | No active release PR needed for v1.1.0 |
+| Blockers | 0 | Local npm OTP prompt is avoided by the GitHub trusted-publishing workflow |
 <!-- STATUS_END -->
 
 ## What this project does
@@ -61,6 +61,10 @@ gantt
 
 <!-- CHANGES_START — agents prepend entries here, newest first -->
 
+### 2026-05-06
+
+- **npm release path confirmed:** Published `@brainwav/diagram@1.1.0` through the GitHub `Release` workflow with `auth_mode=trusted`; run `25435539149` passed `Publish to npm`, pushed tag `v1.1.0`, and created the GitHub release.
+
 ### 2026-04-30
 
 - **PR #75 triage pass:** Re-ran local validation for `[codex] Align governance scope defaults`; `npm test` passed, `npm run test:deep` exposed an npm cache ownership dependency inside `scripts/deep-regression.js`, and `harness:check` surfaced stale closeout metadata in `memory.json` / `FORJAMIE.md`.
@@ -87,7 +91,10 @@ gantt
 <!-- Point to shared Learnings.md or add project-specific notes here -->
 See also: `~/.codex/instructions/Learnings.md`
 
-- {Project-specific gotcha, if any}
+- For npm releases, use the GitHub `Release` workflow on `main` with
+  `auth_mode=trusted`. Local `npm run release:publish*` can reach an npm
+  publish-time OTP challenge even when `~/.npmrc` has a valid token; treat local
+  publish as a fallback, not the normal no-OTP path.
 
 ## How to run locally
 
@@ -101,9 +108,9 @@ project: diagram-cli
 repo: ~/dev/diagram-cli
 status: LIVE
 health: green
-last_updated: 2026-04-30
-open_prs: 1
-blockers: local gate recovery in progress for PR #75
-next_milestone: Clear deep regression and harness gate blockers for PR #75
-next_milestone_date: 2026-04-30
+last_updated: 2026-05-06
+open_prs: 0
+blockers: none
+next_milestone: Use trusted GitHub Release workflow for future npm publishes
+next_milestone_date: 2026-05-06
 MACHINE_READABLE_END -->

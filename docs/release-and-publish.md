@@ -8,8 +8,8 @@ Use the release guard script and GitHub workflow to publish
 
 - [Pre-release checklist](#pre-release-checklist)
 - [Local preflight](#local-preflight)
-- [Local publish](#local-publish)
 - [GitHub workflow release](#github-workflow-release)
+- [Local publish fallback](#local-publish-fallback)
 - [Initial publish path](#initial-publish-path)
 - [Migration evidence](#migration-evidence)
 - [Post-publish checks](#post-publish-checks)
@@ -47,7 +47,50 @@ What this validates:
 - packaged smoke test passes (`./node_modules/.bin/archscope --help` and
   `./node_modules/.bin/diagram --help` from packed artifact)
 
-## Local publish
+## GitHub workflow release
+
+Use `.github/workflows/release.yml` via **Run workflow**. This is the canonical
+publish path for this repo because it uses npm trusted publishing and does not
+require local npm OTP prompts.
+
+CLI equivalent:
+
+```bash
+gh workflow run Release --repo jscraik/diagram-cli --ref main \
+  -f version=X.Y.Z \
+  -f initial_release=false \
+  -f auth_mode=trusted
+```
+
+For the first publish of the existing `package.json` version, set
+`initial_release=true`.
+
+Inputs:
+
+- `version` (required, semver `X.Y.Z`)
+- `initial_release` (`true` only when publishing the existing
+  `package.json#version`)
+- `auth_mode` (`trusted` is the default and expected path; `token` is fallback
+  only)
+
+Workflow behavior:
+
+1. Enforces `main` branch.
+2. Updates `CHANGELOG.md` with a release section.
+3. Runs release publish script (`release:publish` or `release:publish:initial`).
+4. Pushes commit and tags.
+5. Creates GitHub release `vX.Y.Z`.
+
+Known-good evidence: run
+[`25435539149`](https://github.com/jscraik/diagram-cli/actions/runs/25435539149)
+published `@brainwav/diagram@1.1.0` with `auth_mode=trusted`, pushed tag
+`v1.1.0`, and created the GitHub release.
+
+## Local publish fallback
+
+Local publish is a fallback path for maintainers with an npm token/session that
+can publish without an interactive 2FA challenge. It is not the expected
+no-OTP path for this project.
 
 ```bash
 npm run release:publish -- X.Y.Z
@@ -58,24 +101,6 @@ This reruns preflight checks, then:
 - bumps package version (`npm version X.Y.Z`)
 - creates git commit/tag
 - publishes to npm (`npm publish --access public`)
-
-## GitHub workflow release
-
-Use `.github/workflows/release.yml` via **Run workflow**.
-
-Inputs:
-
-- `version` (required, semver `X.Y.Z`)
-- `initial_release` (`true` only for first publish flow)
-- `auth_mode` (`trusted` recommended, `token` fallback)
-
-Workflow behavior:
-
-1. Enforces `main` branch.
-2. Updates `CHANGELOG.md` with a release section.
-3. Runs release publish script (`release:publish` or `release:publish:initial`).
-4. Pushes commit and tags.
-5. Creates GitHub release `vX.Y.Z`.
 
 ## Initial publish path
 
