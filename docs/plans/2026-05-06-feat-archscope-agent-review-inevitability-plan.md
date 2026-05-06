@@ -609,6 +609,52 @@ Validation evidence:
 - Command: `bash scripts/verify-work.sh --fast` -> pass after staging with the
   same optional Local Memory observe warning and successful wrapper completion.
 
+### P2 Operational Friction and Next Safe Action
+
+Status: complete on
+`jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers`.
+
+Implementation evidence:
+
+- Added `src/commands/operational-friction.js` to normalize blocker messages
+  into stable categories:
+  `approval_required`, `network`, `permission`, `timeout`, `git_state`,
+  `missing_file`, `lint_failure`, `test_failure`, `git_refs_missing`,
+  `analysis_partial`, `artifact_write_failed`, and `internal_error`.
+- Added `data.nextSafeAction` to scan-family machine output while preserving
+  existing error objects and artifact statuses.
+- Text summaries now print the same next-action message plus category/action
+  when an actionable blocker exists.
+- Missing PR refs produce `fetch_refs` with `rerun_repository_scan` fallback.
+- Artifact write failures distinguish retryable partial evidence from missing
+  required evidence that should stop consumption.
+
+Review evidence:
+
+- `$simplify` pass attempted three scoped reviewers. Two reviewers returned
+  orientation-only output and the third was stopped after no usable finding;
+  inline simplify cleanup extracted artifact-write message selection.
+- `$he-code-review` found and fixed one blocker-classification edge case:
+  `ETIMEDOUT` must normalize to `timeout`, not `network`.
+
+Validation evidence:
+
+- Command:
+  `npm test -- --grep "operational friction|scan error categories|scan PR evidence composition|scan evidence manifest"` -> pass
+  (`18 passing`).
+- Command: `npm test` -> pass (`193 passing`).
+- Command: `npm run test:deep` -> pass (`deep-regression: OK`).
+- Command: `npm run docs:style:changed` -> pass after staging
+  (`0 errors, 0 warnings and 0 suggestions in 1 file`).
+- Command: `npm run test:related` -> pass after staging; wrapper exited 0 and
+  reported no Vitest-style test files while Mocha suites above covered the
+  changed commands.
+- Command: `git diff --cached --check` -> pass.
+- Command: `bash scripts/verify-work.sh --fast` -> pass after staging; optional
+  Local Memory observe check reported `curl: (52) Empty reply from server` and
+  `observe A failed`, then the wrapper continued in optional mode and completed
+  successfully.
+
 ## Execution Checkpoints
 
 - P0 complete: runner strategy and wrapper semantics confirmed.

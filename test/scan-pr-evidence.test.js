@@ -249,6 +249,14 @@ describe('scan PR evidence composition', () => {
     expect(payload.data.pr.base).to.equal('missing-ref');
     expect(payload.data.pr.head).to.equal('HEAD');
     expect(payload.data.pr.errorCategory).to.equal('git_refs_missing');
+    expect(payload.data.nextSafeAction).to.deep.include({
+      action: 'fetch_refs',
+      category: 'git_refs_missing',
+      retryable: true,
+      humanRequired: false,
+      canUseWrittenEvidence: true,
+      fallbackAction: 'rerun_repository_scan',
+    });
     expect(payload.errors.map((error) => error.category)).to.include('git_refs_missing');
 
     const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');

@@ -10,6 +10,7 @@ const {
 } = require('../artifacts/evidence-manifest');
 const { generateDiagramArtifact } = require('../core/analysis-generation');
 const { writeArchitectureReport } = require('../renderers/report-html');
+const { buildNextSafeAction, normalizeOperationalFriction } = require('./operational-friction');
 const { buildMachineEnvelope } = require('./output');
 const {
   applyDiagramRcDefaults,
@@ -213,14 +214,8 @@ function inferWorkflowPrErrorCategory({ payload, result }) {
     || payload?.errors?.[0]?.extensions?.code
     || payload?.data?.prImpact?.errorCategory;
   const output = `${result?.stderr || ''}\n${result?.stdout || ''}`;
-  if (/bad revision|unknown revision|ambiguous argument|not a valid object name|invalid ref|unknown ref|git ref not found|needed a single revision|revision or path not in the working tree/i.test(output)) {
-    return 'git_refs_missing';
-  }
   if (payloadCategory) return payloadCategory;
-  if (/permission denied|eacces|enoent|no such file|timed out|timeout|unexpected token|invalid json/i.test(output)) {
-    return 'internal_error';
-  }
-  return 'internal_error';
+  return normalizeOperationalFriction({ message: output });
 }
 
 /**
@@ -281,7 +276,7 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
   return payload.data.prImpact;
 }
 
-function printScanTextSummary(summary) {
+function printScanTextSummary(summary, nextSafeAction = null) {
   console.log(`  Pack status: ${summary.packStatus}`);
   console.log(`  Components detected: ${summary.componentCount}`);
   console.log(`  Manifest: ${summary.manifestPath || 'not written'}`);
@@ -297,7 +292,13 @@ function printScanTextSummary(summary) {
     console.log(`  PR impact artifact: ${summary.pr.prImpactPath || 'not written'}`);
   }
   console.log(chalk.cyan('\nNext action:'));
-  console.log(`  ${summary.nextAction}`);
+  console.log(`  ${nextSafeAction?.message || summary.nextAction}`);
+  if (nextSafeAction?.category) {
+    console.log(`  Category: ${nextSafeAction.category}`);
+  }
+  if (nextSafeAction?.action) {
+    console.log(`  Action: ${nextSafeAction.action}`);
+  }
 }
 
 /**
@@ -558,6 +559,13 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
     prImpactPath,
     prSummary,
   });
+  const nextSafeAction = buildNextSafeAction({
+    outcome,
+    manifest,
+    manifestPath: summary.manifestPath,
+    errors,
+    prSummary,
+  });
 
   if (formatStr === 'json') {
     const commandName = metadata.commandName || 'scan';
@@ -582,6 +590,7 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
         diagramPath: manifestArtifactPath(manifest, 'architecture', { requireWritten: true }),
         reportPath: manifestArtifactPath(manifest, 'report', { requireWritten: true }),
         prImpactPath,
+        nextSafeAction,
         ...(prSummary ? { pr: prSummary } : {}),
         warnings: manifest.warnings,
       },
@@ -614,11 +623,11 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
       console.error(`  Error: ${errors[0].category}: ${errors[0].message}`);
     }
     console.log(chalk.cyan('\nArchitecture evidence pack summary'));
-    printScanTextSummary(summary);
+    printScanTextSummary(summary, nextSafeAction);
     process.exit(1);
   }
   console.log(chalk.green('\nArchitecture evidence pack initialized'));
-  printScanTextSummary(summary);
+  printScanTextSummary(summary, nextSafeAction);
 }
 
 function registerScanCommand(program) {
