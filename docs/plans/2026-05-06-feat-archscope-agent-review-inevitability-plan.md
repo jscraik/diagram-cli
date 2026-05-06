@@ -144,14 +144,14 @@ agent / agent-pr wrappers
 
 | Requirement | Source acceptance IDs | Plan units | Plan acceptance IDs | PR evidence |
 | --- | --- | --- | --- | --- |
-| Agent entrypoints exist and delegate to scan | SA1-SA4 | P1, P6 | AC1-AC4 | pending |
-| Agent context becomes prescriptive | SA5-SA6, SA11, SA17, SA22 | P3, P4 | AC5-AC8 | pending |
-| Brief becomes a review decision artifact | SA7, SA11, SA17, SA23 | P4 | AC9-AC11 | pending |
-| Terminal and machine output expose next safe action | SA8-SA11, SA20-SA23 | P2, P4 | AC12-AC16 | pending |
+| Agent entrypoints exist and delegate to scan | SA1-SA4 | P1, P6 | AC1-AC4 | Complete in commits `51bfebf`, `0439eda`, and validation evidence below. |
+| Agent context becomes prescriptive | SA5-SA6, SA11, SA17, SA22 | P3, P4 | AC5-AC8 | Complete in commit `b82a273`; schema and PR/repo guidance tests passed. |
+| Brief becomes a review decision artifact | SA7, SA11, SA17, SA23 | P4 | AC9-AC11 | Complete in commit `de2875d`; focused brief/terminal output tests passed. |
+| Terminal and machine output expose next safe action | SA8-SA11, SA20-SA23 | P2, P4 | AC12-AC16 | Complete in commits `0439eda` and `de2875d`; next-action/error-category tests passed. |
 | Docs make agent and PR review front door obvious | SA12-SA13 | P5 | AC17-AC18 | P5 diff puts `agent-pr`/`agent` first in README, getting started, CLI reference, and unknown-command help. |
 | Validation truthfulness is explicit | SA14, SA20 | P5 | AC19-AC20 | P5 diff makes `lint`, `typecheck`, and `docs:lint` emit `not_configured` JSON and documents real gates. |
-| Compatibility and bounded architecture are preserved | SA3-SA4, SA15, SA24 | P0, P1, P6 | AC21-AC24 | pending |
-| Linear/spec/plan/PR traceability is maintained | SA16, SA18-SA19 | P0, P6 | AC25-AC27 | pending |
+| Compatibility and bounded architecture are preserved | SA3-SA4, SA15, SA24 | P0, P1, P6 | AC21-AC24 | Compatibility tests and `migration:readiness` pass; no broad core-analysis refactor included. |
+| Linear/spec/plan/PR traceability is maintained | SA16, SA18-SA19 | P0, P6 | AC25-AC27 | Blocked for PR readiness: no PR opened yet because `npm run harness:check` fails diff-budget on cumulative branch size. |
 
 ## Scope Boundaries
 
@@ -811,6 +811,48 @@ Validation evidence:
   successfully. The wrapper printed the new `not_configured` JSON for `lint`
   and `typecheck`.
 
+### P6 Traceability and Release Readiness
+
+Status: blocked on cumulative branch diff-budget before PR creation.
+
+Implementation evidence:
+
+- Traceability table now maps SA/AC groups to the phase commits and validation
+  evidence that implemented them.
+- JSC-280 has phase comments through P5, including exact validation outcomes and
+  the optional Local Memory warning.
+- No GitHub PR is open for this branch yet; `gh pr list --head
+  jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers`
+  returned `[]`.
+
+Blocker:
+
+- `npm run harness:check` fails the cumulative branch `diff-budget` gate against
+  base `f091e22e6495b6820e3c2dc05401b5a5f94723bc` and head
+  `9c019c367d55053fcd646bb383305bd05179fe18`.
+- Preflight-gate passed first, then diff-budget failed with 26 files changed,
+  2916 additions, 306 deletions, and 2610 net LOC against limits of 8 files and
+  300 LOC.
+- This is a PR-readiness/policy blocker rather than a product-test failure.
+  Smallest recovery is to split the already phase-scoped commits into smaller
+  PRs or apply an explicit `diff-budget-override` label/waiver in the PR gate
+  flow.
+
+Review evidence:
+
+- `$simplify` inline review found no behavior-preserving cleanup for the P6
+  traceability-only update.
+- `$he-code-review` verdict: block PR creation/readiness until diff-budget is
+  split or waived; do not mark AC25-AC26 complete without PR evidence.
+
+Validation evidence:
+
+- Command:
+  `gh pr list --head jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers --json number,title,state,url,isDraft` -> pass
+  (`[]`).
+- Command: `npm run harness:check` -> fail. `preflight-gate` passed; `diff-budget`
+  failed with 26 files and 2610 net LOC over limits of 8 files and 300 LOC.
+
 ## Execution Checkpoints
 
 - P0 complete: runner strategy and wrapper semantics confirmed.
@@ -819,7 +861,8 @@ Validation evidence:
 - P3 complete: agent context guidance validates against schema.
 - P4 complete: brief and terminal output are review-decision oriented.
 - P5 complete: docs/help/validation truthfulness updated.
-- P6 pending: final JSC-280/spec/plan/PR traceability and release readiness.
+- P6 blocked: `npm run harness:check` fails cumulative diff-budget before PR
+  readiness; split PRs or explicit waiver required.
 
 ## First he-work Handoff
 
