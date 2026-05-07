@@ -171,12 +171,19 @@ function buildWhenBlocked(nextSafeAction) {
       retryable: true,
       humanRequired: false,
       message: 'Fetch the missing base/head refs, then rerun the PR evidence scan.',
+      fallbackAction: 'rerun_repository_scan',
     },
     artifact_write_failed: {
       action: 'retry_artifact_write',
       retryable: true,
       humanRequired: false,
       message: 'Retry the failed artifact write when required evidence remains available.',
+    },
+    approval_required: {
+      action: 'request_approval',
+      retryable: false,
+      humanRequired: true,
+      message: 'Request explicit approval before continuing the blocked operation.',
     },
     permission: {
       action: 'fix_permissions',
@@ -195,6 +202,42 @@ function buildWhenBlocked(nextSafeAction) {
       retryable: true,
       humanRequired: false,
       message: 'Restore network access or rerun with local-only evidence.',
+    },
+    git_state: {
+      action: 'repair_git_state',
+      retryable: false,
+      humanRequired: false,
+      message: 'Repair the working tree, index, or merge state before rerunning the scan.',
+    },
+    missing_file: {
+      action: 'restore_missing_file',
+      retryable: false,
+      humanRequired: false,
+      message: 'Restore the missing file or update the scan target before rerunning.',
+    },
+    lint_failure: {
+      action: 'fix_lint_failure',
+      retryable: false,
+      humanRequired: false,
+      message: 'Fix the lint failure, then rerun validation and the scan.',
+    },
+    test_failure: {
+      action: 'fix_test_failure',
+      retryable: false,
+      humanRequired: false,
+      message: 'Fix the failing test, then rerun validation and the scan.',
+    },
+    analysis_partial: {
+      action: 'rerun_repository_scan',
+      retryable: true,
+      humanRequired: false,
+      message: 'Rerun the repository scan or narrow scope after partial analysis.',
+    },
+    internal_error: {
+      action: 'inspect_error',
+      retryable: false,
+      humanRequired: false,
+      message: 'Inspect the error details before relying on generated evidence.',
     },
   };
   if (!nextSafeAction?.category) return defaults;
