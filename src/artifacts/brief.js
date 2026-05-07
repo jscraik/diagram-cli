@@ -55,6 +55,12 @@ function artifactStatusLines(manifest) {
   });
 }
 
+function evidenceStatus(manifest) {
+  if (manifest.artifacts.some((entry) => entry.status === 'failed')) return 'failed';
+  if (manifest.artifacts.some((entry) => entry.status === 'partial')) return 'partial';
+  return 'written';
+}
+
 /**
  * Format the manifest's artifact read order as numbered markdown lines.
  *
@@ -195,7 +201,7 @@ function buildArchitectureBrief({
     evidenceStatusHeading,
     '',
     `- Validation: ${manifest.validation.status}`,
-    `- Evidence status: ${manifest.artifacts.some((entry) => entry.status === 'failed') ? 'failed' : 'written'}`,
+    `- Evidence status: ${evidenceStatus(manifest)}`,
     ...artifactStatusLines(manifest),
     ...validationLines,
     '',

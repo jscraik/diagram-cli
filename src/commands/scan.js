@@ -161,6 +161,36 @@ function writeBriefArtifact({
   });
 }
 
+function writeAgentContextArtifact({
+  outDir,
+  manifest,
+  analysis,
+  prImpact,
+  warnings,
+  errors,
+  failureState,
+  manifestPathOptions = {},
+}) {
+  const agentContextPath = path.join(outDir, 'agent-context.json');
+  return writeArtifact({
+    artifact: 'agent-context',
+    write: () => writeAgentContext(agentContextPath, {
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
+      nextSafeAction: buildNextSafeAction({
+        outcome: outcomeForManifest(manifest),
+        manifest,
+        manifestPath: manifestArtifactPath(manifest, 'manifest', manifestPathOptions),
+        errors,
+      }),
+    }),
+    failureState,
+  });
+}
+
 /**
  * Produce a semicolon-separated summary of warning messages or `'none'` when there are none.
  * @param {Array<string>} warnings - Array of warning messages; any non-array or empty array is treated as no warnings.
@@ -606,22 +636,13 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
 
     manifest = buildManifest();
 
-    const agentContextPath = path.join(outDir, 'agent-context.json');
-    writeArtifact({
-      artifact: 'agent-context',
-      write: () => writeAgentContext(agentContextPath, {
-        manifest,
-        analysis,
-        prImpact,
-        warnings,
-        errors,
-        nextSafeAction: buildNextSafeAction({
-          outcome: outcomeForManifest(manifest),
-          manifest,
-          manifestPath: manifestArtifactPath(manifest, 'manifest'),
-          errors,
-        }),
-      }),
+    writeAgentContextArtifact({
+      outDir,
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
       failureState,
     });
 
@@ -660,22 +681,13 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
     });
     manifest = buildManifest();
 
-    const agentContextPath = path.join(outDir, 'agent-context.json');
-    writeArtifact({
-      artifact: 'agent-context',
-      write: () => writeAgentContext(agentContextPath, {
-        manifest,
-        analysis,
-        prImpact,
-        warnings,
-        errors,
-        nextSafeAction: buildNextSafeAction({
-          outcome: outcomeForManifest(manifest),
-          manifest,
-          manifestPath: manifestArtifactPath(manifest, 'manifest'),
-          errors,
-        }),
-      }),
+    writeAgentContextArtifact({
+      outDir,
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
       failureState,
     });
     manifest = buildManifest();
@@ -692,6 +704,19 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
       failureState,
     });
     manifest = buildManifest();
+
+    if (artifactStatuses['agent-context'] === 'written') {
+      writeAgentContextArtifact({
+        outDir,
+        manifest,
+        analysis,
+        prImpact,
+        warnings,
+        errors,
+        failureState,
+      });
+      manifest = buildManifest();
+    }
   }
 
   const manifestPath = path.join(outDir, 'manifest.json');
@@ -723,23 +748,15 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
     }
 
     if (artifactStatuses['agent-context'] === 'written') {
-      const agentContextPath = path.join(outDir, 'agent-context.json');
-      writeArtifact({
-        artifact: 'agent-context',
-        write: () => writeAgentContext(agentContextPath, {
-          manifest,
-          analysis,
-          prImpact,
-          warnings,
-          errors,
-          nextSafeAction: buildNextSafeAction({
-            outcome: outcomeForManifest(manifest),
-            manifest,
-            manifestPath: manifestArtifactPath(manifest, 'manifest', { requireWritten: true }),
-            errors,
-          }),
-        }),
+      writeAgentContextArtifact({
+        outDir,
+        manifest,
+        analysis,
+        prImpact,
+        warnings,
+        errors,
         failureState,
+        manifestPathOptions: { requireWritten: true },
       });
       manifest = buildManifest();
     }

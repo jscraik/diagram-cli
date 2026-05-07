@@ -131,7 +131,7 @@ function registerAgentCommand(program) {
     .description('Generate architecture evidence for an AI coding agent'))
     .action(async (targetPath, rawOptions) => {
       if (rawOptions.base || rawOptions.head) {
-        emitAgentCommandError({
+        return emitAgentCommandError({
           commandName: 'agent',
           targetPath,
           options: rawOptions,
