@@ -46,11 +46,11 @@ describe('agent context contract', () => {
         'artifacts',
         'components',
         'readOrder',
-        'agentInstructions',
         'warnings',
         'errors',
         'partial',
       ]);
+      expect(schema.properties).to.have.property('agentInstructions');
 
       const context = JSON.parse(fs.readFileSync(
         path.join(workspace, '.diagram', 'agent-context.json'),

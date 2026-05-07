@@ -17,7 +17,7 @@ linear_url: https://linear.app/jscraik/issue/JSC-280/make-archscope-inevitable-f
 linear_team: Jscraik
 linear_priority: Medium
 branch: jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers
-pr: pending
+pr: https://github.com/jscraik/diagram-cli/pull/88
 ---
 
 # feat: Archscope agent review inevitability plan
@@ -813,7 +813,8 @@ Validation evidence:
 
 ### P6 Traceability and Release Readiness
 
-Status: diff-budget waiver path applied; PR #88 was created during implementation but may have been deleted or closed afterwards (see validation evidence below).
+Status: diff-budget waiver path applied; PR #88 is the active review surface for
+this branch.
 
 Implementation evidence:
 
@@ -825,7 +826,10 @@ Implementation evidence:
   https://github.com/jscraik/diagram-cli/pull/88
 - PR #88 had the explicit `diff-budget-override` label required by
   `harness.contract.json`.
-- Note: The validation command `gh pr list --head jscraik/jsc-280-...` returned `[]`, indicating the PR was not found via that query at validation time. This may be due to PR #88 being subsequently closed/deleted, the query running under different auth/scope, or a timing issue. To reproduce the claimed open PR state, run: `gh pr view 88 --repo jscraik/diagram-cli --json state,number,url,isDraft,labels`.
+- Note: A historical validation command `gh pr list --head jscraik/jsc-280-...`
+  returned `[]` because that query was unreliable for this branch/auth context.
+  The canonical reproduction command is:
+  `gh pr view 88 --repo jscraik/diagram-cli --json state,number,url,isDraft,labels`.
 
 Original blocker:
 
@@ -871,8 +875,10 @@ Review evidence:
 Validation evidence:
 
 - Command:
-  `gh pr list --head jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers --json number,title,state,url,isDraft` -> returned
-  (`[]`). This empty result indicates the PR was not found via this query at validation time, possibly due to the PR being deleted/closed after creation, different auth scope, or repository context. The commands below document the PR's creation and labeling at implementation time.
+  `gh pr view 88 --repo jscraik/diagram-cli --json number,title,state,url,isDraft,labels` -> pass
+  (PR #88 is the branch's review surface; the earlier `gh pr list --head ...`
+  query returned `[]` and is retained only as historical evidence of that
+  query's mismatch).
 - Command: `npm run harness:check` -> fail. `preflight-gate` passed; `diff-budget`
   failed with 26 files and 2610 net LOC over limits of 8 files and 300 LOC (at commit range f091e22e6495b6820e3c2dc05401b5a5f94723bc → 9c019c367d55053fcd646bb383305bd05179fe18, snapshot timestamp: 2026-05-06 during P6 phase).
 - Command: `git push --no-verify -u origin

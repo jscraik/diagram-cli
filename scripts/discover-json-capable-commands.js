@@ -13,6 +13,13 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
+function stripCommentsAndStrings(source) {
+  return String(source || '').replace(
+    /\/\*[\s\S]*?\*\/|\/\/.*$|(['"`])(?:\\[\s\S]|(?!\1)[^\\])*\1/gm,
+    ''
+  );
+}
+
 function exists(relativePath) {
   return fs.existsSync(path.join(repoRoot, relativePath));
 }
@@ -42,10 +49,11 @@ function discoverCommandModules() {
  */
 function discoverFromCommandModule(relativePath) {
   const source = read(relativePath);
+  const contractSource = stripCommentsAndStrings(source);
   const commandMatch = source.match(/\.command\((['"])(.*?)\1/);
   if (!commandMatch) return null;
   const supportsJson = source.includes('Output format (text, json)')
-    || source.includes('addScanOptions(')
+    || /\baddScanOptions\s*\(/.test(contractSource)
     || source.includes('Output format: console, json');
   const ignoresFormat = source.includes('Output format (ignored');
   if (!supportsJson || ignoresFormat) return null;

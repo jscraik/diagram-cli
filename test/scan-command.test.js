@@ -49,7 +49,51 @@ describe('scan command', () => {
       });
 
       expect(result.status).to.equal(2);
-      expect(result.stderr).to.include('agent-pr requires --base <ref>.');
+      expect(result.stderr).to.equal('');
+      const payload = JSON.parse(result.stdout.trim());
+      expect(payload.command).to.equal('agent-pr');
+      expect(payload.status).to.equal('failed');
+      expect(payload.errors[0]).to.deep.include({
+        category: 'missing_base',
+        message: 'agent-pr requires --base <ref>.',
+      });
+      expect(payload.data.nextSafeAction).to.deep.include({
+        action: 'provide_base',
+        category: 'missing_base',
+        canUseWrittenEvidence: false,
+      });
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects PR refs on the repository-only agent wrapper', () => {
+    const workspace = createWorkspace();
+    try {
+      const result = spawnSync('node', [
+        path.join(repoRoot, 'src', 'diagram.js'),
+        'agent',
+        workspace,
+        '--base',
+        'origin/main',
+        '--format',
+        'json',
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).to.equal(2);
+      const payload = JSON.parse(result.stdout.trim());
+      expect(payload.command).to.equal('agent');
+      expect(payload.errors[0]).to.deep.include({
+        category: 'unsupported_pr_refs',
+        message: 'agent does not accept --base or --head; use agent-pr for PR evidence.',
+      });
+      expect(payload.data.nextSafeAction).to.deep.include({
+        action: 'use_agent_pr',
+        category: 'unsupported_pr_refs',
+      });
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

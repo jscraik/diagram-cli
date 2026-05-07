@@ -4,7 +4,7 @@ const { estimateTokensFromBytes } = require('./artifact-budget');
 
 const FIXED_DETERMINISTIC_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 const ARTIFACT_STATUSES = new Set(['written', 'deferred', 'partial', 'failed']);
-const NON_ACTIONABLE_DEFERRED_REASONS = new Set(['pr_refs_not_supplied', 'ui_spec_required']);
+const NON_ACTIONABLE_DEFERRED_REASONS = new Set(['no_changes', 'pr_refs_not_supplied', 'ui_spec_required']);
 
 function unixPath(value) {
   return String(value || '').split(path.sep).join('/');

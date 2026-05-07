@@ -113,7 +113,9 @@ function buildArchitectureBrief({
   const prError = errors.find((error) => error.artifact === 'pr-impact');
   const modeText = prImpact || prError ? 'pr scan' : 'repository scan';
   const warningLines = formatList(warnings, 'No warnings recorded.');
-  const errorLines = errors.map((error) => `- ${error.category}: ${error.message}`);
+  const errorLines = errors
+    .filter((error) => error && (error.category || error.message))
+    .map((error) => `- ${error.category || 'unknown'}: ${error.message || 'no message'}`);
   const prImpactPath = prImpact?.prImpactPath
     || manifest.artifacts.find((entry) => entry.id === 'pr-impact' && entry.status === 'written')?.path
     || null;

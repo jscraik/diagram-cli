@@ -36,8 +36,8 @@ function normalizeOperationalFriction(input = {}) {
   if (/enoent|no such file|file not found|missing file/.test(message)) return 'missing_file';
   if (/lint|eslint|markdownlint|vale/.test(message)) return 'lint_failure';
   if (/test failed|failing test|assertionerror|mocha|vitest|pytest/.test(message)) return 'test_failure';
-  if (/analysis/.test(message)) return 'analysis_partial';
-  if (/write|writer|artifact/.test(message)) return 'artifact_write_failed';
+  if (/\banalysis failed\b|\bpartial analysis\b|\banalysis incomplete\b/.test(message)) return 'analysis_partial';
+  if (/\bfailed to write\b|\bwrite failed\b|\bwriter error\b|\bartifact write failed\b/.test(message)) return 'artifact_write_failed';
   return 'internal_error';
 }
 
@@ -55,19 +55,18 @@ function artifactById(manifest, id) {
 /**
  * Determine whether required evidence artifacts have been written to disk.
  *
- * Checks the manifest for artifacts with IDs `brief` or `agent-context` and
- * returns `true` if either artifact has `status === 'written'`. If
- * `manifestPath` is falsy the function returns `false`.
+ * Checks the manifest for the primary machine artifact and returns `true` only
+ * when `agent-context` has `status === 'written'`. If `manifestPath` is falsy
+ * the function returns `false`.
  *
  * @param {Object} manifest - The manifest object which may contain an `artifacts` array.
  * @param {string|null|undefined} manifestPath - Path to the manifest on disk; if falsy the manifest is considered absent.
- * @returns {boolean} `true` if either the `brief` or `agent-context` artifact is marked as written, `false` otherwise.
+ * @returns {boolean} `true` if the `agent-context` artifact is marked as written, `false` otherwise.
  */
 function hasWrittenRequiredEvidence(manifest, manifestPath) {
   if (!manifestPath) return false;
-  const brief = artifactById(manifest, 'brief');
   const agentContext = artifactById(manifest, 'agent-context');
-  return brief?.status === 'written' || agentContext?.status === 'written';
+  return agentContext?.status === 'written';
 }
 
 /**

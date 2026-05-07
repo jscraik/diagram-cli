@@ -240,7 +240,8 @@ function buildAgentInstructions({
   const readFirst = manifest.artifactReadOrder.filter((artifactPath) => writtenPaths.has(artifactPath));
   const safeToSkip = manifest.artifacts
     .filter((entry) =>
-      entry.optional || entry.role === 'supporting-diagram' || entry.role === 'human-report'
+      entry.status === 'written'
+      && (entry.optional || entry.role === 'supporting-diagram' || entry.role === 'human-report')
     )
     .map((entry) => entry.path)
     .filter((artifactPath) => !readFirst.includes(artifactPath))

@@ -38,11 +38,11 @@ describe('scan error categories', () => {
       expect(payload.errors[0].category).to.equal('artifact_write_failed');
       expect(payload.errors[0].message).to.be.a('string').and.not.equal('');
       expect(payload.data.nextSafeAction).to.deep.include({
-        action: 'retry_artifact_write',
+        action: 'stop_and_fix_artifact_output',
         category: 'artifact_write_failed',
-        retryable: true,
-        humanRequired: false,
-        canUseWrittenEvidence: true,
+        retryable: false,
+        humanRequired: true,
+        canUseWrittenEvidence: false,
         artifact: 'agent-context',
       });
 
@@ -118,6 +118,11 @@ describe('scan error categories', () => {
         reason: 'write_failure',
         category: 'artifact_write_failed',
       });
+      const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
+      expect(brief).to.include(
+        'Manifest was not written; inspect the reported errors before consuming evidence artifacts.'
+      );
+      expect(brief).to.not.include('Read .diagram/manifest.json for artifact status before opening optional files.');
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

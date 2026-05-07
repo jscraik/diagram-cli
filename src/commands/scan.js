@@ -50,6 +50,45 @@ function markArtifactFailure({
   errors.push(errorForArtifact(artifact, category, error));
 }
 
+function emitJsonConfigurationError({
+  commandName,
+  root,
+  options,
+  error,
+}) {
+  const category = 'configuration_error';
+  const message = error.message || 'Configuration error';
+  const nextSafeAction = {
+    action: 'fix_configuration',
+    category,
+    retryable: false,
+    humanRequired: false,
+    canUseWrittenEvidence: false,
+    message,
+  };
+  const payload = buildMachineEnvelope({
+    schemaVersion: '1.0',
+    command: commandName || 'scan',
+    rootPath: root,
+    deterministic: Boolean(options.deterministic),
+    status: 'failed',
+    data: {
+      outcome: 'failed',
+      nextSafeAction,
+    },
+    errors: [{
+      category,
+      message,
+    }],
+    agentSummary: {
+      changedComponents: 0,
+      riskReasons: [category],
+      suggestedReviewerChecks: [message],
+    },
+  });
+  console.log(JSON.stringify(payload, null, 2));
+}
+
 function writeArtifact({
   artifact,
   write,
@@ -91,6 +130,35 @@ function failArtifactsForAnalysis(artifacts, failureState, error) {
       error,
     });
   }
+}
+
+function writeBriefArtifact({
+  outDir,
+  manifest,
+  analysis,
+  prImpact,
+  warnings,
+  errors,
+  failureState,
+}) {
+  const briefPath = path.join(outDir, 'brief.md');
+  return writeArtifact({
+    artifact: 'brief',
+    write: () => writeArchitectureBrief(briefPath, {
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
+      nextSafeAction: buildNextSafeAction({
+        outcome: outcomeForManifest(manifest),
+        manifest,
+        manifestPath: manifestArtifactPath(manifest, 'manifest', { requireWritten: true }),
+        errors,
+      }),
+    }),
+    failureState,
+  });
 }
 
 /**
@@ -442,6 +510,15 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
   try {
     outDir = validateOutputPath(options.outputDir, root);
   } catch (error) {
+    if (formatStr === 'json') {
+      emitJsonConfigurationError({
+        commandName: metadata.commandName || 'scan',
+        root,
+        options,
+        error,
+      });
+      process.exit(2);
+    }
     console.error(chalk.red('❌ Configuration error:'), error.message);
     process.exit(2);
   }
@@ -516,22 +593,13 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
   let manifest = buildManifest();
 
   if (analysis) {
-    const briefPath = path.join(outDir, 'brief.md');
-    writeArtifact({
-      artifact: 'brief',
-      write: () => writeArchitectureBrief(briefPath, {
-        manifest,
-        analysis,
-        prImpact,
-        warnings,
-        errors,
-        nextSafeAction: buildNextSafeAction({
-          outcome: outcomeForManifest(manifest),
-          manifest,
-          manifestPath: manifestArtifactPath(manifest, 'manifest'),
-          errors,
-        }),
-      }),
+    writeBriefArtifact({
+      outDir,
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
       failureState,
     });
 
@@ -580,6 +648,17 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
     && artifactStatuses.report === 'failed'
     && artifactStatuses['agent-context'] === 'written'
   ) {
+    writeBriefArtifact({
+      outDir,
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
+      failureState,
+    });
+    manifest = buildManifest();
+
     const agentContextPath = path.join(outDir, 'agent-context.json');
     writeArtifact({
       artifact: 'agent-context',
@@ -619,6 +698,17 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
     && artifactStatuses.manifest === 'failed'
     && artifactStatuses['agent-context'] === 'written'
   ) {
+    writeBriefArtifact({
+      outDir,
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
+      failureState,
+    });
+    manifest = buildManifest();
+
     const agentContextPath = path.join(outDir, 'agent-context.json');
     writeArtifact({
       artifact: 'agent-context',
@@ -714,7 +804,6 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
 
   if (!options.quiet) {
     console.error(chalk.blue('Scanning'), root);
-    console.error(chalk.green('✅ manifest'), '→', manifestPath);
   }
   if (outcome !== 'success') {
     console.error(chalk.yellow('\nArchitecture evidence pack incomplete'));
@@ -725,6 +814,9 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
     console.log(chalk.cyan('\nArchitecture evidence pack summary'));
     printScanTextSummary(summary, nextSafeAction);
     process.exit(1);
+  }
+  if (!options.quiet) {
+    console.error(chalk.green('✅ manifest'), '→', manifestPath);
   }
   console.log(chalk.green('\nArchitecture evidence pack initialized'));
   printScanTextSummary(summary, nextSafeAction);

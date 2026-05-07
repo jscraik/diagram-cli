@@ -1,5 +1,5 @@
 const { addScanOptions, runScanCommand } = require('./scan');
-const { buildScanEquivalent } = require('./agent');
+const { buildScanEquivalent, emitAgentCommandError } = require('./agent');
 
 /**
  * Register the CLI subcommand `agent-pr [path]` on the given Commander program.
@@ -17,8 +17,14 @@ function registerAgentPrCommand(program) {
     .description('Generate PR architecture evidence for an AI coding agent'))
     .action(async (targetPath, rawOptions) => {
       if (!rawOptions.base) {
-        console.error('agent-pr requires --base <ref>.');
-        process.exit(2);
+        emitAgentCommandError({
+          commandName: 'agent-pr',
+          targetPath,
+          options: rawOptions,
+          category: 'missing_base',
+          message: 'agent-pr requires --base <ref>.',
+          action: 'provide_base',
+        });
       }
       const options = {
         ...rawOptions,

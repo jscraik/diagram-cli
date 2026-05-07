@@ -1,4 +1,6 @@
+const path = require('path');
 const { addScanOptions, runScanCommand } = require('./scan');
+const { buildMachineEnvelope } = require('./output');
 
 /**
  * Create a shell-safe token from a value for inclusion in POSIX command strings.
@@ -70,6 +72,50 @@ function buildScanEquivalent(command, targetPath, options) {
   return args.join(' ');
 }
 
+function emitAgentCommandError({
+  commandName,
+  targetPath,
+  options,
+  category,
+  message,
+  action,
+}) {
+  if (String(options.format || 'text').toLowerCase().trim() === 'json') {
+    const nextSafeAction = {
+      action,
+      category,
+      retryable: false,
+      humanRequired: false,
+      canUseWrittenEvidence: false,
+      message,
+    };
+    const payload = buildMachineEnvelope({
+      schemaVersion: '1.0',
+      command: commandName,
+      rootPath: path.resolve(targetPath || '.'),
+      deterministic: Boolean(options.deterministic),
+      status: 'failed',
+      data: {
+        outcome: 'failed',
+        nextSafeAction,
+      },
+      errors: [{
+        category,
+        message,
+      }],
+      agentSummary: {
+        changedComponents: 0,
+        riskReasons: [category],
+        suggestedReviewerChecks: [message],
+      },
+    });
+    console.log(JSON.stringify(payload, null, 2));
+  } else {
+    console.error(message);
+  }
+  process.exit(2);
+}
+
 /**
  * Register the `agent` CLI subcommand that generates architecture evidence for an AI coding agent.
  *
@@ -83,6 +129,16 @@ function registerAgentCommand(program) {
     .command('agent [path]')
     .description('Generate architecture evidence for an AI coding agent'))
     .action(async (targetPath, rawOptions) => {
+      if (rawOptions.base || rawOptions.head) {
+        emitAgentCommandError({
+          commandName: 'agent',
+          targetPath,
+          options: rawOptions,
+          category: 'unsupported_pr_refs',
+          message: 'agent does not accept --base or --head; use agent-pr for PR evidence.',
+          action: 'use_agent_pr',
+        });
+      }
       await runScanCommand(program, targetPath, rawOptions, {
         commandName: 'agent',
         delegatedCommand: 'scan',
@@ -93,5 +149,6 @@ function registerAgentCommand(program) {
 
 module.exports = {
   buildScanEquivalent,
+  emitAgentCommandError,
   registerAgentCommand,
 };

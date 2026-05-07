@@ -326,6 +326,11 @@ describe('scan PR evidence composition', () => {
     expect(manifest.artifactReadOrder).to.not.include('.diagram/pr-impact/pr-impact.json');
     expect(fs.existsSync(path.join(workspace, '.diagram', 'pr-impact', 'pr-impact.json'))).to.equal(false);
 
+    const agentContext = readJson(path.join(workspace, '.diagram', 'agent-context.json'));
+    expect(agentContext.agentInstructions.partialEvidence.status).to.equal('complete');
+    expect(agentContext.agentInstructions.partialEvidence.blockedArtifacts).to.deep.equal([]);
+    expect(agentContext.agentInstructions.safeToSkip).to.not.include('.diagram/pr-impact/pr-impact.json');
+
     const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
     expect(brief).to.include('- Mode: pr scan');
     expect(brief).to.include('- Validation evidence: PR impact artifact not written (no_changes).');
