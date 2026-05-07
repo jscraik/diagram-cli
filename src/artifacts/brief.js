@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { actionableMissingArtifacts } = require('./evidence-manifest');
 const { summarizeAnalysis } = require('./evidence-summary');
 
 const BRIEF_HEADINGS = Object.freeze([
@@ -24,12 +25,7 @@ function formatList(items, emptyText) {
 }
 
 function artifactStatusLines(manifest) {
-  const blockedArtifacts = manifest.artifacts.filter((entry) =>
-    entry.status === 'failed'
-    || entry.status === 'partial'
-    || (entry.status === 'deferred'
-      && !['pr_refs_not_supplied', 'ui_spec_required'].includes(entry.reason))
-  );
+  const blockedArtifacts = actionableMissingArtifacts(manifest.artifacts);
   if (blockedArtifacts.length === 0) return ['- Missing artifacts: none'];
   return blockedArtifacts.map((entry) => {
     const reason = entry.reason ? ` (${entry.reason})` : '';

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { actionableMissingArtifacts } = require('./evidence-manifest');
 const { summarizeAnalysis } = require('./evidence-summary');
 
 function normalizeStringArray(value) {
@@ -65,13 +66,7 @@ function buildBeforeEditing({ prImpact, warnings, errors }) {
 }
 
 function buildPartialEvidence({ artifacts, errors, nextSafeAction }) {
-  const blockedArtifacts = artifacts
-    .filter((entry) =>
-      entry.status === 'failed'
-      || entry.status === 'partial'
-      || (entry.status === 'deferred'
-        && !['pr_refs_not_supplied', 'ui_spec_required'].includes(entry.reason))
-    )
+  const blockedArtifacts = actionableMissingArtifacts(artifacts)
     .map((entry) => ({
       artifact: entry.id,
       path: entry.path,

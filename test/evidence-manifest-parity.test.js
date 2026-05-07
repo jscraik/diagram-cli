@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { expect } = require('chai');
+const { actionableMissingArtifacts } = require('../src/artifacts/evidence-manifest');
 
 function createWorkspace(prefix = 'archscope-manifest-parity-') {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -13,6 +14,33 @@ function createWorkspace(prefix = 'archscope-manifest-parity-') {
 
 describe('evidence manifest parity', () => {
   const repoRoot = path.resolve(__dirname, '..');
+
+  it('centralizes actionable missing artifact classification', () => {
+    const artifacts = [
+      { id: 'brief', path: '.diagram/brief.md', status: 'written' },
+      { id: 'report', path: '.diagram/report.html', status: 'deferred', reason: 'ui_spec_required' },
+      {
+        id: 'pr-impact',
+        path: '.diagram/pr-impact/pr-impact.json',
+        status: 'deferred',
+        reason: 'pr_refs_not_supplied',
+      },
+      {
+        id: 'agent-context',
+        path: '.diagram/agent-context.json',
+        status: 'deferred',
+        reason: 'p1_not_implemented',
+      },
+      { id: 'architecture', path: '.diagram/architecture.mmd', status: 'partial', reason: 'truncated' },
+      { id: 'manifest', path: '.diagram/manifest.json', status: 'failed', reason: 'write_failure' },
+    ];
+
+    expect(actionableMissingArtifacts(artifacts).map((entry) => entry.id)).to.deep.equal([
+      'agent-context',
+      'architecture',
+      'manifest',
+    ]);
+  });
 
   it('preserves generate-all manifest semantics through the shared writer', () => {
     const workspace = createWorkspace();
