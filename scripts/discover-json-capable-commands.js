@@ -24,6 +24,17 @@ function discoverCommandModules() {
     .map((entry) => `src/commands/${entry}`);
 }
 
+/**
+ * Extracts a command entry from a command module file if the command supports JSON output.
+ *
+ * Reads the module source at the given relative path, looks for the first `.command("...")` or `.command('...')`
+ * declaration and, if the module indicates JSON-capable output (and does not explicitly ignore format), returns
+ * an object describing the command. Returns `null` when no command is found or the module is not considered JSON-capable.
+ *
+ * @param {string} relativePath - Path to the module file relative to the repository root (e.g. "src/commands/foo.js").
+ * @returns {{command: string, module: string} | null} An object with `command` (normalized first token of the command string)
+ * and `module` (the provided `relativePath`), or `null` if no suitable JSON-capable command is discovered.
+ */
 function discoverFromCommandModule(relativePath) {
   const source = read(relativePath);
   const commandMatch = source.match(/\.command\((['"])(.*?)\1/);

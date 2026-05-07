@@ -16,6 +16,13 @@ const BRIEF_HEADINGS = Object.freeze([
   '## Next Action',
 ]);
 
+/**
+ * Convert an array of items into markdown bullet lines.
+ *
+ * @param {any[]} items - Values to format as bullet list entries; if not an array or empty, `emptyText` is used instead.
+ * @param {string} emptyText - Text to use when `items` is not an array or contains no elements.
+ * @returns {string[]} An array of markdown bullet lines: one `- ${emptyText}` when `items` is absent/empty, otherwise one `- ${item}` per entry.
+ */
 function formatList(items, emptyText) {
   if (!Array.isArray(items) || items.length === 0) {
     return [`- ${emptyText}`];
@@ -23,6 +30,20 @@ function formatList(items, emptyText) {
   return items.map((item) => `- ${item}`);
 }
 
+/**
+ * Produce markdown bullet lines that report blocked or missing artifacts from a manifest.
+ *
+ * The function examines manifest.artifacts and identifies entries considered blocked (status
+ * 'failed' or 'partial', or status 'deferred' with a reason other than 'pr_refs_not_supplied'
+ * or 'ui_spec_required'). If no blocked artifacts are found it returns a single line
+ * stating no missing artifacts; otherwise it returns one bullet per blocked entry in the
+ * form `- <path>: <status> (<reason>) [<errorCategory>]` (reason and category omitted when absent).
+ *
+ * @param {Object} manifest - Manifest object containing an `artifacts` array.
+ *   Each artifact entry may include `path`, `status`, `reason`, and `errorCategory`.
+ * @returns {string[]} An array of markdown bullet lines describing blocked artifacts or a single
+ *   line `- Missing artifacts: none` when no blocked artifacts are present.
+ */
 function artifactStatusLines(manifest) {
   const blockedArtifacts = manifest.artifacts.filter((entry) =>
     entry.status === 'failed'
@@ -38,6 +59,13 @@ function artifactStatusLines(manifest) {
   });
 }
 
+/**
+ * Format the manifest's artifact read order as numbered markdown lines.
+ *
+ * @param {Object} manifest - The manifest containing an artifact read order.
+ * @param {string[]} manifest.artifactReadOrder - Ordered list of artifact paths.
+ * @returns {string[]} Numbered lines like `1. path/to/artifact` for each artifact in order.
+ */
 function readNextLines(manifest) {
   return manifest.artifactReadOrder.map((artifactPath, index) => `${index + 1}. ${artifactPath}`);
 }

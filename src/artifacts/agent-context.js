@@ -10,6 +10,19 @@ function normalizeStringArray(value) {
     : [];
 }
 
+/**
+ * Produce a sorted, normalized list of component metadata derived from static analysis.
+ *
+ * Transforms each entry in `analysis.components` into a metadata object with the following keys:
+ * `kind`, `name`, `path`, `type`, `roleTags`, `dependencyCount`, `source`, and `derivation`.
+ * The resulting list is sorted by the string `"<path>:<name>"`.
+ *
+ * @param {Object} analysis - The analysis payload produced by static analysis tools.
+ *   Expected to have a `components` array where each component may include:
+ *   `name`, `originalName`, `filePath`, `type`, `roleTags`, and `dependencies`.
+ * @returns {Array<Object>} An array of component metadata objects; returns an empty array if
+ *   `analysis.components` is not an array.
+ */
 function buildComponentMetadata(analysis) {
   return Array.isArray(analysis?.components)
     ? analysis.components
@@ -29,16 +42,38 @@ function buildComponentMetadata(analysis) {
     : [];
 }
 
+/**
+ * Locate an artifact's file path in a manifest by its artifact id.
+ * @param {Object} manifest - Object containing an `artifacts` array of entries with `id` and `path` properties.
+ * @param {string} id - The artifact identifier to look up.
+ * @returns {string|null} The artifact's `path` if an entry with the given `id` exists, otherwise `null`.
+ */
 function artifactPathById(manifest, id) {
   return manifest.artifacts.find((entry) => entry.id === id)?.path || null;
 }
 
+/**
+ * Collects the file paths of artifacts marked as written in a manifest.
+ * @param {Object} manifest - Manifest object containing an `artifacts` array.
+ * @return {Set<string>} A set of artifact `path` values where the artifact's `status` is `'written'`.
+ */
 function writtenArtifactPaths(manifest) {
   return new Set(manifest.artifacts
     .filter((entry) => entry.status === 'written')
     .map((entry) => entry.path));
 }
 
+/**
+ * Produce a list of instructions to follow before editing architecture-sensitive code.
+ *
+ * The returned list includes baseline safety checks, PR-specific reviewer checks and risk reasons
+ * when `prImpact` is provided, plus entries derived from `warnings` and `errors`. The result is
+ * normalised, de-duplicated and sorted.
+ * @param {Object} params - Input parameters.
+ * @param {Object|null} params.prImpact - PR impact information; may contain `agentSummary.suggestedReviewerChecks` and `agentSummary.riskReasons`.
+ * @param {string[]|any} params.warnings - Warnings to incorporate into the instructions.
+ * @param {Array<Object>} params.errors - Errors whose `category` and `artifact` fields may produce blocking instructions.
+ * @returns {string[]} A normalised list of pre-editing instructions.
 function buildBeforeEditing({ prImpact, warnings, errors }) {
   const instructions = [
     'Read only artifacts whose status is written before using their contents.',
@@ -64,6 +99,27 @@ function buildBeforeEditing({ prImpact, warnings, errors }) {
   return normalizeStringArray(instructions);
 }
 
+/**
+ * Determine evidence completeness and identify artifacts that block reliable analysis.
+ *
+ * Builds a summary of whether the available artifacts constitute complete evidence, whether
+ * written evidence can be used, a human-facing instruction, and a sorted list of blocked artifacts.
+ *
+ * @param {Object} params
+ * @param {Array<Object>} params.artifacts - Artifact entries from the manifest; each entry is expected to include `id`, `path`, `status`, and optional `reason` and `errorCategory`.
+ * @param {Array} params.errors - List of error entries; any non-empty list contributes to a `limited` status.
+ * @param {Object|null} params.nextSafeAction - Optional object that may include `canUseWrittenEvidence` to override the default determination.
+ * @returns {Object} An object describing partial evidence:
+ *   - `status` {string} — `'complete'` if there are no blocked artifacts and no errors, otherwise `'limited'`.
+ *   - `canUseWrittenEvidence` {boolean} — whether it is safe to rely on previously written artifacts.
+ *   - `instruction` {string} — a short guidance message for the agent/operator.
+ *   - `blockedArtifacts` {Array<Object>} — sorted list of blocking artifacts; each object contains:
+ *       - `artifact` {string} — artifact id,
+ *       - `path` {string} — artifact path,
+ *       - `status` {string} — artifact status (`failed`, `partial`, or `deferred`),
+ *       - `reason` {string} (optional) — reason for deferral,
+ *       - `category` {string} (optional) — error category when present.
+ */
 function buildPartialEvidence({ artifacts, errors, nextSafeAction }) {
   const blockedArtifacts = artifacts
     .filter((entry) =>
@@ -90,6 +146,23 @@ function buildPartialEvidence({ artifacts, errors, nextSafeAction }) {
   };
 }
 
+/**
+ * Provide a map of default recovery actions for common blocking categories, optionally overriding one entry with values from `nextSafeAction`.
+ *
+ * @param {Object|null} nextSafeAction - Optional override for a single category.
+ * @param {string} [nextSafeAction.category] - Category key to override in the defaults.
+ * @param {string} [nextSafeAction.action] - Action identifier to take for the overridden category.
+ * @param {boolean} [nextSafeAction.retryable] - Whether the action can be retried.
+ * @param {boolean} [nextSafeAction.humanRequired] - Whether human intervention is required.
+ * @param {string} [nextSafeAction.message] - Human-readable instruction for the overridden category.
+ * @param {string} [nextSafeAction.fallbackAction] - Optional fallback action identifier.
+ * @returns {Object} A mapping from category keys to action descriptors. Each descriptor contains:
+ *  - `action` (string): the action identifier,
+ *  - `retryable` (boolean): whether the action can be retried,
+ *  - `humanRequired` (boolean): whether human intervention is required,
+ *  - `message` (string): human-readable instruction,
+ *  - `fallbackAction` (string, optional): fallback action when provided.
+ */
 function buildWhenBlocked(nextSafeAction) {
   const defaults = {
     git_refs_missing: {
@@ -136,6 +209,24 @@ function buildWhenBlocked(nextSafeAction) {
   };
 }
 
+/**
+ * Assemble agent-facing instruction and control fields derived from manifest, artifacts and analysis state.
+ * 
+ * @param {Object} params - Input options.
+ * @param {Object} params.manifest - The artifact manifest; must include `artifacts` and `artifactReadOrder`.
+ * @param {Array<Object>} params.artifacts - List of artifact entries produced by evidence collection.
+ * @param {Object|null} params.prImpact - Pull-request impact summary, used to tailor pre-edit checks (optional).
+ * @param {Array<string>} params.warnings - Warning messages to incorporate into pre-edit instructions.
+ * @param {Array<Object>} params.errors - Error entries to consider when evaluating partial evidence.
+ * @param {Object|null} params.nextSafeAction - Suggested next safe action that can override default blocked handling (optional).
+ * @returns {Object} An instructions object containing:
+ *  - readFirst: {Array<string>} ordered paths that should be read first (present in manifest.readOrder and written).
+ *  - safeToSkip: {Array<string>} sorted paths considered safe to skip.
+ *  - beforeEditing: {Array<string>} ordered pre-edit instructions.
+ *  - whenBlocked: {Object} map of blockage categories to recommended actions and metadata.
+ *  - partialEvidence: {Object} summary about evidence completeness, blocked artifacts and guidance.
+ *  - nextSafeAction: {Object} the next action to take when blocked (either provided or a sensible default).
+ */
 function buildAgentInstructions({
   manifest,
   artifacts,
@@ -173,6 +264,21 @@ function buildAgentInstructions({
   };
 }
 
+/**
+ * Build the agent context payload describing schema, analysed components, evidence artifacts, read order and PR-specific context.
+ *
+ * Constructs a normalized JSON payload that summarises analysis results, artefacts, component metadata, read/skip instructions and agent control fields; includes PR impact, warnings, errors and an optional next safe action.
+ *
+ * @param {Object} options - Options for building the context.
+ * @param {Object} options.manifest - Manifest containing `artifacts` and `artifactReadOrder`.
+ * @param {Object} [options.analysis={}] - Analysis results passed to summarisation and component metadata builders.
+ * @param {Object|null} [options.prImpact=null] - Optional pull-request impact object; when present the payload mode becomes `'pr'` and PR fields are included.
+ * @param {string[]} [options.warnings=[]] - List of warning messages to include in the payload.
+ * @param {Object[]} [options.errors=[]] - List of error objects; each may include `category`, `artifact` and `message`.
+ * @param {Object|null} [options.nextSafeAction=null] - Optional suggestion for the next safe action when blocked; used to populate agent instruction fallbacks.
+ * @param {string} [options.mode='repository'] - Default mode for the payload when `prImpact` is not provided.
+ * @returns {Object} The assembled agent context payload containing schemaVersion, generatedBy, mode, partial flag, summary, artefacts, components, readOrder, agentInstructions, warnings, errors and optional PR fields.
+ */
 function buildAgentContext({
   manifest,
   analysis = {},

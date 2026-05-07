@@ -115,24 +115,28 @@ function summarizeList(items) {
 }
 
 /**
- * Build a concise summary of an evidence pack suitable for CLI output and machine envelopes.
+ * Builds a concise scan summary used for CLI text output and machine envelopes.
  *
- * @param {Object} manifest - Evidence pack manifest; must include `artifactReadOrder` and may include `primaryHumanArtifact`, `primaryAgentArtifact` and `warnings`.
+ * The summary aggregates manifest metadata, analysis counts, warning summaries and
+ * optional PR-impact information so callers can render human or machine-friendly
+ * overviews without inspecting the full evidence pack.
+ *
+ * @param {Object} manifest - Evidence pack manifest; must include `artifactReadOrder`. May include `primaryHumanArtifact`, `primaryAgentArtifact` and `warnings`.
  * @param {Object} [options] - Optional inputs to augment the summary.
- * @param {Object|null} [options.analysis=null] - Analysis result object; `analysis.components` is used to compute `componentCount`.
- * @param {string} [options.outcome] - Overall pack outcome; defaults to a value derived from `manifest`.
- * @param {string|null} [options.manifestPath] - Filesystem path to the written manifest artifact, if any.
- * @param {Object|null} [options.prImpact=null] - PR impact data produced by workflow analysis; used to populate `pr` fields when present.
- * @param {string|null} [options.prImpactPath=null] - Filesystem path to the written PR impact artifact, if any.
- * @param {Object|null} [options.prSummary=null] - Machine PR summary used to keep failed PR scans visible in text summaries.
- * @returns {Object} An object containing:
- *  - `manifestPath`: path to the primary manifest entry,
- *  - `primaryHumanArtifact` and `primaryAgentArtifact`: ids from the manifest,
+ * @param {Object|null} [options.analysis=null] - Analysis result; `analysis.components` is used to compute `componentCount`.
+ * @param {string} [options.outcome] - Overall pack outcome; if omitted a value is derived from `manifest`.
+ * @param {string|null} [options.manifestPath] - Filesystem path to the written manifest artifact, if present.
+ * @param {Object|null} [options.prImpact=null] - PR-impact payload produced by workflow analysis; when provided populates detailed `pr` fields.
+ * @param {string|null} [options.prImpactPath=null] - Filesystem path to the written PR-impact artifact, if any.
+ * @param {Object|null} [options.prSummary=null] - Machine PR summary (used to surface failed PR scans when `prImpact` is absent).
+ * @returns {Object} Summary object with:
+ *  - `manifestPath`: path to the manifest entry (or `null`),
+ *  - `primaryHumanArtifact`, `primaryAgentArtifact`: manifest primary artifact ids,
  *  - `packStatus`: overall outcome,
  *  - `componentCount`: number of analysed components (0 if unavailable),
  *  - `warningSummary`: human-readable summary of manifest warnings,
- *  - `pr`: `null` or an object with `riskLevel`, `changedComponents`, `riskReasons`, `reviewerChecks`, and `prImpactPath`,
- *  - `nextAction`: a short instruction pointing to the manifest for artefact status.
+ *  - `pr`: `null` or an object describing PR readiness with `status`, `riskLevel`, `changedComponents`, `riskReasons`, `reviewerChecks`, and `prImpactPath`,
+ *  - `nextAction`: short instruction directing consumers to the manifest or explaining that the manifest was not written.
  */
 function createScanSummary(manifest, {
   analysis = null,
@@ -211,6 +215,18 @@ function parseWorkflowPrPayload(stdout) {
   }
 }
 
+/**
+ * Derives an error category for a failed PR workflow run.
+ *
+ * Checks for an explicit category in the workflow payload (first error's `category`,
+ * `extensions.code`, or `data.prImpact.errorCategory`) and returns it if present;
+ * otherwise computes a category from the combined `stderr`/`stdout` text.
+ *
+ * @param {Object} options - Function inputs.
+ * @param {Object} options.payload - Parsed JSON output from the workflow process; may contain `errors` or `data.prImpact`.
+ * @param {Object} options.result - Process execution result; expected to include `stdout` and `stderr` strings.
+ * @returns {string} The inferred error category.
+ */
 function inferWorkflowPrErrorCategory({ payload, result }) {
   const payloadCategory = payload?.errors?.[0]?.category
     || payload?.errors?.[0]?.extensions?.code
@@ -221,20 +237,24 @@ function inferWorkflowPrErrorCategory({ payload, result }) {
 }
 
 /**
- * Invoke the local diagram workflow to generate PR-impact evidence for a repository and return the parsed PR impact data.
+ * Run the local diagram workflow to produce PR-impact evidence for a repository.
+ *
+ * The workflow writes output under `<outDir>/pr-impact` and the function returns the parsed
+ * `prImpact` payload produced by the workflow's JSON output.
  *
  * @param {Object} params
  * @param {string} params.root - Filesystem path to the repository root to analyse.
- * @param {string} params.outDir - Directory where PR-impact output will be written (`<outDir>/pr-impact`).
- * @param {Object} params.options - Options forwarded to the workflow; recognised properties:
- *   - {string} [head] - HEAD ref (defaults to `HEAD`).
- *   - {string} [base] - Base ref for comparison.
- *   - {string} [patterns] - File match patterns to include.
- *   - {string} [exclude] - File match patterns to exclude.
- *   - {number|string} [maxFiles] - Maximum files to consider.
- *   - {boolean} [deterministic] - Whether to run the workflow in deterministic mode.
- * @returns {Object} The PR impact data object parsed from the workflow's JSON output.
- * @throws {Error} If the workflow process fails or does not produce a `prImpact` payload; the thrown error carries the workflow category when available.
+ * @param {string} params.outDir - Directory where PR-impact output will be written.
+ * @param {Object} params.options - Options forwarded to the workflow.
+ * @param {string} [params.options.head] - HEAD ref (defaults to `HEAD`).
+ * @param {string} [params.options.base] - Base ref for comparison.
+ * @param {string} [params.options.patterns] - File match patterns to include.
+ * @param {string} [params.options.exclude] - File match patterns to exclude.
+ * @param {number|string} [params.options.maxFiles] - Maximum files to consider.
+ * @param {boolean} [params.options.deterministic] - Run the workflow in deterministic mode.
+ * @returns {Object} The `prImpact` data object parsed from the workflow's JSON output.
+ * @throws {Error} If the workflow process fails or does not produce a `prImpact` payload. The thrown
+ * error will include a `category` property when available to indicate the failure classification.
  */
 function runWorkflowPrEvidence({ root, outDir, options }) {
   const prImpactDir = path.join(outDir, 'pr-impact');
@@ -278,6 +298,20 @@ function runWorkflowPrEvidence({ root, outDir, options }) {
   return payload.data.prImpact;
 }
 
+/**
+ * Print a concise human-readable scan summary and next action to stdout.
+ *
+ * When `summary.pr` is present, prints an "Architecture review" block with review readiness,
+ * changed components, risk reasons, reviewer checks and the PR-impact artifact path.
+ * Always prints pack-level information (pack status, component count, manifest path,
+ * primary human/agent artifact identifiers and warning summary), followed by a "Next action"
+ * line. If `nextSafeAction` provides a `category` or `action`, those are printed on subsequent lines.
+ *
+ * @param {Object} summary - Scan summary object (see `createScanSummary`); expected keys include:
+ *   `pr`, `packStatus`, `componentCount`, `manifestPath`, `primaryHumanArtifact`,
+ *   `primaryAgentArtifact`, `warningSummary`, and `nextAction`.
+ * @param {Object} [nextSafeAction=null] - Optional next-action override with shape `{ message, category, action }`.
+ */
 function printScanTextSummary(summary, nextSafeAction = null) {
   if (summary.pr) {
     const blocked = summary.pr.status === 'failed';
@@ -351,12 +385,14 @@ function buildPrMachineSummary({
 }
 
 /**
- * Register the `scan [path]` CLI command.
+ * Add standard CLI options used by the scan command to a Commander command.
  *
- * The scan implementation coordinates the non-visual evidence pack and writes
- * manifest.json last so consumers can trust artifact-level statuses.
+ * Registers options such as output directory, file patterns/excludes, max files,
+ * analyzer selection, git refs for PR evidence (base/head), output format and
+ * behavioural flags (deterministic, quiet).
  *
- * @param {import('commander').Command} program - Commander program instance.
+ * @param {import('commander').Command} command - Commander command to extend with scan options.
+ * @returns {import('commander').Command} The same command instance with the scan options registered.
  */
 function addScanOptions(command) {
   return command
@@ -372,6 +408,19 @@ function addScanOptions(command) {
     .option('-q, --quiet', 'Suppress non-essential logging', false);
 }
 
+/**
+ * Run the scan CLI command: execute the analysis pipeline, produce evidence artifacts (architecture diagram, brief, agent context, report and manifest), and output a text or machine JSON summary.
+ *
+ * Performs repository root resolution and output-path validation, runs analysis and optional PR-impact evidence generation, writes artifact files into the output directory, assembles an evidence manifest, and prints or emits a machine envelope. On failure conditions the process may exit with status codes:
+ * - 0 for overall success,
+ * - 1 for an incomplete/failed outcome,
+ * - 2 for configuration or invocation errors.
+ *
+ * @param {Object} program - The commander program instance (used to read configuration and options).
+ * @param {string} targetPath - Path to the repository or project to scan.
+ * @param {Object} rawOptions - Parsed CLI options supplied by the user.
+ * @param {Object} [metadata={}] - Optional invocation metadata; recognised keys include `commandName`, `delegatedCommand` and `scanEquivalent`.
+ */
 async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
   const options = applyDiagramRcDefaults(
     rawOptions,
@@ -678,6 +727,10 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
   printScanTextSummary(summary, nextSafeAction);
 }
 
+/**
+ * Register the `scan` CLI command on the given Commander program, adding options and an action handler to generate an architecture evidence pack.
+ * @param {import('commander').Command} program - The root Commander program to register the command on.
+ */
 function registerScanCommand(program) {
   addScanOptions(program
     .command('scan [path]')
