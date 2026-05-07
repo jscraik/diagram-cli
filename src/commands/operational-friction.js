@@ -13,6 +13,15 @@ const KNOWN_CATEGORIES = new Set([
   'internal_error',
 ]);
 
+/**
+ * Normalises an operational friction signal into a recognised category.
+ *
+ * @param {Object} [input] - Signal object that may contain a pre-set category or error text.
+ * @param {string} [input.category] - Optional explicit category to accept when it matches a known category.
+ * @param {string} [input.message] - Optional human-readable message describing the error.
+ * @param {Error} [input.error] - Optional error object; its `message` may be used when `message` is not provided.
+ * @returns {string} One of: 'approval_required', 'network', 'permission', 'timeout', 'git_state', 'missing_file', 'lint_failure', 'test_failure', 'git_refs_missing', 'analysis_partial', 'artifact_write_failed', or 'internal_error'.
+ */
 function normalizeOperationalFriction(input = {}) {
   const rawCategory = String(input.category || '').trim();
   if (KNOWN_CATEGORIES.has(rawCategory)) return rawCategory;
@@ -32,10 +41,28 @@ function normalizeOperationalFriction(input = {}) {
   return 'internal_error';
 }
 
+/**
+ * Find an artifact with the specified id inside a manifest's `artifacts` array.
+ *
+ * @param {Object|null|undefined} manifest - Manifest object that may contain an `artifacts` array; may be falsy.
+ * @param {string} id - Artifact identifier to locate.
+ * @returns {Object|null} The matching artifact object, or `null` if the manifest, its `artifacts` array, or the artifact is not present.
+ */
 function artifactById(manifest, id) {
   return manifest?.artifacts?.find((entry) => entry.id === id) || null;
 }
 
+/**
+ * Determine whether required evidence artifacts have been written to disk.
+ *
+ * Checks the manifest for artifacts with IDs `brief` or `agent-context` and
+ * returns `true` if either artifact has `status === 'written'`. If
+ * `manifestPath` is falsy the function returns `false`.
+ *
+ * @param {Object} manifest - The manifest object which may contain an `artifacts` array.
+ * @param {string|null|undefined} manifestPath - Path to the manifest on disk; if falsy the manifest is considered absent.
+ * @returns {boolean} `true` if either the `brief` or `agent-context` artifact is marked as written, `false` otherwise.
+ */
 function hasWrittenRequiredEvidence(manifest, manifestPath) {
   if (!manifestPath) return false;
   const brief = artifactById(manifest, 'brief');
@@ -43,6 +70,12 @@ function hasWrittenRequiredEvidence(manifest, manifestPath) {
   return brief?.status === 'written' || agentContext?.status === 'written';
 }
 
+/**
+ * Selects the first error signal and returns its normalized category, artifact id and message.
+ *
+ * @param {Array} errors - An array of error-like objects; each item may contain `message`, `artifact` or an `error` sub-object.
+ * @returns {{category: string|null, artifact: string|null, message: string|null}} An object with `category` set to the normalized operational friction category or `null`, `artifact` set to the artifact identifier or `null`, and `message` set to the error message or `null`.
+ */
 function firstSignal(errors = []) {
   const firstError = Array.isArray(errors) ? errors[0] : null;
   if (!firstError) return { category: null, artifact: null, message: null };
@@ -53,6 +86,25 @@ function firstSignal(errors = []) {
   };
 }
 
+/**
+ * Choose the next safe action after a PR evidence scan based on outcome, manifest state and operational-friction signals.
+ *
+ * @param {Object} [opts] - Options.
+ * @param {'success'|'failure'|undefined} [opts.outcome] - Overall scan outcome.
+ * @param {Object} [opts.manifest] - Parsed manifest object (may be undefined when the manifest was not written).
+ * @param {string|undefined} [opts.manifestPath] - Path to the written manifest file, if present.
+ * @param {Array<Object>} [opts.errors] - Array of operational-friction/error signals produced by the scan.
+ * @param {Object|null} [opts.prSummary] - Optional PR scan summary which may override the derived error category (e.g. { status, errorCategory }).
+ * @returns {Object} An action descriptor object with these properties:
+ *   - {string} action: Machine-readable action to perform (for example 'fetch_refs', 'retry_artifact_write', 'read_manifest', 'inspect_error').
+ *   - {string|null} category: Normalised operational-friction category or `null` when none.
+ *   - {boolean} retryable: Whether the action can be retried automatically.
+ *   - {boolean} humanRequired: Whether human intervention is required.
+ *   - {boolean} canUseWrittenEvidence: Whether already-written evidence artifacts may be used.
+ *   - {string|null} [artifact]: Identifier of the artifact related to the signal, if any.
+ *   - {string} message: Human-facing guidance for the next step.
+ *   - {string} [fallbackAction]: Optional secondary action to attempt if the primary recovery fails.
+ */
 function buildNextSafeAction({
   outcome,
   manifest,
@@ -142,6 +194,13 @@ function buildNextSafeAction({
   };
 }
 
+/**
+ * Choose a human-readable message advising how to proceed after an artifact write failure.
+ * @param {Object} opts
+ * @param {boolean} opts.canUseWrittenEvidence - Whether evidence artifacts were successfully written and can be relied on.
+ * @param {boolean} opts.manifestMissing - Whether the manifest itself was not written or is missing.
+ * @returns {string} A concise instruction message describing the next safe action regarding evidence consumption.
+ */
 function artifactWriteMessage({ canUseWrittenEvidence, manifestMissing }) {
   if (manifestMissing) {
     return 'Manifest was not written; inspect the reported errors before consuming evidence artifacts.';
@@ -152,6 +211,11 @@ function artifactWriteMessage({ canUseWrittenEvidence, manifestMissing }) {
   return 'Stop before consuming artifacts; fix artifact output so required evidence is available.';
 }
 
+/**
+ * Provide a concise, human-readable guidance message for an operational friction category.
+ * @param {string} category - Normalised operational friction category (e.g. `approval_required`, `network`, `permission`, `timeout`, `git_state`, `missing_file`, `lint_failure`, `test_failure`, `analysis_partial`).
+ * @returns {string} A short guidance message appropriate for the provided category; a generic inspection prompt is returned for unknown categories.
+ */
 function messageForCategory(category) {
   switch (category) {
     case 'approval_required':

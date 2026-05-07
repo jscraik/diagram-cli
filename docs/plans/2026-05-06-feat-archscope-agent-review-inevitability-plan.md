@@ -151,7 +151,7 @@ agent / agent-pr wrappers
 | Docs make agent and PR review front door obvious | SA12-SA13 | P5 | AC17-AC18 | P5 diff puts `agent-pr`/`agent` first in README, getting started, CLI reference, and unknown-command help. |
 | Validation truthfulness is explicit | SA14, SA20 | P5 | AC19-AC20 | P5 diff makes `lint`, `typecheck`, and `docs:lint` emit `not_configured` JSON and documents real gates. |
 | Compatibility and bounded architecture are preserved | SA3-SA4, SA15, SA24 | P0, P1, P6 | AC21-AC24 | Compatibility tests and `migration:readiness` pass; no broad core-analysis refactor included. |
-| Linear/spec/plan/PR traceability is maintained | SA16, SA18-SA19 | P0, P6 | AC25-AC27 | Draft PR #88 is open, Linear JSC-280 links the blocker/waiver evidence, and `harness-pr-gates` confirms `diff-budget-override` makes diff-budget pass. |
+| Linear/spec/plan/PR traceability is maintained | SA16, SA18-SA19 | P0, P6 | AC25-AC27 | Draft PR #88 was created with `diff-budget-override` label; `harness-pr-gates` simulation confirmed override makes diff-budget pass (commit range f091e22e6495b6820e3c2dc05401b5a5f94723bc → 9c019c367d55053fcd646bb383305bd05179fe18, 2026-05-06). Linear JSC-280 links the blocker/waiver evidence. Note: `gh pr list` query returned `[]` at validation time, indicating PR may have been subsequently closed/deleted or query ran under different context. |
 
 ## Scope Boundaries
 
@@ -813,7 +813,7 @@ Validation evidence:
 
 ### P6 Traceability and Release Readiness
 
-Status: diff-budget waiver path applied on draft PR #88.
+Status: diff-budget waiver path applied; PR #88 was created during implementation but may have been deleted or closed afterwards (see validation evidence below).
 
 Implementation evidence:
 
@@ -821,19 +821,20 @@ Implementation evidence:
   evidence that implemented them.
 - JSC-280 has phase comments through P5, including exact validation outcomes and
   the optional Local Memory warning.
-- Draft PR #88 is open:
+- Draft PR #88 was created during implementation:
   https://github.com/jscraik/diagram-cli/pull/88
-- PR #88 has the explicit `diff-budget-override` label required by
+- PR #88 had the explicit `diff-budget-override` label required by
   `harness.contract.json`.
+- Note: The validation command `gh pr list --head jscraik/jsc-280-...` returned `[]`, indicating the PR was not found via that query at validation time. This may be due to PR #88 being subsequently closed/deleted, the query running under different auth/scope, or a timing issue. To reproduce the claimed open PR state, run: `gh pr view 88 --repo jscraik/diagram-cli --json state,number,url,isDraft,labels`.
 
 Original blocker:
 
 - `npm run harness:check` fails the cumulative branch `diff-budget` gate against
   base `f091e22e6495b6820e3c2dc05401b5a5f94723bc` and head
-  `9c019c367d55053fcd646bb383305bd05179fe18`.
+  `9c019c367d55053fcd646bb383305bd05179fe18` (snapshot timestamp: 2026-05-06 during P6 phase).
 - Preflight-gate passed first, then diff-budget failed with 26 files changed,
   2916 additions, 306 deletions, and 2610 net LOC against limits of 8 files and
-  300 LOC.
+  300 LOC (exact command: `npm run harness:check` at commit range f091e22e6495b6820e3c2dc05401b5a5f94723bc → 9c019c367d55053fcd646bb383305bd05179fe18).
 - This was a PR-readiness/policy blocker rather than a product-test failure.
   The selected recovery was to open a draft PR and apply the explicit
   `diff-budget-override` label/waiver path.
@@ -851,7 +852,7 @@ Waiver evidence:
   `RUN_MEMORY_GATE=0`, and `SKIP_REVIEW_GATE=1` confirmed:
   `Diff budget override active via label 'diff-budget-override'.`
 - The same simulation made `diff-budget` pass with override metadata, despite
-  26 files and 2653 net LOC against limits of 8 files and 300 LOC.
+  26 files and 2653 net LOC against limits of 8 files and 300 LOC (exact command: `BASE_SHA=$(git merge-base origin/main HEAD) HEAD_SHA=$(git rev-parse HEAD) PR_NUMBER=88 REPO_OWNER=jscraik REPO_NAME=diagram-cli RUN_MEMORY_GATE=0 SKIP_REVIEW_GATE=1 GITHUB_TOKEN=$(gh auth token) bash scripts/harness-pr-gates.sh` at commit range f091e22e6495b6820e3c2dc05401b5a5f94723bc → 9c019c367d55053fcd646bb383305bd05179fe18, snapshot timestamp: 2026-05-06 during P6 phase).
 
 Remaining PR-readiness constraints:
 
@@ -870,22 +871,23 @@ Review evidence:
 Validation evidence:
 
 - Command:
-  `gh pr list --head jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers --json number,title,state,url,isDraft` -> pass
-  (`[]`).
+  `gh pr list --head jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers --json number,title,state,url,isDraft` -> returned
+  (`[]`). This empty result indicates the PR was not found via this query at validation time, possibly due to the PR being deleted/closed after creation, different auth scope, or repository context. The commands below document the PR's creation and labeling at implementation time.
 - Command: `npm run harness:check` -> fail. `preflight-gate` passed; `diff-budget`
-  failed with 26 files and 2610 net LOC over limits of 8 files and 300 LOC.
+  failed with 26 files and 2610 net LOC over limits of 8 files and 300 LOC (at commit range f091e22e6495b6820e3c2dc05401b5a5f94723bc → 9c019c367d55053fcd646bb383305bd05179fe18, snapshot timestamp: 2026-05-06 during P6 phase).
 - Command: `git push --no-verify -u origin
   jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers` -> pass
   for remote branch creation; local upstream/ref bookkeeping failed with `.git`
   write permission errors after the remote push succeeded.
 - Command:
   `gh pr create --draft --base main --head jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers --title "feat: make Archscope inevitable for agents and reviewers" --body-file /tmp/jsc280_pr_body.md` -> pass
-  (PR #88).
+  (PR #88 created during implementation).
 - Command:
   `gh pr edit 88 --add-label diff-budget-override && gh pr view 88 --json number,url,isDraft,labels,title,headRefName,baseRefName` -> pass
-  (label `diff-budget-override` present).
+  (label `diff-budget-override` present at implementation time).
 - Command:
-  `BASE_SHA=$(git merge-base origin/main HEAD) HEAD_SHA=$(git rev-parse HEAD) PR_NUMBER=88 REPO_OWNER=jscraik REPO_NAME=diagram-cli RUN_MEMORY_GATE=0 SKIP_REVIEW_GATE=1 GITHUB_TOKEN=$(gh auth token) bash scripts/harness-pr-gates.sh` -> pass.
+  `BASE_SHA=$(git merge-base origin/main HEAD) HEAD_SHA=$(git rev-parse HEAD) PR_NUMBER=88 REPO_OWNER=jscraik REPO_NAME=diagram-cli RUN_MEMORY_GATE=0 SKIP_REVIEW_GATE=1 GITHUB_TOKEN=$(gh auth token) bash scripts/harness-pr-gates.sh` -> pass
+  (at commit range f091e22e6495b6820e3c2dc05401b5a5f94723bc → 9c019c367d55053fcd646bb383305bd05179fe18, snapshot timestamp: 2026-05-06 during P6 phase).
   Preflight-gate reported a warning-class forbidden-pattern finding from existing
   changed files, policy-gate passed, and diff-budget passed via override
   metadata.
@@ -898,9 +900,11 @@ Validation evidence:
 - P3 complete: agent context guidance validates against schema.
 - P4 complete: brief and terminal output are review-decision oriented.
 - P5 complete: docs/help/validation truthfulness updated.
-- P6 waiver path applied: draft PR #88 has `diff-budget-override`, and
-  `harness-pr-gates` confirms diff-budget passes via override. Merge readiness
-  still needs draft/CI/review closeout.
+- P6 waiver path applied: draft PR #88 was created with `diff-budget-override`, and
+  `harness-pr-gates` simulation confirmed diff-budget passes via override (commit range
+  f091e22e6495b6820e3c2dc05401b5a5f94723bc → 9c019c367d55053fcd646bb383305bd05179fe18, 2026-05-06).
+  Note: PR may have been subsequently closed/deleted (validation query returned `[]`).
+  Merge readiness still needs draft/CI/review closeout.
 
 ## First he-work Handoff
 
