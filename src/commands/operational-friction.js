@@ -125,6 +125,10 @@ function buildNextSafeAction({
       category,
       retryable: true,
       humanRequired: false,
+      // Exception: manifestPath alone is sufficient for ref-fetching because the agent
+      // only needs to know where to write the updated scan results, not that the initial
+      // write already succeeded. This differs from artifact_write_failed which requires
+      // hasWrittenRequiredEvidence to confirm baseline evidence is usable.
       canUseWrittenEvidence: Boolean(manifestPath),
       message: 'Fetch the missing base/head refs, then rerun the PR evidence scan.',
       fallbackAction: 'rerun_repository_scan',

@@ -55,6 +55,9 @@ function buildComponentMetadata(analysis) {
  * @returns {string|null} The artifact's `path` if an entry with the given `id` exists, otherwise `null`.
  */
 function artifactPathById(manifest, id) {
+  if (!manifest || !manifest.artifacts || !Array.isArray(manifest.artifacts)) {
+    return null;
+  }
   return manifest.artifacts.find((entry) => entry.id === id)?.path || null;
 }
 
