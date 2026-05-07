@@ -168,7 +168,7 @@ function buildNextSafeAction({
       category,
       retryable: ['network', 'timeout', 'analysis_partial'].includes(category),
       humanRequired: category === 'approval_required' || category === 'permission',
-      canUseWrittenEvidence: Boolean(manifestPath),
+      canUseWrittenEvidence: hasWrittenRequiredEvidence(manifest, manifestPath),
       artifact: signal.artifact,
       message: messageForCategory(category),
     };

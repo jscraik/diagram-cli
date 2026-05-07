@@ -67,6 +67,9 @@ function artifactPathById(manifest, id) {
  * @return {Set<string>} A set of artifact `path` values where the artifact's `status` is `'written'`.
  */
 function writtenArtifactPaths(manifest) {
+  if (!manifest || !Array.isArray(manifest.artifacts)) {
+    return new Set();
+  }
   return new Set(manifest.artifacts
     .filter((entry) => entry.status === 'written')
     .map((entry) => entry.path));
