@@ -17,11 +17,11 @@ const BRIEF_HEADINGS = Object.freeze([
 ]);
 
 /**
- * Convert an array of items into markdown bullet lines.
+ * Format a list of values as markdown bullet lines.
  *
- * @param {any[]} items - Values to format as bullet list entries; if not an array or empty, `emptyText` is used instead.
- * @param {string} emptyText - Text to use when `items` is not an array or contains no elements.
- * @returns {string[]} An array of markdown bullet lines: one `- ${emptyText}` when `items` is absent/empty, otherwise one `- ${item}` per entry.
+ * @param {any[]} items - Values to format as list entries.
+ * @param {string} emptyText - Fallback text used when `items` is not an array or contains no elements.
+ * @returns {string[]} Array of markdown bullet lines: one `- <emptyText>` when no items are provided, otherwise one `- <item>` per entry.
  */
 function formatList(items, emptyText) {
   if (!Array.isArray(items) || items.length === 0) {

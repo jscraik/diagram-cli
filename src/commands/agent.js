@@ -1,12 +1,12 @@
 const { addScanOptions, runScanCommand } = require('./scan');
 
 /**
- * Convert a value to a shell-safe token suitable for inclusion in a command string.
+ * Create a shell-safe token from a value for inclusion in POSIX command strings.
  *
- * The value is first converted to a string. If the string contains only ASCII
- * alphanumeric characters and the characters _ . / : = @ + -, it is returned
- * unchanged; otherwise it is returned wrapped in single quotes and any
- * embedded single quotes are escaped so the result is safe for POSIX shells.
+ * Converts the value to a string; if the string contains only ASCII letters,
+ * digits and the characters `_ . / : = @ + -` it is returned unchanged. Otherwise
+ * it is returned wrapped in single quotes with any embedded single quotes
+ * escaped so the token is safe for POSIX shells.
  *
  * @param {*} value - The value to convert to a shell-safe token.
  * @returns {string} The shell-safe token.
@@ -18,16 +18,16 @@ function shellToken(value) {
 }
 
 /**
- * Append a flag and its shell-escaped value to an argument array unless the value is empty or matches a supplied default.
+ * Append a flag and its shell-escaped value to an argument array when the value is present and not equal to an optional default.
  *
- * If `value` is `undefined`, `null` or trims to an empty string, nothing is appended. If `defaultValue` is provided and
- * `String(value) === String(defaultValue)`, nothing is appended. Otherwise the function pushes `flag` and the result of
- * `shellToken(value)` onto `args`.
+ * If `value` is `undefined`, `null`, or trims to an empty string, nothing is appended. If `defaultValue` is provided and
+ * `String(value) === String(defaultValue)`, nothing is appended. Otherwise the function pushes `flag` and `shellToken(value)`
+ * onto `args`.
  *
- * @param {string[]} args - The target array of command-line arguments to which the flag and value will be appended.
- * @param {string} flag - The command-line flag (e.g. '--output-dir') to append before the value.
- * @param {*} value - The value to append; it will be converted to a string and shell-escaped.
- * @param {*} [defaultValue] - Optional default value; if provided and equal to `value` when stringified, the flag is not appended.
+ * @param {string[]} args - Target array of command-line arguments to which the flag and value will be appended.
+ * @param {string} flag - Command-line flag (for example `--output-dir`) to append before the value.
+ * @param {*} value - Value to append; it will be converted to a string and shell-escaped.
+ * @param {*} [defaultValue] - Optional default; if provided and equal to `value` when stringified, the flag is not appended.
  */
 function addOptionArg(args, flag, value, defaultValue = undefined) {
   if (value === undefined || value === null || String(value).trim() === '') return;

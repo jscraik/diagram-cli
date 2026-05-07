@@ -2,6 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const { summarizeAnalysis } = require('./evidence-summary');
 
+/**
+ * Produce a sorted, de-duplicated array of trimmed strings from the given value.
+ * @param {*} value - Input value; expected to be an array of strings. Non-array inputs produce an empty array.
+ * @returns {string[]} An array of unique, trimmed strings sorted lexicographically; returns an empty array if there are no valid string entries.
+ */
 function normalizeStringArray(value) {
   return Array.isArray(value)
     ? [...new Set(value

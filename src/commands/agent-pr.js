@@ -2,14 +2,14 @@ const { addScanOptions, runScanCommand } = require('./scan');
 const { buildScanEquivalent } = require('./agent');
 
 /**
- * Register the CLI subcommand `agent-pr [path]` on the provided program.
+ * Register the CLI subcommand `agent-pr [path]` on the given Commander program.
  *
- * The command is configured with scan-related options, requires the `--base <ref>` option
- * (exits the process with code `2` if missing), defaults `head` to `'HEAD'` when not provided,
- * and delegates execution to the scanning workflow via `runScanCommand` using a
- * `scanEquivalent` for the `agent-pr` context.
+ * The command is configured with scan-related options, requires `--base <ref>` (prints an error
+ * and exits the process with code `2` if omitted), and defaults `head` to `'HEAD'` when not provided.
+ * When invoked it delegates execution to the project's scan workflow with metadata identifying the
+ * command as `agent-pr`.
  *
- * @param {object} program - Commander-style program instance on which to register the command.
+ * @param {object} program - Commander-style program instance to register the subcommand on.
  */
 function registerAgentPrCommand(program) {
   addScanOptions(program

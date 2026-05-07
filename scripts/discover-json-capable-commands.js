@@ -17,6 +17,11 @@ function exists(relativePath) {
   return fs.existsSync(path.join(repoRoot, relativePath));
 }
 
+/**
+ * Lists JavaScript command module paths located in src/commands.
+ *
+ * @returns {string[]} An array of relative module path strings in the form `src/commands/<filename>.js`.
+ */
 function discoverCommandModules() {
   const commandDir = path.join(repoRoot, 'src', 'commands');
   return fs.readdirSync(commandDir)

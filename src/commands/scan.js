@@ -115,11 +115,10 @@ function summarizeList(items) {
 }
 
 /**
- * Builds a concise scan summary used for CLI text output and machine envelopes.
+ * Build a concise scan summary used for CLI text output and machine envelopes.
  *
- * The summary aggregates manifest metadata, analysis counts, warning summaries and
- * optional PR-impact information so callers can render human or machine-friendly
- * overviews without inspecting the full evidence pack.
+ * Aggregates manifest metadata, analysis counts, warning summaries and optional
+ * PR-impact information into a single object suitable for human or machine consumption.
  *
  * @param {Object} manifest - Evidence pack manifest; must include `artifactReadOrder`. May include `primaryHumanArtifact`, `primaryAgentArtifact` and `warnings`.
  * @param {Object} [options] - Optional inputs to augment the summary.
@@ -128,10 +127,10 @@ function summarizeList(items) {
  * @param {string|null} [options.manifestPath] - Filesystem path to the written manifest artifact, if present.
  * @param {Object|null} [options.prImpact=null] - PR-impact payload produced by workflow analysis; when provided populates detailed `pr` fields.
  * @param {string|null} [options.prImpactPath=null] - Filesystem path to the written PR-impact artifact, if any.
- * @param {Object|null} [options.prSummary=null] - Machine PR summary (used to surface failed PR scans when `prImpact` is absent).
- * @returns {Object} Summary object with:
+ * @param {Object|null} [options.prSummary=null] - Machine PR summary used to represent a failed PR scan when `prImpact` is absent.
+ * @returns {Object} Summary object containing:
  *  - `manifestPath`: path to the manifest entry (or `null`),
- *  - `primaryHumanArtifact`, `primaryAgentArtifact`: manifest primary artifact ids,
+ *  - `primaryHumanArtifact`, `primaryAgentArtifact`: primary artifact ids from the manifest,
  *  - `packStatus`: overall outcome,
  *  - `componentCount`: number of analysed components (0 if unavailable),
  *  - `warningSummary`: human-readable summary of manifest warnings,
@@ -205,6 +204,11 @@ function optionArg(args, flag, value) {
   }
 }
 
+/**
+ * Parse stdout from the PR workflow process into a JSON payload.
+ * @param {string} stdout - The stdout output to parse; may be empty or non-JSON.
+ * @returns {Object|null} The parsed JSON object, or `null` if `stdout` is empty or not valid JSON.
+ */
 function parseWorkflowPrPayload(stdout) {
   const trimmed = String(stdout || '').trim();
   if (!trimmed) return null;
@@ -237,10 +241,10 @@ function inferWorkflowPrErrorCategory({ payload, result }) {
 }
 
 /**
- * Run the local diagram workflow to produce PR-impact evidence for a repository.
+ * Execute the local diagram `pr` workflow to produce PR-impact evidence for a repository.
  *
- * The workflow writes output under `<outDir>/pr-impact` and the function returns the parsed
- * `prImpact` payload produced by the workflow's JSON output.
+ * The workflow writes output under `<outDir>/pr-impact` and this function returns the parsed
+ * `prImpact` object extracted from the workflow's JSON output.
  *
  * @param {Object} params
  * @param {string} params.root - Filesystem path to the repository root to analyse.
@@ -340,20 +344,19 @@ function printScanTextSummary(summary, nextSafeAction = null) {
 }
 
 /**
- * Build a machine-oriented summary of pull-request impact analysis for inclusion in the scan envelope.
+ * Create a machine-friendly summary of pull-request impact for inclusion in the scan envelope.
  *
- * When `prImpact` is provided, returns an object describing the PR analysis status, refs, risk metrics and suggested reviewer checks.
- * When `prImpact` is absent but `options.base` or `options.head` are supplied, returns a failed summary containing the provided refs and an `errorCategory`.
- * Returns `null` if no PR refs were supplied and no `prImpact` is available.
+ * When `prImpact` is provided, the result contains PR refs, status and risk details plus suggested reviewer checks.
+ * When `prImpact` is absent but `options.base` or `options.head` were supplied, the result indicates a failed PR summary with an error category.
+ * Returns `null` when no PR refs were supplied and no `prImpact` is available.
  *
- * @param {object|null} prImpact - The parsed PR impact payload produced by the workflow PR evidence run, or `null`.
+ * @param {object|null} prImpact - Parsed PR impact payload produced by the workflow run, or `null`.
  * @param {string|null} prImpactPath - Filesystem path to the PR impact artifact, or `null`.
- * @param {object} options - CLI options; expected to contain `base` and/or `head` when refs were supplied.
- * @param {Array<object>} errors - Collected error objects produced while generating artifacts; used to derive an error category when `prImpact` is missing.
- * @returns {object|null} When available, returns a summary object:
- *  - If `prImpact` present: `{ status, base, head, prImpactPath, risk, blastRadius, reviewerChecks }`.
- *  - If `prImpact` missing but refs provided: `{ status: 'failed', base, head, errorCategory }`.
- *  - Otherwise `null`.
+ * @param {object} options - CLI options; may contain `base` and/or `head` when refs were supplied.
+ * @param {Array<object>} errors - Collected artifact error objects; used to derive an error category when `prImpact` is missing.
+ * @returns {object|null} If available, a summary object:
+ *  - When `prImpact` is present: `{ status, base, head, prImpactPath, risk, blastRadius, reviewerChecks }`.
+ *  - When `prImpact` is missing but refs were provided: `{ status: 'failed', base, head, errorCategory }`.
  */
 function buildPrMachineSummary({
   prImpact,
@@ -409,14 +412,14 @@ function addScanOptions(command) {
 }
 
 /**
- * Run the scan CLI command: execute the analysis pipeline, produce evidence artifacts (architecture diagram, brief, agent context, report and manifest), and output a text or machine JSON summary.
+ * Execute the scan command to generate architecture evidence artifacts and emit a text or JSON summary.
  *
- * Performs repository root resolution and output-path validation, runs analysis and optional PR-impact evidence generation, writes artifact files into the output directory, assembles an evidence manifest, and prints or emits a machine envelope. On failure conditions the process may exit with status codes:
- * - 0 for overall success,
- * - 1 for an incomplete/failed outcome,
- * - 2 for configuration or invocation errors.
+ * Resolves the repository root and output path, runs the analysis pipeline and optional PR-impact workflow,
+ * writes artifacts (architecture diagram, brief, agent context, report) and a manifest into the output directory,
+ * and prints either a human-readable text summary or a machine JSON envelope. The function exits the process
+ * with status codes to indicate overall success, incomplete/failed outcome, or configuration/invocation errors.
  *
- * @param {Object} program - The commander program instance (used to read configuration and options).
+ * @param {Object} program - Commander program instance used to read configuration and options.
  * @param {string} targetPath - Path to the repository or project to scan.
  * @param {Object} rawOptions - Parsed CLI options supplied by the user.
  * @param {Object} [metadata={}] - Optional invocation metadata; recognised keys include `commandName`, `delegatedCommand` and `scanEquivalent`.

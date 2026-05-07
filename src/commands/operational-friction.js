@@ -42,11 +42,11 @@ function normalizeOperationalFriction(input = {}) {
 }
 
 /**
- * Locate an artifact with the given id inside a manifest's artifacts.
+ * Find an artifact with the specified id inside a manifest's `artifacts` array.
  *
- * @param {Object|null|undefined} manifest - The manifest object which may contain an `artifacts` array.
- * @param {string} id - The artifact identifier to find.
- * @returns {Object|null} The artifact object whose `id` matches `id`, or `null` if not found.
+ * @param {Object|null|undefined} manifest - Manifest object that may contain an `artifacts` array; may be falsy.
+ * @param {string} id - Artifact identifier to locate.
+ * @returns {Object|null} The matching artifact object, or `null` if the manifest, its `artifacts` array, or the artifact is not present.
  */
 function artifactById(manifest, id) {
   return manifest?.artifacts?.find((entry) => entry.id === id) || null;
@@ -87,23 +87,23 @@ function firstSignal(errors = []) {
 }
 
 /**
- * Determine the next safe action to take after a PR evidence scan, based on outcome, artifacts and operational friction signals.
+ * Choose the next safe action after a PR evidence scan based on outcome, manifest state and operational-friction signals.
  *
  * @param {Object} [opts] - Options.
  * @param {'success'|'failure'|undefined} [opts.outcome] - Overall scan outcome.
- * @param {Object} [opts.manifest] - Parsed manifest object (may be undefined when manifest not written).
+ * @param {Object} [opts.manifest] - Parsed manifest object (may be undefined when the manifest was not written).
  * @param {string|undefined} [opts.manifestPath] - Path to the written manifest file, if present.
- * @param {Array<Object>} [opts.errors] - Array of operational friction/error signals produced by the scan.
+ * @param {Array<Object>} [opts.errors] - Array of operational-friction/error signals produced by the scan.
  * @param {Object|null} [opts.prSummary] - Optional PR scan summary which may override the derived error category (e.g. { status, errorCategory }).
- * @returns {Object} An action descriptor with the following properties:
- *   - {string} action: Machine-readable action to perform (e.g. 'fetch_refs', 'retry_artifact_write', 'read_manifest', 'inspect_error').
- *   - {string|null} category: Normalised operational friction category or `null` when none.
+ * @returns {Object} An action descriptor object with these properties:
+ *   - {string} action: Machine-readable action to perform (for example 'fetch_refs', 'retry_artifact_write', 'read_manifest', 'inspect_error').
+ *   - {string|null} category: Normalised operational-friction category or `null` when none.
  *   - {boolean} retryable: Whether the action can be retried automatically.
  *   - {boolean} humanRequired: Whether human intervention is required.
  *   - {boolean} canUseWrittenEvidence: Whether already-written evidence artifacts may be used.
  *   - {string|null} [artifact]: Identifier of the artifact related to the signal, if any.
  *   - {string} message: Human-facing guidance for the next step.
- *   - {string} [fallbackAction]: Optional secondary action to attempt if primary recovery fails.
+ *   - {string} [fallbackAction]: Optional secondary action to attempt if the primary recovery fails.
  */
 function buildNextSafeAction({
   outcome,
