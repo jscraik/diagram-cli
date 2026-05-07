@@ -1,6 +1,7 @@
 const path = require('path');
 const { addScanOptions, runScanCommand } = require('./scan');
 const { buildMachineEnvelope } = require('./output');
+const { DEFAULTS } = require('./shared');
 
 /**
  * Create a shell-safe token from a value for inclusion in POSIX command strings.
@@ -58,9 +59,9 @@ function addOptionArg(args, flag, value, defaultValue = undefined) {
 function buildScanEquivalent(command, targetPath, options) {
   const args = ['archscope', 'scan', shellToken(targetPath || '.')];
   addOptionArg(args, '--output-dir', options.outputDir, '.diagram');
-  addOptionArg(args, '--patterns', options.patterns);
-  addOptionArg(args, '--exclude', options.exclude);
-  addOptionArg(args, '--max-files', options.maxFiles);
+  addOptionArg(args, '--patterns', options.patterns, DEFAULTS.patterns);
+  addOptionArg(args, '--exclude', options.exclude, DEFAULTS.exclude);
+  addOptionArg(args, '--max-files', options.maxFiles, DEFAULTS.maxFiles);
   addOptionArg(args, '--analyzer', options.analyzer, 'default');
   if (command === 'agent-pr') {
     addOptionArg(args, '--base', options.base);
@@ -142,7 +143,7 @@ function registerAgentCommand(program) {
       await runScanCommand(program, targetPath, rawOptions, {
         commandName: 'agent',
         delegatedCommand: 'scan',
-        scanEquivalent: buildScanEquivalent('agent', targetPath, rawOptions),
+        scanEquivalent: (options) => buildScanEquivalent('agent', targetPath, options),
       });
     });
 }
