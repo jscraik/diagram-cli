@@ -14,6 +14,91 @@ function createWorkspace(prefix = 'archscope-scan-command-') {
 describe('scan command', () => {
   const repoRoot = path.resolve(__dirname, '..');
 
+  it('lists agent entrypoints with scan-compatible options', () => {
+    const agent = spawnSync('node', ['src/diagram.js', 'agent', '--help'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    const agentPr = spawnSync('node', ['src/diagram.js', 'agent-pr', '--help'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+
+    expect(agent.status, agent.stderr).to.equal(0);
+    expect(agent.stdout).to.include('Usage: archscope agent [options] [path]');
+    expect(agent.stdout).to.include('--format <type>');
+    expect(agent.stdout).to.include('--deterministic');
+    expect(agentPr.status, agentPr.stderr).to.equal(0);
+    expect(agentPr.stdout).to.include('Usage: archscope agent-pr [options] [path]');
+    expect(agentPr.stdout).to.include('--base <ref>');
+    expect(agentPr.stdout).to.include('--head <ref>');
+  });
+
+  it('requires a base ref for agent-pr', () => {
+    const workspace = createWorkspace();
+    try {
+      const result = spawnSync('node', [
+        path.join(repoRoot, 'src', 'diagram.js'),
+        'agent-pr',
+        workspace,
+        '--format',
+        'json',
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).to.equal(2);
+      expect(result.stderr).to.equal('');
+      const payload = JSON.parse(result.stdout.trim());
+      expect(payload.command).to.equal('agent-pr');
+      expect(payload.status).to.equal('failed');
+      expect(payload.errors[0]).to.deep.include({
+        category: 'missing_base',
+        message: 'agent-pr requires --base <ref>.',
+      });
+      expect(payload.data.nextSafeAction).to.deep.include({
+        action: 'provide_base',
+        category: 'missing_base',
+        canUseWrittenEvidence: false,
+      });
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects PR refs on the repository-only agent wrapper', () => {
+    const workspace = createWorkspace();
+    try {
+      const result = spawnSync('node', [
+        path.join(repoRoot, 'src', 'diagram.js'),
+        'agent',
+        workspace,
+        '--base',
+        'origin/main',
+        '--format',
+        'json',
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status).to.equal(2);
+      const payload = JSON.parse(result.stdout.trim());
+      expect(payload.command).to.equal('agent');
+      expect(payload.errors[0]).to.deep.include({
+        category: 'unsupported_pr_refs',
+        message: 'agent does not accept --base or --head; use agent-pr for PR evidence.',
+      });
+      expect(payload.data.nextSafeAction).to.deep.include({
+        action: 'use_agent_pr',
+        category: 'unsupported_pr_refs',
+      });
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('is listed in help with P0 options', () => {
     const result = spawnSync('node', ['src/diagram.js', 'scan', '--help'], {
       cwd: repoRoot,

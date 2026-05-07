@@ -48,9 +48,31 @@ describe('command identity and compatibility', () => {
     });
     expect(unknown.status).to.equal(1);
     expect(unknown.stderr).to.include(`${CANONICAL_COMMAND_NAME} analyze [path]`);
+    expect(unknown.stderr).to.include(`${CANONICAL_COMMAND_NAME} agent [path]`);
+    expect(unknown.stderr).to.include(`${CANONICAL_COMMAND_NAME} agent-pr [path]`);
     expect(unknown.stderr).to.include('Optional advanced media commands:');
     expect(unknown.stderr).to.include(`${CANONICAL_COMMAND_NAME} generate-video [path]`);
     expect(unknown.stderr).to.include(`Use ${CANONICAL_COMMAND_NAME} --help`);
+
+    const agentPrIndex = unknown.stderr.indexOf(`${CANONICAL_COMMAND_NAME} agent-pr [path]`);
+    const agentIndex = unknown.stderr.indexOf(`${CANONICAL_COMMAND_NAME} agent [path]`);
+    const analyzeIndex = unknown.stderr.indexOf(`${CANONICAL_COMMAND_NAME} analyze [path]`);
+    const generateIndex = unknown.stderr.indexOf(`${CANONICAL_COMMAND_NAME} generate [path]`);
+    const mediaHeaderIndex = unknown.stderr.indexOf('Optional advanced media commands:');
+    const videoIndex = unknown.stderr.indexOf(`${CANONICAL_COMMAND_NAME} generate-video [path]`);
+
+    expect(agentPrIndex).to.be.lessThan(analyzeIndex);
+    expect(agentIndex).to.be.lessThan(analyzeIndex);
+    expect(agentPrIndex).to.be.lessThan(generateIndex);
+    expect(mediaHeaderIndex).to.be.lessThan(videoIndex);
+    expect(generateIndex).to.be.lessThan(mediaHeaderIndex);
+  });
+
+  it('makes placeholder validation scripts explicit machine-readable no-ops', () => {
+    for (const scriptName of ['lint', 'typecheck', 'docs:lint']) {
+      expect(packageJson.scripts[scriptName]).to.include("status:'not_configured'");
+      expect(packageJson.scripts[scriptName]).to.include(`check:'${scriptName}'`);
+    }
   });
 
   it('keeps compatibility notices on stderr so JSON stdout remains parseable', () => {

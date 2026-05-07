@@ -50,6 +50,7 @@ describe('agent context contract', () => {
         'errors',
         'partial',
       ]);
+      expect(schema.properties).to.have.property('agentInstructions');
 
       const context = JSON.parse(fs.readFileSync(
         path.join(workspace, '.diagram', 'agent-context.json'),
@@ -78,6 +79,61 @@ describe('agent context contract', () => {
       expect(paths).to.deep.equal([...paths].sort());
       expect(new Set(paths).size).to.equal(paths.length);
       expect(context.errors).to.deep.equal([]);
+      expect(context.agentInstructions).to.include.keys([
+        'readFirst',
+        'safeToSkip',
+        'beforeEditing',
+        'whenBlocked',
+        'partialEvidence',
+        'nextSafeAction',
+      ]);
+      expect(context.agentInstructions.readFirst).to.deep.equal([
+        '.diagram/manifest.json',
+        '.diagram/brief.md',
+        '.diagram/agent-context.json',
+      ]);
+      expect(context.agentInstructions.safeToSkip).to.include('.diagram/architecture.mmd');
+      expect(context.agentInstructions.safeToSkip).to.include('.diagram/report.html');
+      expect(context.agentInstructions.beforeEditing).to.include(
+        'Read only artifacts whose status is written before using their contents.'
+      );
+      expect(context.agentInstructions.whenBlocked.git_refs_missing).to.deep.include({
+        action: 'fetch_refs',
+        retryable: true,
+        humanRequired: false,
+      });
+      expect(context.agentInstructions.whenBlocked).to.include.all.keys([
+        'approval_required',
+        'network',
+        'permission',
+        'timeout',
+        'git_state',
+        'missing_file',
+        'lint_failure',
+        'test_failure',
+        'git_refs_missing',
+        'analysis_partial',
+        'artifact_write_failed',
+        'internal_error',
+      ]);
+      expect(context.agentInstructions.whenBlocked.approval_required).to.deep.include({
+        action: 'request_approval',
+        retryable: false,
+        humanRequired: true,
+      });
+      expect(context.agentInstructions.whenBlocked.analysis_partial).to.deep.include({
+        action: 'rerun_repository_scan',
+        retryable: true,
+        humanRequired: false,
+      });
+      expect(context.agentInstructions.partialEvidence.status).to.equal('complete');
+      expect(context.agentInstructions.nextSafeAction).to.deep.include({
+        action: 'read_manifest',
+        category: null,
+        retryable: false,
+        humanRequired: false,
+        canUseWrittenEvidence: true,
+      });
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

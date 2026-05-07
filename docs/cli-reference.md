@@ -19,8 +19,8 @@ Primary command reference for the canonical `archscope` CLI.
 Default review path:
 
 ```bash
-archscope scan .
-archscope scan . --base origin/main --head HEAD
+archscope agent .
+archscope agent-pr . --base origin/main --head HEAD
 ```
 
 Core evidence and review commands:
@@ -28,6 +28,8 @@ Core evidence and review commands:
 ```bash
 archscope init [path]
 archscope doctor [path]
+archscope agent [path]
+archscope agent-pr [path]
 archscope scan [path]
 archscope analyze [path]
 archscope generate [path]
@@ -92,10 +94,34 @@ Writes the first-run evidence pack to `.diagram` by default:
 - `architecture.mmd`
 - `report.html`
 
-When `--base` or `--head` is supplied and refs resolve, scan also writes
+### `archscope agent [path]`
+
+Generate repository evidence for coding-agent orientation. This is a thin
+wrapper over `scan` and keeps the same artifact contract.
+
+```bash
+archscope agent .
+archscope agent . --format json --deterministic
+```
+
+### `archscope agent-pr [path]`
+
+Generate PR architecture evidence for reviewers and coding agents. This is a
+thin wrapper over `scan --base <ref> --head <ref>` and requires `--base`; `--head`
+defaults to `HEAD`.
+
+```bash
+archscope agent-pr . --base origin/main --head HEAD
+archscope agent-pr . --base origin/main --head HEAD --format json --deterministic
+```
+
+When refs resolve, `agent-pr` also writes
 `.diagram/pr-impact/pr-impact.json` by reusing the `workflow pr` contract.
 `report.html` is written by default and becomes the primary human artifact when
 report generation succeeds.
+
+When `scan --base <ref> --head <ref>` is used directly and refs resolve, it
+also writes `.diagram/pr-impact/pr-impact.json` for PR evidence.
 
 Scan machine output uses `data.outcome` as the automation-safe result:
 

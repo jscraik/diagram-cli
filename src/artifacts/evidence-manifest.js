@@ -4,6 +4,7 @@ const { estimateTokensFromBytes } = require('./artifact-budget');
 
 const FIXED_DETERMINISTIC_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 const ARTIFACT_STATUSES = new Set(['written', 'deferred', 'partial', 'failed']);
+const NON_ACTIONABLE_DEFERRED_REASONS = new Set(['no_changes', 'pr_refs_not_supplied', 'ui_spec_required']);
 
 function unixPath(value) {
   return String(value || '').split(path.sep).join('/');
@@ -84,6 +85,17 @@ function artifactEntry({
     ...(reason ? { reason } : {}),
     ...(errorCategory ? { errorCategory } : {}),
   };
+}
+
+function isActionableMissingArtifact(entry) {
+  if (!entry) return false;
+  return entry.status === 'failed'
+    || entry.status === 'partial'
+    || (entry.status === 'deferred' && !NON_ACTIONABLE_DEFERRED_REASONS.has(entry.reason));
+}
+
+function actionableMissingArtifacts(artifacts = []) {
+  return artifacts.filter(isActionableMissingArtifact);
 }
 
 function createScanEvidenceManifest({
@@ -199,6 +211,7 @@ function createScanEvidenceManifest({
 
 module.exports = {
   FIXED_DETERMINISTIC_TIMESTAMP,
+  actionableMissingArtifacts,
   createGenerateAllManifest,
   createScanEvidenceManifest,
   getGeneratedAt,

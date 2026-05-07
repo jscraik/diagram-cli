@@ -37,6 +37,14 @@ describe('scan error categories', () => {
       expect(payload.errors[0].artifact).to.equal('agent-context');
       expect(payload.errors[0].category).to.equal('artifact_write_failed');
       expect(payload.errors[0].message).to.be.a('string').and.not.equal('');
+      expect(payload.data.nextSafeAction).to.deep.include({
+        action: 'stop_and_fix_artifact_output',
+        category: 'artifact_write_failed',
+        retryable: false,
+        humanRequired: true,
+        canUseWrittenEvidence: false,
+        artifact: 'agent-context',
+      });
 
       const manifest = JSON.parse(fs.readFileSync(
         path.join(workspace, '.diagram', 'manifest.json'),
@@ -78,6 +86,43 @@ describe('scan error categories', () => {
       );
       expect(payload.errors[0].artifact).to.equal('manifest');
       expect(payload.errors[0].category).to.equal('artifact_write_failed');
+      expect(payload.data.nextSafeAction).to.deep.include({
+        action: 'stop_and_fix_artifact_output',
+        category: 'artifact_write_failed',
+        retryable: false,
+        humanRequired: true,
+        canUseWrittenEvidence: false,
+        artifact: 'manifest',
+      });
+
+      const agentContext = JSON.parse(fs.readFileSync(
+        path.join(workspace, '.diagram', 'agent-context.json'),
+        'utf8'
+      ));
+      expect(agentContext.agentInstructions.nextSafeAction).to.deep.include({
+        action: 'stop_and_fix_artifact_output',
+        category: 'artifact_write_failed',
+        retryable: false,
+        humanRequired: true,
+        canUseWrittenEvidence: false,
+        artifact: 'manifest',
+      });
+      expect(agentContext.agentInstructions.partialEvidence).to.deep.include({
+        status: 'limited',
+        canUseWrittenEvidence: false,
+      });
+      expect(agentContext.agentInstructions.partialEvidence.blockedArtifacts).to.deep.include({
+        artifact: 'manifest',
+        path: '.diagram/manifest.json',
+        status: 'failed',
+        reason: 'write_failure',
+        category: 'artifact_write_failed',
+      });
+      const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
+      expect(brief).to.include(
+        'Manifest was not written; inspect the reported errors before consuming evidence artifacts.'
+      );
+      expect(brief).to.not.include('Read .diagram/manifest.json for artifact status before opening optional files.');
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }
@@ -103,6 +148,8 @@ describe('scan error categories', () => {
       expect(result.stdout).to.include(
         'Manifest was not written; inspect the reported errors before consuming evidence artifacts.'
       );
+      expect(result.stdout).to.include('Category: artifact_write_failed');
+      expect(result.stdout).to.include('Action: stop_and_fix_artifact_output');
       expect(result.stdout).to.not.include('Read .diagram/manifest.json');
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });

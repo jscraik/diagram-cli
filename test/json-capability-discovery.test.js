@@ -15,6 +15,8 @@ describe('json capability discovery', () => {
     const payload = JSON.parse(result.stdout);
     expect(payload.schemaVersion).to.equal('1.0');
     expect(payload.commands.map((entry) => entry.command)).to.deep.equal([
+      'agent',
+      'agent-pr',
       'analyze',
       'changed',
       'context',
@@ -38,6 +40,6 @@ describe('json capability discovery', () => {
     expect(result.status, result.stderr).to.equal(0);
     const payload = JSON.parse(result.stdout);
     expect(payload.status).to.equal('pass');
-    expect(payload.commandCount).to.equal(11);
+    expect(payload.commandCount).to.equal(13);
   });
 });

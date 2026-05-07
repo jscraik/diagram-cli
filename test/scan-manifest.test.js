@@ -114,6 +114,71 @@ describe('scan evidence manifest', () => {
     }
   });
 
+  it('runs agent as a scan-delegating machine-output wrapper', () => {
+    const workspace = createWorkspace();
+    try {
+      const result = spawnSync('node', [
+        path.join(repoRoot, 'src', 'diagram.js'),
+        'agent',
+        workspace,
+        '--format',
+        'json',
+        '--deterministic',
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status, result.stderr).to.equal(0);
+      const payload = JSON.parse(result.stdout.trim());
+      expect(payload.command).to.equal('agent');
+      expect(payload.data.delegatedCommand).to.equal('scan');
+      expect(payload.data.scanEquivalent).to.equal(`archscope scan ${workspace} --format json --deterministic`);
+      expect(payload.data.outcome).to.equal('success');
+      expect(payload.data.manifestPath).to.equal('.diagram/manifest.json');
+      expect(payload.data.agentContextPath).to.equal('.diagram/agent-context.json');
+      expect(payload.data.evidencePack.command).to.equal('scan');
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps agent scan-equivalent metadata aligned with scan options', () => {
+    const workspace = createWorkspace('archscope scan manifest ');
+    try {
+      const result = spawnSync('node', [
+        path.join(repoRoot, 'src', 'diagram.js'),
+        'agent',
+        workspace,
+        '--output-dir',
+        'artifacts/scan',
+        '--patterns',
+        'src/**/*.js',
+        '--exclude',
+        'src/generated/**',
+        '--max-files',
+        '42',
+        '--format',
+        'json',
+        '--deterministic',
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status, result.stderr).to.equal(0);
+      const payload = JSON.parse(result.stdout.trim());
+      expect(payload.data.scanEquivalent).to.equal(
+        `archscope scan '${workspace}' --output-dir artifacts/scan `
+        + "--patterns 'src/**/*.js' --exclude 'src/generated/**' --max-files 42 "
+        + '--format json --deterministic'
+      );
+      expect(payload.data.manifestPath).to.equal('artifacts/scan/manifest.json');
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
   it('indexes artifacts relative to a custom output directory', () => {
     const workspace = createWorkspace();
     try {

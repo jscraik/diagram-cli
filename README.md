@@ -9,6 +9,7 @@ Architecture evidence for humans and AI coding agents.
 - [Architecture Evidence Pack](#architecture-evidence-pack)
 - [Human Workflows](#human-workflows)
 - [AI Agent Workflows](#ai-agent-workflows)
+- [Validation Truthfulness](#validation-truthfulness)
 - [Machine Output Contracts](#machine-output-contracts)
 - [Migration State](#migration-state)
 - [Documentation Index](#documentation-index)
@@ -54,6 +55,21 @@ commands with `node src/diagram.js ...`.
 
 ## Architecture Evidence Pack
 
+The strongest PR workflow is the agent-friendly review command:
+
+```bash
+archscope agent-pr . --base origin/main --head HEAD
+```
+
+It delegates to `scan`, writes the same evidence pack, and adds PR impact
+evidence when refs resolve.
+
+For repository orientation before an agent edits code, use:
+
+```bash
+archscope agent .
+```
+
 The default evidence pack gives humans a short architecture brief and gives AI
 coding agents a manifest-first context path.
 
@@ -62,7 +78,7 @@ Use this path for new repositories:
 ```bash
 archscope init .
 archscope doctor .
-archscope scan .
+archscope agent .
 ```
 
 What this gives you:
@@ -77,7 +93,7 @@ What this gives you:
 - `.diagram/agent-context.json` as the canonical agent handoff
 - `.diagram/architecture.mmd` as the first architecture diagram
 
-For PR review evidence, add git refs:
+For PR review evidence without the wrapper, add git refs:
 
 ```bash
 archscope scan . --base origin/main --head HEAD
@@ -90,11 +106,17 @@ primary human artifact when report generation succeeds.
 ## Human Workflows
 
 ```bash
-# Analyze repository structure
-archscope analyze .
+# PR evidence pack for reviewers and agents
+archscope agent-pr . --base origin/main --head HEAD
+
+# Repository evidence pack for a coding agent
+archscope agent .
 
 # Generate the default evidence pack
 archscope scan .
+
+# Analyze repository structure
+archscope analyze .
 
 # Generate one diagram and open preview
 archscope generate . --type architecture --open
@@ -105,11 +127,8 @@ archscope changed . --base origin/main --head HEAD
 # Explain a local dependency neighborhood
 archscope explain auth-service .
 
-# PR risk/blast-radius report
+# Lower-level PR risk/blast-radius report
 archscope workflow pr . --base origin/main --head HEAD --risk-threshold medium --fail-on-risk
-
-# PR evidence pack for reviewers and agents
-archscope scan . --base origin/main --head HEAD
 ```
 
 Optional advanced media output remains available after the evidence path is
@@ -124,8 +143,9 @@ archscope generate-animated .
 
 ```bash
 # Stable machine outputs
+archscope agent . --format json --deterministic
+archscope agent-pr . --base origin/main --head HEAD --format json --deterministic
 archscope scan . --format json --deterministic
-archscope scan . --base origin/main --head HEAD --format json --deterministic
 archscope generate . --type architecture --format json --deterministic
 archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 
@@ -139,6 +159,27 @@ Agents should read `.diagram/manifest.json` first, then consume only artifacts
 whose manifest status is `written`. The standalone `context` command remains
 available for refreshing the older `.diagram/context` pack when existing
 automation depends on it.
+
+## Validation Truthfulness
+
+Some quality classes are intentionally not configured for this plain JavaScript
+project. Placeholder scripts emit machine-readable `not_configured` status
+instead of pretending to be substantive green gates:
+
+```bash
+npm run lint
+npm run typecheck
+npm run docs:lint
+```
+
+Use these as meaningful validation gates:
+
+```bash
+npm test
+npm run test:deep
+npm run docs:style:changed
+bash scripts/verify-work.sh --fast
+```
 
 ## Machine Output Contracts
 

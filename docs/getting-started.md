@@ -34,13 +34,18 @@ npm link
 
 ## First Run
 
-Before you review a PR, run Archscope. The first scan writes a compact evidence
-pack for both human reviewers and AI coding agents.
+Before you review a PR, run Archscope:
+
+```bash
+archscope agent-pr . --base origin/main --head HEAD
+```
+
+Before an AI coding agent edits a repo, give it repository evidence:
 
 ```bash
 archscope init .
 archscope doctor .
-archscope scan .
+archscope agent .
 ```
 
 The first scan writes the default architecture evidence pack:
@@ -51,7 +56,7 @@ The first scan writes the default architecture evidence pack:
 - `.diagram/architecture.mmd` - first architecture diagram
 - `.diagram/report.html` - static human evidence report
 
-For PR review evidence, include refs:
+The lower-level `scan` command writes the same evidence pack:
 
 ```bash
 archscope scan . --base origin/main --head HEAD
@@ -80,8 +85,9 @@ node src/diagram.js scan .
 Prefer `--format json` for automation:
 
 ```bash
+archscope agent . --format json --deterministic
+archscope agent-pr . --base origin/main --head HEAD --format json --deterministic
 archscope scan . --format json --deterministic
-archscope scan . --base origin/main --head HEAD --format json --deterministic
 archscope generate . --type architecture --format json --deterministic
 archscope workflow pr . --base origin/main --head HEAD --format json --deterministic
 ```
