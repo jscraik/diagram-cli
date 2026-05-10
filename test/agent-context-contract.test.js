@@ -49,6 +49,7 @@ describe('agent context contract', () => {
         'warnings',
         'errors',
         'partial',
+        'agentInstructions',
       ]);
       expect(schema.properties).to.have.property('agentInstructions');
 

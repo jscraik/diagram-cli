@@ -6,22 +6,7 @@ name = "harness local environment"
 script = '''
 set -euo pipefail
 
-for candidate in "$HOME/.local/share/mise/shims" "$HOME/.local/bin" "/opt/homebrew/bin" "/opt/homebrew/sbin" "/usr/local/bin" "/usr/sbin" "/sbin"; do
-  if [[ -d "$candidate" && ":$PATH:" != *":$candidate:"* ]]; then
-    PATH="$candidate:$PATH"
-  fi
-done
-export PATH
-
-if command -v mise >/dev/null 2>&1; then
-  mise trust --yes .mise.toml || true
-  mise install
-fi
-if [[ -f scripts/prepare-worktree.sh ]]; then
-  bash scripts/prepare-worktree.sh
-else
-  npm install
-fi
+bash scripts/setup-environment.sh
 '''
 
 [[actions]]
@@ -30,22 +15,7 @@ icon = "tool"
 command = '''
 set -euo pipefail
 
-for candidate in "$HOME/.local/share/mise/shims" "$HOME/.local/bin" "/opt/homebrew/bin" "/opt/homebrew/sbin" "/usr/local/bin" "/usr/sbin" "/sbin"; do
-  if [[ -d "$candidate" && ":$PATH:" != *":$candidate:"* ]]; then
-    PATH="$candidate:$PATH"
-  fi
-done
-export PATH
-
-if command -v mise >/dev/null 2>&1; then
-  mise trust --yes .mise.toml || true
-  mise install
-fi
-if [[ -f scripts/prepare-worktree.sh ]]; then
-  bash scripts/prepare-worktree.sh
-else
-  npm install
-fi
+bash scripts/setup-environment.sh
 '''
 
 [[actions]]
@@ -63,8 +33,7 @@ name = "Debug"
 icon = "debug"
 command = '''
 set -euo pipefail
-
-npm run 'harness:check'
+node src/diagram.js doctor . --strict
 '''
 
 [[actions]]
@@ -173,7 +142,7 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
       repo_slug="worktree"
     fi
     short_sha="$(git rev-parse --short HEAD)"
-    branch_base="jscraik/feature/$repo_slug-worktree-$short_sha"
+    branch_base="feature/$repo_slug-worktree-$short_sha"
     branch_name="$branch_base"
     suffix=1
     while git show-ref --verify --quiet "refs/heads/$branch_name"; do

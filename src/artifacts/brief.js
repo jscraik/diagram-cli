@@ -61,6 +61,26 @@ function evidenceStatus(manifest) {
   return 'written';
 }
 
+function manifestWasWritten(manifest) {
+  return manifest.artifacts.some(
+    (entry) => entry.id === 'manifest' && entry.status === 'written',
+  );
+}
+
+function handoffLines(manifest) {
+  if (!manifestWasWritten(manifest)) {
+    return [
+      '- Manifest was not written; inspect the reported errors before consuming evidence artifacts.',
+    ];
+  }
+
+  return [
+    `- Read ${manifest.artifactReadOrder[0]} first for artifact status.`,
+    `- Use ${manifest.primaryAgentArtifact} as the parser-safe agent contract.`,
+    `- Open ${manifest.primaryHumanArtifact} for the concise human summary.`,
+  ];
+}
+
 /**
  * Format the manifest's artifact read order as numbered markdown lines.
  *
@@ -215,9 +235,7 @@ function buildArchitectureBrief({
     '',
     handoffHeading,
     '',
-    `- Read ${manifest.artifactReadOrder[0]} first for artifact status.`,
-    `- Use ${manifest.primaryAgentArtifact} as the parser-safe agent contract.`,
-    `- Open ${manifest.primaryHumanArtifact} for the concise human summary.`,
+    ...handoffLines(manifest),
     '',
     nextActionHeading,
     '',
