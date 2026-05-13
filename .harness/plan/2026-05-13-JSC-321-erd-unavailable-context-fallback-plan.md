@@ -521,10 +521,10 @@ Handoff state:
 
 | Gate | Command | Required / Conditional | Expected Result |
 | --- | --- | --- | --- |
-| BLUF structure | `python3 /Users/jamiecraik/dev/agent-skills/Plugins/harness-engineering/scripts/check_bluf_structure.py .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md --json` | required | pass |
-| Harness artifact shape | `python3 /Users/jamiecraik/dev/agent-skills/Plugins/cache/agent-skills-local/harness-engineering/0.1.0/scripts/check_generated_artifact_shape.py .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md --kind plan --json` | required | pass |
-| Artifact identity lint | `python3 /Users/jamiecraik/dev/agent-skills/Infrastructure/scripts/validation-and-linting/he_artifact_identity_lint.py .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md` | required | pass |
-| Linear traceability lint | `python3 /Users/jamiecraik/dev/agent-skills/Infrastructure/scripts/validation-and-linting/he_linear_traceability_lint.py .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md` | required | pass |
+| BLUF structure | `python3 ../agent-skills/Plugins/harness-engineering/scripts/check_bluf_structure.py .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md --json` | required | pass |
+| Harness artifact shape | `python3 ../agent-skills/Plugins/harness-engineering/scripts/check_generated_artifact_shape.py .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md --kind plan --json` | required | pass |
+| Artifact identity lint | `python3 ../agent-skills/Infrastructure/scripts/validation-and-linting/he_artifact_identity_lint.py .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md` | required | pass |
+| Linear traceability lint | `python3 ../agent-skills/Infrastructure/scripts/validation-and-linting/he_linear_traceability_lint.py .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md` | required | pass |
 
 ### Implementation Gates
 
@@ -563,10 +563,13 @@ SMOKE_DIR="$(mktemp -d .harness/tmp/jsc-321-contract-schema-json-XXXXXX)"
 cp -R test/fixtures/erd/contract-schema-json "$SMOKE_DIR/workspace"
 node src/diagram.js generate-all "$SMOKE_DIR/workspace" --output-dir diagrams --format json --deterministic --quiet > "$SMOKE_DIR/generate-output.json"
 ROOT_DIR="$PWD" TMP_DIR="$PWD/$SMOKE_DIR/workspace" CONTEXT_DETERMINISTIC=1 CONTEXT_OUTPUT_PATH="$PWD/$SMOKE_DIR/diagram-context.md" CONTEXT_META_OUTPUT_PATH="$PWD/$SMOKE_DIR/diagram-context.meta.json" node src/context/build-context-pack.js
-rg -n "Status: unavailable|Status: degraded|Reason: no_supported_schema_sources|Reason: low_confidence_extraction" "$SMOKE_DIR/diagram-context.md"
+if rg -n "Status: unavailable|Status: degraded|Reason: no_supported_schema_sources|Reason: low_confidence_extraction" "$SMOKE_DIR/diagram-context.md"; then
+  echo "Unexpected unavailable/degraded ERD guidance for useful JSON Schema output" >&2
+  exit 1
+fi
 ```
 
-The useful JSON Schema smoke must treat the final `rg` as a negative assertion: exit code `1` is the expected pass condition because useful ERD output must not include unavailable/degraded warning labels.
+The useful JSON Schema smoke must treat the final `rg` as a negative assertion: the overall conditional exits `0` only when `rg` finds no unavailable/degraded warning labels.
 
 ## Review Plan
 
@@ -592,7 +595,7 @@ Rollback is simple because JSC-321 should touch only tests and context-pack gene
 | Risk | Likelihood | Impact | Mitigation |
 | --- | --- | --- | --- |
 | JSC-320 metadata fields are not present on the implementation branch. | medium | high | Start by confirming metadata shape; stop and reconcile if absent. |
-| Smoke commands accidentally persist generated runtime artifacts into the repo. | low | medium | Use `/private/tmp` paths only and keep generated `.diagram/**` out of the commit unless explicitly approved. |
+| Smoke commands accidentally persist generated runtime artifacts into the repo. | low | medium | Use the harness-approved temporary path pattern: create smoke workspaces under `.harness/tmp/...`, recognize earlier `/private/tmp` attempts as stale validation evidence, and keep generated `.diagram/**` out of the commit unless explicitly approved. |
 | Guidance disappears when ERD is not embedded. | medium | high | Place guidance near index/header; test default-budget visibility. |
 | Fallback references mention absent diagrams. | medium | medium | Build fallbacks from manifest entries only; add absent `database` assertion. |
 | Useful ERDs get warning copy. | low | medium | Add negative assertion for useful ERD output. |

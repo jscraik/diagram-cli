@@ -24,9 +24,9 @@ cycle_assignment_reason: "No current active-cycle evidence was provided or disco
 github_tracking_rule: "Use a JSC-318 branch or child-issue branch and link the PR back to the owning Linear issue before moving any issue to Review or Done."
 delivery_evidence_rule: "Each issue must include exact commands run, pass/fail/blocked outcomes, generated artifact paths, and remaining deferred scope before status closure."
 last_delta_capture: 2026-05-13
-linear_delta_status: "live Linear parent/children match planned topology; no project milestones; JSC-318 is In Progress; JSC-319 and JSC-320 are In Review with PR #93 linked; JSC-321 remains Backlog and is the approved next spec slice."
-approved_next_slice: JSC-321
-approved_next_slice_reason: "JSC-319/P0 and JSC-320/P1 have local implementation/eval proof; JSC-321/P2 is the next planned dependency and must consume truthful ERD metadata to add context fallback guidance."
+linear_delta_status: "live Linear parent/children still match the planned topology and there are no project milestones; project backlog also contains unrelated Roadmap items. JSC-319 and JSC-320 are In Review with PR #93 linked; JSC-321 is stale in Linear as Backlog with no PR link even though local proof is committed and pushed in 35d56df. The approved next slice is parent closure readiness for JSC-318, blocked on JSC-321 Linear sync, CodeRabbit completion, and an explicit deferred-scope decision for YAML/TypeScript/configured-source work."
+approved_next_slice: JSC-318-parent-closure-readiness
+approved_next_slice_reason: "P0/P1/P2 local implementation proof now exists on PR #93, so the next HE spec target is not another child implementation slice. Create a parent closure readiness spec for JSC-318 that reconciles JSC-321 live Linear state, records PR/CI evidence, and decides whether YAML, TypeScript, and configured contract sources are explicitly deferred or admitted as new child scope."
 subagent_policy: conditional
 roles_used: []
 roles_recommended:
@@ -68,23 +68,23 @@ roles_recommended:
 
 ## Command Summary
 
-BLUF: Route the next spec to `JSC-321` and keep `JSC-318` open because `JSC-319` and `JSC-320` are now in review on PR #93, while context fallback and parent closure evidence remain incomplete.
+BLUF: This plan explains which `diagram-cli` slice the next agent or operator should spec after comparing live Linear with the local harness queue. The document's job is to keep the approved next-slice queue aligned with live Linear, PR evidence, and local `.harness` proof. Route the next spec to `JSC-318` parent closure readiness, not to another child implementation slice, because `JSC-319`, `JSC-320`, and `JSC-321` now have local proof on PR #93 while live Linear still shows `JSC-321` stale as Backlog with no PR link. The decision matters because parent closure would be unsafe until tracker state, PR/review evidence, and deferred YAML/TypeScript/configured-source scope are reconciled.
 
-Decision Needed: No further approval is needed for the applied parent/child topology. Future scope changes, cycle assignment, label taxonomy changes, or YAML/TypeScript expansion still need explicit approval.
+Decision Needed: Before parent closeout, decide whether YAML schema support, TypeScript contract extraction, and configured contract source globs are explicitly deferred from `JSC-318` or admitted as new child issues.
 
-Top Risks: Creating duplicate parent issues; over-filing YAML and TypeScript before P0/P1 review completes; treating draft PR existence as closure evidence; using a preferred repo label name that does not yet exist in Linear.
+Top Risks: Treating pushed local proof as live Linear closure, closing the parent while `JSC-321` still appears Backlog in Linear, or silently expanding into YAML/TypeScript work without a fresh spec decision.
 
-Next Action: Create the spec for `JSC-321`, the P2 context fallback slice, using the JSC-320 metadata/degraded-state contract now proven locally.
+Next Action: Create the `JSC-318` parent closure readiness spec, with a required gate to sync `JSC-321` Linear state/PR linkage before any parent completion move.
 
 ## Executive Linear Routing Summary
 
-Keep `JSC-318` as the existing parent issue. P0 and P1 are now represented by PR #93; the next planning/spec step is the already-created P2 child for agent context fallback when ERDs are unavailable.
+Keep `JSC-318` as the existing parent issue. P0, P1, and P2 are now represented locally by PR #93 and commit `35d56df`, but live Linear still only reflects P0/P1 review state; `JSC-321` remains Backlog with no PR attachment.
 
-Decision Needed: No further approval is needed for the applied parent/child topology. Future scope changes, cycle assignment, label taxonomy changes, or YAML/TypeScript expansion still need explicit approval.
+Decision Needed: Decide whether the original parent acceptance text's YAML, TypeScript, and configured-source possibilities are deferred from this parent or promoted into new child scope.
 
-Top Risks: Creating duplicate parent issues; over-filing YAML and TypeScript before P0/P1 review completes; treating draft PR existence as closure evidence; using a preferred repo label name that does not yet exist in Linear.
+Top Risks: Closing `JSC-318` from PR existence alone, ignoring the stale `JSC-321` live tracker state, or creating new YAML/TypeScript issues without a decision spec.
 
-Next Action: Create the spec for `JSC-321`, the P2 context fallback slice, using the JSC-320 metadata/degraded-state contract now proven locally.
+Next Action: Create a parent closure readiness spec for `JSC-318` that proves P0/P1/P2 evidence, names outstanding tracker sync, and records the deferred-scope decision required before parent Done.
 
 Live Linear read on 2026-05-13:
 
@@ -94,6 +94,9 @@ Live Linear read on 2026-05-13:
 - Project: Diagram product surface and analysis workflow.
 - Labels: `diagram-cli`, `Drift-Risk`, `Eval`, `Roadmap: Now`, `Agent`, `Improvement`.
 - Existing child issues after application: `JSC-319`, `JSC-320`, `JSC-321`.
+- Project milestones: none.
+- Project backlog also includes unrelated Roadmap issues such as `JSC-160`, `JSC-164`, `JSC-166`, and `JSC-247`; these are not children of `JSC-318` and should not be pulled into this parent closure queue.
+- PR #93 status at delta capture: open draft; GitHub checks successful; CodeRabbit status pending.
 - Duplicate search result: no duplicate parent found for the exact contract-schema ERD lane.
 
 ## Linear Delta Capture Gate
@@ -108,54 +111,59 @@ Live Linear inputs:
 - Live parent status: In Progress.
 - Live parent priority: High.
 - Live child issues under `JSC-318`: `JSC-319`, `JSC-320`, `JSC-321`.
-- Local proof inputs: PR #93 (`https://github.com/jscraik/diagram-cli/pull/93`), commit `f4d6c5f878bd662f9029df1f7e4d89201d9c9caa`, `.harness/evals/2026-05-13-jsc-319-json-schema-logical-erd-diagram-cli-eval.md`, `.harness/evals/2026-05-13-jsc-320-erd-source-kind-manifest-truth-diagram-cli-eval.md`, `.harness/solutions/2026-05-13-jsc-319-json-schema-logical-erd-reinforcement.md`, `.harness/solutions/2026-05-13-jsc-320-erd-source-kind-manifest-truth-validation-reinforcement.md`, `src/schema/erd-extractor.js`, `src/core/analysis-generation-diagrams-erd.js`, `test/erd-extractor.test.js`, `test/generate-output-json.test.js`, and `test/fixtures/erd/contract-schema-json*/`.
+- Local proof inputs: PR #93 (`https://github.com/jscraik/diagram-cli/pull/93`), commit `35d56dfda2e9317e78eea8ec93c780f084110fbb`, `.harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md`, `.harness/solutions/2026-05-13-jsc-321-context-pack-smoke-path-contract.md`, existing JSC-319/JSC-320 specs/plans/evals/solutions, `src/schema/erd-extractor.js`, `src/core/analysis-generation-diagrams-erd.js`, `src/context/build-context-pack.js`, `test/erd-extractor.test.js`, `test/generate-output-json.test.js`, `test/context-pack.test.js`, and `test/fixtures/erd/contract-schema-json*/`.
 
 Delta classification:
 
 | Item | Live Linear State | Local Harness State | Classification | Queue Impact |
 | --- | --- | --- | --- | --- |
-| Project | Exists as `Diagram product surface and analysis workflow`; no milestones returned | Matches planned destination | unchanged | Keep project; do not create milestones. |
-| `JSC-318` parent | In Progress, High, labels include `diagram-cli`, `Drift-Risk`, `Eval`, `Roadmap: Now`, `Agent`, `Improvement`; PR #93 linked | Parent remains open until P0/P1/P2 and closure eval | changed-metadata-captured | Keep parent open; do not close from draft PR existence alone. |
-| `JSC-319` P0 | In Review, High, parent `JSC-318`, project assigned, PR #93 linked | Implementation/eval/reinforcement proof exists and is in draft PR review | review-linked | Do not choose as next spec slice; wait for PR checks/review or rework. |
-| `JSC-320` P1 | In Review, High, parent `JSC-318`, project assigned, PR #93 linked | Implementation/eval/reinforcement proof exists and is in draft PR review | review-linked | Do not choose as next spec slice; wait for PR checks/review or rework. |
-| `JSC-321` P2 | Backlog, Medium, parent `JSC-318`, project assigned | Planned after P1 because context fallback needs truthful source-kind/unavailable metadata; P1 proof is now in review | approved-next-spec-slice | Move to next spec creation now; pause if PR #93 requests rework that changes the metadata contract. |
-| YAML schema support | No child under `JSC-318` | Deferred in strategy/refactor plan | unchanged-deferred | Do not create or spec now. |
-| TypeScript contract surfaces | No child under `JSC-318` | Deferred as separate strategy/spec decision | unchanged-deferred | Do not create or spec now. |
+| Project | Exists as `Diagram product surface and analysis workflow`; no milestones returned; broader project backlog includes `JSC-160`, `JSC-164`, `JSC-166`, `JSC-247`, and other non-child items | Matches planned destination; broader backlog is outside this parent queue | unchanged-with-broader-backlog | Keep project; do not create milestones; do not pull unrelated project issues into `JSC-318`. |
+| `JSC-318` parent | In Progress, High, labels include `diagram-cli`, `Drift-Risk`, `Eval`, `Roadmap: Now`, `Agent`, `Improvement`; PR #93 linked | Parent remains open until child closure proof, PR/review proof, and deferred-scope decision exist | changed-metadata-captured | Keep parent open; next spec should define closure readiness, not new implementation. |
+| `JSC-319` P0 | In Review, High, parent `JSC-318`, project assigned, PR #93 linked | Implementation/eval/reinforcement proof exists and is in draft PR review | review-linked | Do not choose as next spec slice; wait for PR review/CodeRabbit or rework. |
+| `JSC-320` P1 | In Review, High, parent `JSC-318`, project assigned, PR #93 linked | Implementation/eval/reinforcement proof exists and is in draft PR review | review-linked | Do not choose as next spec slice; wait for PR review/CodeRabbit or rework. |
+| `JSC-321` P2 | Backlog, Medium, parent `JSC-318`, project assigned, no PR attachment | Spec/plan/eval/reinforcement exist; commit `35d56df` pushed to PR #93 with local validation evidence | live-tracker-stale | Sync Linear state/PR linkage before parent closure; do not create another JSC-321 spec. |
+| Parent closure readiness | No separate child issue; parent remains In Progress | P0/P1/P2 local proof exists; parent eval/deferred-scope decision missing | approved-next-spec-slice | Create a parent closure readiness spec for `JSC-318`. |
+| YAML schema support | No child under `JSC-318` | Deferred in strategy/refactor plan | unchanged-deferred-pending-decision | Decide in closure readiness spec whether explicit deferral is enough or a new child should be created. |
+| TypeScript contract surfaces | No child under `JSC-318` | Deferred as separate strategy/spec decision | unchanged-deferred-pending-decision | Decide in closure readiness spec whether explicit deferral is enough or a research child should be created. |
 
 Approved next slice queue:
 
 | Rank | Slice | Linear Issue | Queue Status | Spec Status | Reason |
 | --- | --- | --- | --- | --- | --- |
-| 0 | P0 JSON Schema logical ERD extraction | `JSC-319` | in-review-on-pr-93 | spec/plan/eval exist | Draft PR #93 contains implementation, fixture, validation, and Linear linkage; next action is review/check closure, not another spec. |
+| 0 | P0 JSON Schema logical ERD extraction | `JSC-319` | in-review-on-pr-93 | spec/plan/eval/reinforcement exist | Draft PR #93 contains implementation, fixture, validation, and Linear linkage; next action is review/check closure, not another spec. |
 | 1 | P1 source-kind metadata and unavailable-state truth | `JSC-320` | in-review-on-pr-93 | spec/plan/eval/reinforcement exist | Draft PR #93 contains additive metadata proof; next action is review/check closure, not another spec. |
-| 2 | P2 ERD unavailable fallback guidance in agent context | `JSC-321` | approved-next | missing | Context guidance can now consume the P1 metadata contract from PR #93; this is the next spec to create. |
-| 3 | Parent closure eval | `JSC-318` | blocked | missing parent eval | Parent cannot close until P0/P1/P2 evidence is complete or explicitly deferred. |
+| 2 | P2 ERD unavailable fallback guidance in agent context | `JSC-321` | local-proof-pushed-linear-stale | spec/plan/eval/reinforcement exist | Commit `35d56df` pushed to PR #93; live Linear still says Backlog with no PR link, so tracker sync is required before closure. |
+| 3 | Parent closure readiness | `JSC-318` | approved-next-spec | missing | P0/P1/P2 local proof exists; create a closure readiness spec to decide deferred scope, CodeRabbit/PR gate, Linear sync, and parent eval requirements. |
+| 4 | Parent closure eval | `JSC-318` | blocked | missing parent eval | Parent cannot close until closure readiness spec and live tracker sync are complete. |
 
 Next spec target:
 
 ```yaml
-selected_issue: JSC-321
-selected_slice: "P2 ERD unavailable fallback guidance in agent context"
-spec_path: ".harness/specs/2026-05-13-JSC-321-erd-unavailable-context-fallback-spec.md"
+selected_issue: JSC-318
+selected_slice: "Parent closure readiness after P0/P1/P2 local proof"
+spec_path: ".harness/specs/2026-05-13-JSC-318-contract-schema-erd-parent-closure-readiness-spec.md"
 source_linear_plan: ".harness/linear/2026-05-13-JSC-318-contract-schema-erd-linear-plan.md"
 depends_on:
   - "JSC-319 local implementation proof"
   - ".harness/evals/2026-05-13-jsc-319-json-schema-logical-erd-diagram-cli-eval.md"
   - "JSC-320 local implementation proof"
   - ".harness/evals/2026-05-13-jsc-320-erd-source-kind-manifest-truth-diagram-cli-eval.md"
+  - "JSC-321 local implementation proof"
+  - ".harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md"
+  - "PR #93 check and review state"
 must_not_include:
-  - "YAML schema parsing"
-  - "TypeScript contract extraction"
-  - "manifest schema-breaking migration unless separately approved"
-  - "public CLI behavior changes outside additive metadata"
+  - "new YAML schema parsing implementation"
+  - "new TypeScript contract extraction implementation"
+  - "new configured contract source implementation"
+  - "parent Done transition before Linear sync and review evidence"
 ```
 
-Stop conditions for JSC-321 spec:
+Stop conditions for JSC-318 closure readiness spec:
 
-- If JSC-319 proof is challenged or rework is requested, pause JSC-321 and return to P0.
-- If JSC-320 proof is challenged or rework is requested, pause JSC-321 and return to P1.
-- If context fallback requires a breaking machine-output schema migration, stop for owner decision before implementation planning.
-- If JSC-321 cannot consume JSC-320 metadata without broad context-pack rewrite, split the context work before implementation.
+- If PR #93 or CodeRabbit requests rework that affects P0/P1/P2 behavior, pause parent closure and return to the owning child slice.
+- If live Linear cannot be updated or linked for `JSC-321`, block parent closure and record the tracker sync gap.
+- If YAML, TypeScript, or configured-source work is not explicitly deferred, create a separate decision/spec before parent closure.
+- If parent closeout requires external mutation, stop until Jamie approves the Linear/GitHub update.
 
 ## Linear Work Item Contract
 
@@ -166,19 +174,19 @@ Stop conditions for JSC-321 spec:
 | Parent project | Diagram product surface and analysis workflow |
 | Parent priority | High |
 | Child issue sequence | `JSC-319` P0 -> `JSC-320` P1 -> `JSC-321` P2 |
-| Approved next spec slice | `JSC-321` |
+| Approved next spec slice | `JSC-318` parent closure readiness |
 | Milestone status | No project milestones returned by live Linear read |
-| Closure rule | `JSC-318` stays open until P0/P1/P2 evidence exists and a parent closure eval is written |
-| External mutation status | Applied: `JSC-318` moved to In Progress; `JSC-319` and `JSC-320` moved/kept In Review; PR #93 linked and commented on parent/children |
+| Closure rule | `JSC-318` stays open until P0/P1/P2 proof, PR/review evidence, Linear tracker sync, deferred-scope decision, and parent closure eval exist |
+| External mutation status | Partially stale: `JSC-318`, `JSC-319`, and `JSC-320` are linked to PR #93; `JSC-321` still needs PR linkage/status sync |
 
 ## Linear / Spec / Plan / PR Traceability
 
 | Linear issue | Source acceptance IDs | Plan units | Acceptance IDs | PR evidence |
 | --- | --- | --- | --- | --- |
-| `JSC-318` | Parent acceptance: useful contract-schema ERD, truthful manifest/degraded state, context fallback guidance, SQL/Prisma preservation | P0 `JSC-319`; P1 `JSC-320`; P2 `JSC-321`; parent closure eval | P0/P1 are in review; P2 and parent closure blocked | PR #93 linked; parent remains open |
+| `JSC-318` | Parent acceptance: useful contract-schema ERD, truthful manifest/degraded state, context fallback guidance, SQL/Prisma preservation | P0 `JSC-319`; P1 `JSC-320`; P2 `JSC-321`; parent closure readiness; parent closure eval | P0/P1/P2 local proof exists; closure readiness spec and parent eval missing | PR #93 linked; parent remains open |
 | `JSC-319` | JSON Schema logical ERD extraction; local refs; diagnostics; SQL/Prisma preservation | Completed local implementation and eval proof | JSC-319 eval says local implementation proof is satisfied | PR #93 linked; status In Review |
 | `JSC-320` | Source-kind metadata; useful/degraded/unavailable manifest truth; additive machine-output compatibility | Completed local implementation and eval proof | JSC-320 eval says local implementation proof is satisfied | PR #93 linked; status In Review |
-| `JSC-321` | Context-pack unavailable ERD fallback guidance | Approved next spec slice | pending spec | not started |
+| `JSC-321` | Context-pack unavailable ERD fallback guidance | Completed local implementation and eval proof | JSC-321 eval says local implementation proof is satisfied | Commit `35d56df` on PR #93; live Linear still Backlog/no PR link |
 
 ## Target Linear Destination
 
@@ -187,7 +195,7 @@ Stop conditions for JSC-321 spec:
 - Existing project: Diagram product surface and analysis workflow.
 - Preferred repo label: `Repo › diagram-cli`.
 - Live-compatible repo label: `diagram-cli`.
-- Status target before implementation: parent is now In Progress because P0/P1 are in review; do not move parent to Done until P2 and closure eval finish.
+- Status target before closure: parent remains In Progress; do not move parent to Done until P0/P1/P2 tracker state, PR/review evidence, deferred-scope decision, and closure eval are complete.
 - Cycle target: unset until Jamie explicitly admits the work into the current cycle.
 
 Do not create a new project for this work. The existing project is the correct bounded deliverable because the work changes Archscope diagram generation and analysis workflow behavior.
@@ -433,12 +441,14 @@ Now:
 
 - `JSC-318` has a Linear comment linking the strategy, refactor, and linear plan artifacts.
 - Child 1 was created as `JSC-319` for JSON Schema logical ERD extraction.
-- Keep P0 narrow and reversible.
+- Child 2 was created as `JSC-320` for source-kind metadata and manifest truth.
+- Child 3 was created as `JSC-321` for agent context unavailable guidance.
+- P0/P1/P2 local proof is now on PR #93.
 
 Next:
 
-- Child 2 was created as `JSC-320` for source-kind metadata and manifest truth.
-- Child 3 was created as `JSC-321` for agent context unavailable guidance.
+- Create the `JSC-318` parent closure readiness spec.
+- Sync `JSC-321` Linear status/PR linkage after explicit mutation approval.
 - Add closure eval evidence before parent completion.
 
 Later:
@@ -482,6 +492,7 @@ Soft dependency: P2 can start with no-source behavior, but it should wait for P1
 | SQL/Prisma behavior preserved | `JSC-319` | Existing ERD tests pass unchanged or changes are explicitly justified | Must pass before P0 Done |
 | Manifest distinguishes useful/degraded/unavailable | `JSC-320` | `npm test -- test/evidence-manifest-parity.test.js test/erd-extractor.test.js`; focused generate-all output | Must pass before P1 Done |
 | Agent context gives fallback guidance | `JSC-321` | `npm test -- test/context-pack.test.js`; context artifact path/snippet | Must pass before P2 Done |
+| Parent closure readiness | `JSC-318` | `.harness/specs/2026-05-13-JSC-318-contract-schema-erd-parent-closure-readiness-spec.md` or successor | Must decide tracker sync, review gates, and deferred YAML/TypeScript/configured-source scope before parent eval |
 | Parent acceptance closure | JSC-318 | `.harness/evals/2026-05-12-JSC-318-diagram-cli-contract-schema-erd-eval.md` or successor | Must exist before parent Done |
 
 ## Human vs Agent Execution Map
@@ -628,11 +639,10 @@ Planning evidence already available:
 
 Implementation evidence required later:
 
-- Exact command outcomes for focused extractor tests.
-- Exact command outcomes for manifest/context tests.
-- Generated ERD artifact path for the JSON Schema fixture.
-- Manifest artifact path showing source-kind/degraded truth.
-- Context artifact path showing unavailable fallback guidance.
+- JSC-321 Linear status and PR link sync evidence.
+- CodeRabbit completion or explicit blocker status for PR #93.
+- Deferred-scope decision for YAML schemas, TypeScript contract extraction, and configured contract source globs.
+- Closure readiness spec before parent eval.
 - Closure eval artifact before parent completion.
 
 ## Evidence & Traceability Matrix
@@ -647,5 +657,7 @@ Implementation evidence required later:
 | Current labels are `diagram-cli`, `Agent`, `Improvement` | Live Linear fetch | High | Preserve labels |
 | Preferred repo-label style is not live as named | Live label list contains `diagram-cli` under `Repo`, not `Repo › diagram-cli` | Medium | Use live label now; record preferred label as portfolio ops |
 | P0 should be JSON Schema only | Strategy/refactor artifacts | High | Create first child as JSON Schema source-kind proof |
-| YAML and TypeScript should be deferred | Strategy/refactor artifacts | High | Do not create now |
+| P2 local proof exists | Commit `35d56df` and `.harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md` | High | Do not create another JSC-321 spec; sync Linear and move to closure readiness |
+| JSC-321 live tracker is stale | Live Linear fetch shows Backlog/no PR attachment while PR #93 contains JSC-321 proof | High | Block parent closure until tracker sync |
+| YAML and TypeScript should be deferred unless explicitly re-admitted | Strategy/refactor artifacts plus parent acceptance text | Medium-high | Capture the deferral decision in closure readiness spec |
 | Live mutation was authorized | Jamie said "apply to linear" | High | `linear_mutation_status: applied` |

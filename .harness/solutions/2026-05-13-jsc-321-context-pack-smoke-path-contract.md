@@ -7,14 +7,17 @@ title: JSC-321 Context-Pack Smoke Path Contract Solution
 harness_stage: he-compound
 status: active
 date: 2026-05-13
+refreshed_date: 2026-05-14
 traceability_required: true
 origin: .harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md
 linear_issue: JSC-321
+linear_status: backlog
 module: src/context/build-context-pack.js
 problem_type: solved-validation-learning
 evidence:
   - .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md
   - .harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md
+  - .harness/evals/2026-05-13-jsc-318-contract-schema-erd-parent-closure-readiness-diagram-cli-eval.md
   - src/context/build-context-pack.js
   - test/context-pack.test.js
 project_brain_sync: blocked-no-project-brain-surface-in-workspace
@@ -31,6 +34,7 @@ tags:
 ## Table of Contents
 
 - [Command Summary](#command-summary)
+- [Refresh Status](#refresh-status)
 - [Problem](#problem)
 - [Evidence](#evidence)
 - [Root Cause](#root-cause)
@@ -39,13 +43,29 @@ tags:
 - [Prevention](#prevention)
 - [Project Brain / Routing](#project-brain--routing)
 - [Related Artifacts](#related-artifacts)
+- [Linear Work Item Contract](#linear-work-item-contract)
+- [Linear / Spec / Plan / PR Traceability](#linear--spec--plan--pr-traceability)
 
 ## Command Summary
 
 BLUF: This artifact is for the future agent or operator validating JSC-321-style context-pack behavior after generated ERD metadata changes. The durable rule is to copy fixtures into repo-local `.harness/tmp/.../workspace` directories, run `generate-all` with an output path relative to the analyzed workspace, and feed that generated manifest directly into `build-context-pack`. It matters because the CLI path validator was correct to reject absolute `/private/tmp` output paths, and weakening path safety would turn a stale smoke command into a product regression.
 Decision Needed: None for this reinforcement artifact; explicit approval is still required before committing, pushing, opening a PR, mutating Linear, or creating new Project Brain surfaces.
 Top Risks: Weakening output-path validation to satisfy a stale smoke command, assuming `--output-dir` resolves against the caller repository instead of the analyzed project root, or inserting `normalize-diagram-manifest` into a schema-only context smoke where normalization is not the behavior under test.
-Next Action: Reuse the corrected JSC-321 smoke command shape from the plan and this solution whenever validating context-pack consumption of generated ERD availability metadata.
+Next Action: Reuse the corrected JSC-321 smoke command shape from the plan and this solution whenever validating context-pack consumption of generated ERD availability metadata; treat JSC-318 parent closure as blocked until PR #93 is rechecked after local artifact fixes are exposed, JSC-321 tracker state is reconciled, and scope-owner decisions are recorded.
+
+## Refresh Status
+
+Summary: The 2026-05-14 refresh keeps this artifact as the canonical JSC-321 learning and adds the parent-closure eval as related evidence instead of creating a duplicate solution.
+
+Refresh Decision: update
+
+Reason: The durable learning is still the same: JSC-321 context-pack smokes must use fixture-local workspaces, project-relative `--output-dir diagrams`, direct `build-context-pack` consumption of the generated manifest, and explicit positive/negative text assertions. The newer JSC-318 parent-closure eval does not replace that rule; it proves that the local artifact fixes are validator-clean while parent closure remains blocked by PR review, Linear tracker, and scope-decision evidence.
+
+Overlap Decision: keep this artifact as canonical for the smoke-path contract; do not create a second JSC-318 closure-learning artifact unless the external PR recheck or Linear reconciliation uncovers a new root cause.
+
+Project Brain Status: blocked; no `.harness/knowledge/**`, `.harness/decisions/**`, `.harness/rules/**`, `.harness/memory/LEARNINGS.md`, or `docs/solutions/**` surface was present during refresh discovery.
+
+Refresh Evidence: `.harness/evals/2026-05-13-jsc-318-contract-schema-erd-parent-closure-readiness-diagram-cli-eval.md` now validates the JSC-318 closure report shape, identity, frontmatter safety, BLUF structure, Linear traceability, diff hygiene, and placeholder-marker scan, while keeping the closure recommendation blocked.
 
 ## Problem
 
@@ -59,10 +79,11 @@ The third stale assumption was that the smoke should always run `normalize-diagr
 
 ## Evidence
 
-- [.harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md](/Users/jamiecraik/dev/diagram-cli/.harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md) records that focused tests, full tests, deep regression, fast verify, and corrected no-schema/useful JSON Schema context smokes passed.
-- [.harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md](/Users/jamiecraik/dev/diagram-cli/.harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md) now contains the corrected repo-relative `.harness/tmp/jsc-321-*` smoke command sequences.
-- [src/context/build-context-pack.js](/Users/jamiecraik/dev/diagram-cli/src/context/build-context-pack.js) contains the JSC-321 behavior: `buildErdAvailabilityGuidance` reads manifest metadata and emits guidance only when the included ERD is unavailable, degraded, missing metadata, or unknown.
-- [test/context-pack.test.js](/Users/jamiecraik/dev/diagram-cli/test/context-pack.test.js) covers unavailable, degraded, useful, missing, and unknown metadata behavior at the context-pack boundary.
+- [.harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md](../evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md) records that focused tests, full tests, deep regression, fast verify, and corrected no-schema/useful JSON Schema context smokes passed.
+- [.harness/evals/2026-05-13-jsc-318-contract-schema-erd-parent-closure-readiness-diagram-cli-eval.md](../evals/2026-05-13-jsc-318-contract-schema-erd-parent-closure-readiness-diagram-cli-eval.md) records that the local JSC-321 artifact fixes are validator-clean but JSC-318 parent closure remains blocked by PR review recheck, JSC-321 tracker reconciliation, and scope-owner decisions.
+- [.harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md](../plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md) now contains the corrected repo-relative `.harness/tmp/jsc-321-*` smoke command sequences.
+- [src/context/build-context-pack.js](../../src/context/build-context-pack.js) contains the JSC-321 behavior: `buildErdAvailabilityGuidance` reads manifest metadata and emits guidance only when the included ERD is unavailable, degraded, missing metadata, or unknown.
+- [test/context-pack.test.js](../../test/context-pack.test.js) covers unavailable, degraded, useful, missing, and unknown metadata behavior at the context-pack boundary.
 - The stale absolute-output smoke failed with `Configuration error: Invalid path: directory traversal detected in "/private/tmp/diagram-cli-jsc-321-no-schema/diagrams"`.
 - The caller-root output assumption failed by looking for a manifest that was not written where expected: `Failed to read diagram manifest at .../diagrams/manifest.json: ENOENT`.
 - The normalization step was out of scope for the schema-only context smoke and failed with `Failed to normalize architecture.mmd: parsed structure was empty.`
@@ -140,6 +161,7 @@ The accepted JSC-321 local proof used this validation ladder:
 | Useful JSON Schema context smoke | pass | Corrected `.harness/tmp/jsc-321-contract-schema-json-*` smoke printed `expected negative assertion passed: useful ERD emitted no unavailable/degraded guidance`. |
 | Plan artifact validators | pass | BLUF, artifact shape, identity, and Linear traceability checks passed after smoke-command correction. |
 | Diff whitespace check | pass | `git diff --check -- .harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md src/context/build-context-pack.js test/context-pack.test.js` passed. |
+| Parent closure eval refresh | pass | The JSC-318 closure eval report passes the HE eval-report validator, identity lint, frontmatter safety lint, BLUF check, Linear traceability lint, diff hygiene check, and placeholder-marker scan while preserving the blocked closure recommendation. |
 
 ## Prevention
 
@@ -166,8 +188,25 @@ If those surfaces are restored or intentionally created, index this solution the
 
 ## Related Artifacts
 
-- [.harness/specs/2026-05-13-JSC-321-erd-unavailable-context-fallback-spec.md](/Users/jamiecraik/dev/diagram-cli/.harness/specs/2026-05-13-JSC-321-erd-unavailable-context-fallback-spec.md)
-- [.harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md](/Users/jamiecraik/dev/diagram-cli/.harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md)
-- [.harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md](/Users/jamiecraik/dev/diagram-cli/.harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md)
-- [src/context/build-context-pack.js](/Users/jamiecraik/dev/diagram-cli/src/context/build-context-pack.js)
-- [test/context-pack.test.js](/Users/jamiecraik/dev/diagram-cli/test/context-pack.test.js)
+- [.harness/specs/2026-05-13-JSC-321-erd-unavailable-context-fallback-spec.md](../specs/2026-05-13-JSC-321-erd-unavailable-context-fallback-spec.md)
+- [.harness/plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md](../plan/2026-05-13-JSC-321-erd-unavailable-context-fallback-plan.md)
+- [.harness/evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md](../evals/2026-05-13-jsc-321-erd-unavailable-context-fallback-diagram-cli-eval.md)
+- [.harness/evals/2026-05-13-jsc-318-contract-schema-erd-parent-closure-readiness-diagram-cli-eval.md](../evals/2026-05-13-jsc-318-contract-schema-erd-parent-closure-readiness-diagram-cli-eval.md)
+- [src/context/build-context-pack.js](../../src/context/build-context-pack.js)
+- [test/context-pack.test.js](../../test/context-pack.test.js)
+
+## Linear Work Item Contract
+
+| Field | Value |
+| --- | --- |
+| Linear issue | `JSC-321` |
+| Linear status | Backlog in live Linear evidence at JSC-318 parent closure review time |
+| Parent issue | `JSC-318` |
+| Purpose | Preserve the corrected JSC-321 context-pack smoke path contract for future validation runs. |
+| External mutation | Not authorized by this solution artifact. |
+
+## Linear / Spec / Plan / PR Traceability
+
+| Linear issue | Source acceptance IDs | Plan units | Acceptance IDs | PR evidence | Traceability status |
+| --- | --- | --- | --- | --- | --- |
+| `JSC-321` | `SA-321-001` through `SA-321-009` | `PU-321-000` through `PU-321-006` | `SA-321-001` through `SA-321-009` | PR #93 commit `35d56df`; CodeRabbit artifact comments on JSC-321 plan and solution | active: solution supports JSC-321 validation-path evidence; live Linear state still requires separate tracker reconciliation |
