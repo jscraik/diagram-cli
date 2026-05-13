@@ -12,10 +12,11 @@ const DEFAULT_IGNORE = [
   '**/tests/fixtures/**',
   '**/__fixtures__/**',
 ];
-const SOURCE_PRECEDENCE = Object.freeze(['prisma', 'sql']);
+const SOURCE_PRECEDENCE = Object.freeze(['prisma', 'sql', 'json-schema']);
 const SOURCE_FILE_PATTERNS = Object.freeze({
   prisma: '**/schema.prisma',
   sql: '**/*.sql',
+  'json-schema': '**/*.schema.json',
 });
 const PRISMA_SCALAR_TYPES = new Set(['String', 'Int', 'BigInt', 'Float', 'Decimal', 'Boolean', 'DateTime', 'Json', 'Bytes']);
 const SQL_IDENTIFIER_SOURCE = '(?:["`][^"`]+["`]|[A-Za-z_][A-Za-z0-9_]*)';
@@ -48,6 +49,7 @@ const SQL_COLUMN_CONSTRAINT_STARTERS = new Set([
 const SCHEMA_PARSERS = Object.freeze({
   prisma: parsePrismaSchema,
   sql: parseSqlSchema,
+  'json-schema': parseJsonSchema,
 });
 
 function parsePrismaField(line) {
@@ -339,9 +341,210 @@ function parseSqlSchema(fileContent) {
   return { entities, relationships };
 }
 
-function parseSchemaSource(source, content) {
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isJsonSchemaObjectLike(schema) {
+  return isPlainObject(schema) && (schema.type === 'object' || isPlainObject(schema.properties));
+}
+
+function jsonPointerEscape(segment) {
+  return String(segment).replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
+function jsonSchemaRootEntityName(schema, context = {}) {
+  if (typeof schema?.title === 'string' && schema.title.trim()) return schema.title.trim();
+  const relativeFilePath = context.relativeFilePath || 'schema.schema.json';
+  const fileName = path.basename(relativeFilePath).replace(/\.schema\.json$/i, '');
+  return fileName || 'schema';
+}
+
+function jsonSchemaDefinitions(schema) {
+  const definitions = [];
+  for (const sectionName of ['$defs', 'definitions']) {
+    const section = schema?.[sectionName];
+    if (!isPlainObject(section)) continue;
+    for (const [key, definition] of Object.entries(section)) {
+      definitions.push({
+        key,
+        pointer: `#/${sectionName}/${jsonPointerEscape(key)}`,
+        schema: definition,
+      });
+    }
+  }
+  return definitions;
+}
+
+function jsonSchemaTypeForProperty(propertySchema, entityIndex) {
+  if (!isPlainObject(propertySchema)) return 'unknown';
+  if (typeof propertySchema.$ref === 'string') {
+    const target = entityIndex.get(propertySchema.$ref);
+    return target?.entityName || 'ref';
+  }
+  if (propertySchema.type === 'array') return 'array';
+  if (Array.isArray(propertySchema.type)) {
+    return propertySchema.type.find((type) => type !== 'null') || 'unknown';
+  }
+  if (typeof propertySchema.type === 'string') return propertySchema.type;
+  return 'unknown';
+}
+
+function classifyJsonSchemaRef(ref) {
+  const token = String(ref || '');
+  if (/^https?:\/\//i.test(token)) return { kind: 'remote' };
+  const hashIndex = token.indexOf('#');
+  if (hashIndex > 0) return { kind: 'cross-file' };
+  if (hashIndex === -1 && token) return { kind: 'cross-file' };
+  return { kind: 'local', pointer: token || '#' };
+}
+
+function jsonSchemaDiagnostic(context, pointer, category, detail = '') {
+  const relativeFilePath = context?.relativeFilePath || 'unknown.schema.json';
+  const suffix = detail ? ` ${detail}` : '';
+  return `json-schema:${relativeFilePath}:${pointer} ${category}${suffix}`;
+}
+
+function pushJsonSchemaRefDiagnostic(diagnostics, context, pointer, ref, entityIndex, nonObjectPointers) {
+  const classified = classifyJsonSchemaRef(ref);
+  if (classified.kind === 'remote') {
+    diagnostics.push(jsonSchemaDiagnostic(context, pointer, 'remote_ref_unsupported', ref));
+    return;
+  }
+  if (classified.kind === 'cross-file') {
+    diagnostics.push(jsonSchemaDiagnostic(context, pointer, 'cross_file_ref_unsupported', ref));
+    return;
+  }
+  if (nonObjectPointers.has(classified.pointer)) {
+    diagnostics.push(jsonSchemaDiagnostic(context, pointer, 'non_object_definition_ignored', ref));
+    return;
+  }
+  if (!entityIndex.has(classified.pointer)) {
+    diagnostics.push(jsonSchemaDiagnostic(context, pointer, 'local_ref_unresolved', ref));
+  }
+}
+
+function parseJsonSchema(fileContent, context = {}) {
+  const schema = JSON.parse(fileContent);
+  const entities = [];
+  const relationships = [];
+  const diagnostics = [];
+  const entityIndex = new Map();
+  const nonObjectPointers = new Set();
+  const candidates = [];
+
+  candidates.push({
+    entityName: jsonSchemaRootEntityName(schema, context),
+    pointer: '#',
+    schema,
+  });
+  for (const definition of jsonSchemaDefinitions(schema)) {
+    candidates.push({
+      entityName: definition.key,
+      pointer: definition.pointer,
+      schema: definition.schema,
+    });
+  }
+
+  for (const candidate of candidates) {
+    if (isJsonSchemaObjectLike(candidate.schema)) {
+      entityIndex.set(candidate.pointer, {
+        entityName: candidate.entityName,
+        schema: candidate.schema,
+      });
+    } else if (candidate.pointer !== '#') {
+      nonObjectPointers.add(candidate.pointer);
+    }
+  }
+
+  for (const candidate of candidates) {
+    const indexed = entityIndex.get(candidate.pointer);
+    if (!indexed) continue;
+
+    const required = new Set(
+      Array.isArray(candidate.schema.required)
+        ? candidate.schema.required.map((field) => String(field))
+        : []
+    );
+    const properties = isPlainObject(candidate.schema.properties) ? candidate.schema.properties : {};
+    const attributes = [];
+
+    for (const [propertyName, propertySchema] of Object.entries(properties)) {
+      const propertyPointer = `${candidate.pointer === '#' ? '#/properties' : `${candidate.pointer}/properties`}/${jsonPointerEscape(propertyName)}`;
+      const type = jsonSchemaTypeForProperty(propertySchema, entityIndex);
+
+      attributes.push({
+        name: propertyName,
+        type,
+        nullable: !required.has(propertyName),
+        keyFlags: [],
+      });
+
+      if (!isPlainObject(propertySchema)) continue;
+
+      if (propertySchema.allOf || propertySchema.anyOf || propertySchema.oneOf) {
+        diagnostics.push(jsonSchemaDiagnostic(context, propertyPointer, 'composition_unsupported'));
+      }
+
+      if (typeof propertySchema.$ref === 'string') {
+        const classified = classifyJsonSchemaRef(propertySchema.$ref);
+        const target = classified.kind === 'local' ? entityIndex.get(classified.pointer) : null;
+        if (target) {
+          relationships.push({
+            fromEntity: indexed.entityName,
+            toEntity: target.entityName,
+            cardinality: '}o--||',
+            provenance: 'explicit',
+          });
+        } else {
+          pushJsonSchemaRefDiagnostic(
+            diagnostics,
+            context,
+            propertyPointer,
+            propertySchema.$ref,
+            entityIndex,
+            nonObjectPointers
+          );
+        }
+      }
+
+      const items = propertySchema.items;
+      if (propertySchema.type === 'array' && typeof items?.$ref === 'string') {
+        const classified = classifyJsonSchemaRef(items.$ref);
+        const target = classified.kind === 'local' ? entityIndex.get(classified.pointer) : null;
+        if (target) {
+          relationships.push({
+            fromEntity: indexed.entityName,
+            toEntity: target.entityName,
+            cardinality: '||--o{',
+            provenance: 'explicit',
+          });
+        } else {
+          pushJsonSchemaRefDiagnostic(
+            diagnostics,
+            context,
+            `${propertyPointer}/items`,
+            items.$ref,
+            entityIndex,
+            nonObjectPointers
+          );
+        }
+      }
+    }
+
+    entities.push({
+      name: indexed.entityName,
+      source: 'explicit',
+      attributes,
+    });
+  }
+
+  return { entities, relationships, diagnostics };
+}
+
+function parseSchemaSource(source, content, context = {}) {
   const parser = SCHEMA_PARSERS[source];
-  if (parser) return parser(content);
+  if (parser) return parser(content, context);
   throw new Error(`unsupported schema source: ${source}`);
 }
 
@@ -378,6 +581,7 @@ function inferRelationshipsFromForeignKeyNames(entities, explicitRelationships) 
 
       const target = candidates.find((candidate) => byEntity.has(candidate));
       if (!target) continue;
+      if (target === from) continue;
       const key = relationshipKey(from, target);
       if (explicitKeys.has(key)) continue;
       explicitKeys.add(key);
@@ -405,6 +609,7 @@ function extractErdModel({ rootPath, ignore = [] }) {
     extractionInvoked: true,
     sourcePrecedence: [...SOURCE_PRECEDENCE],
     sourceFiles: [],
+    sourceFilesByKind: {},
     diagnostics: [],
     terminalClass: 'completed',
     model: normalizeErdModel({ entities: [], relationships: [] }),
@@ -430,6 +635,7 @@ function extractErdModel({ rootPath, ignore = [] }) {
 
   const entities = [];
   const relationships = [];
+  const parserDiagnostics = [];
   const parseErrors = [];
 
   for (const source of SOURCE_PRECEDENCE) {
@@ -437,10 +643,20 @@ function extractErdModel({ rootPath, ignore = [] }) {
     for (const filePath of files) {
       try {
         const content = fs.readFileSync(filePath, 'utf8');
-        const parsed = parseSchemaSource(source, content);
+        const relativeFilePath = path.relative(rootPath, filePath);
+        const parsed = parseSchemaSource(source, content, {
+          absoluteFilePath: filePath,
+          relativeFilePath,
+          rootPath,
+        });
         entities.push(...parsed.entities);
         relationships.push(...parsed.relationships);
-        result.sourceFiles.push(path.relative(rootPath, filePath));
+        parserDiagnostics.push(...(parsed.diagnostics || []));
+        result.sourceFiles.push(relativeFilePath);
+        if (!result.sourceFilesByKind[source]) {
+          result.sourceFilesByKind[source] = [];
+        }
+        result.sourceFilesByKind[source].push(relativeFilePath);
       } catch (error) {
         parseErrors.push({
           source,
@@ -469,9 +685,16 @@ function extractErdModel({ rootPath, ignore = [] }) {
     sourcePrecedence: SOURCE_PRECEDENCE,
   });
 
+  for (const source of Object.keys(result.sourceFilesByKind)) {
+    result.sourceFilesByKind[source].sort();
+    if (result.sourceFilesByKind[source].length === 0) {
+      delete result.sourceFilesByKind[source];
+    }
+  }
+
   if (result.sourceFiles.length === 0 && parseErrors.length === 0) {
     result.terminalClass = 'failed_no_schema';
-    result.diagnostics.push('no supported schema sources found (expected schema.prisma or .sql files)');
+    result.diagnostics.push('no supported schema sources found (expected schema.prisma, .sql, or .schema.json files)');
   } else if (model.entities.length === 0) {
     result.terminalClass = 'failed_parse';
     if (parseErrors.length === 0) {
@@ -479,8 +702,10 @@ function extractErdModel({ rootPath, ignore = [] }) {
         'schema sources found but no ERD entities extracted (check supported model shapes)'
       );
     }
+    result.diagnostics.push(...parserDiagnostics);
     appendParseDiagnostics(result.diagnostics, parseErrors);
   } else {
+    result.diagnostics.push(...parserDiagnostics);
     appendParseDiagnostics(result.diagnostics, parseErrors);
     result.terminalClass = 'completed';
   }
@@ -496,6 +721,7 @@ module.exports = {
   __test: {
     SCHEMA_PARSERS,
     inferRelationshipsFromForeignKeyNames,
+    parseJsonSchema,
     parsePrismaSchema,
     parseSqlSchema,
     relationshipKey,

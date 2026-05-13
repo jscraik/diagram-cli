@@ -22,8 +22,45 @@ diagrams/
 .narrative/meta/
 .playwright-mcp/
 
-# Local analysis artifacts
-.harness/
+# Harness control-plane and local analysis artifacts
+.harness/*
+!.harness/README.md
+!.harness/*.json
+!.harness/core/
+!.harness/core/**
+!.harness/decisions/
+!.harness/decisions/**
+!.harness/linear/
+!.harness/linear/**
+!.harness/refactors/
+!.harness/refactors/**
+!.harness/features/
+!.harness/features/**
+!.harness/strategy/
+!.harness/strategy/**
+!.harness/triage/
+!.harness/triage/**
+!.harness/review/
+!.harness/review/**
+!.harness/evals/
+!.harness/evals/**
+!.harness/solutions/
+!.harness/solutions/**
+!.harness/ideate/
+!.harness/ideate/**
+!.harness/brainstorm/
+!.harness/brainstorm/**
+!.harness/specs/
+!.harness/specs/**
+!.harness/plan/
+!.harness/plan/**
+!.harness/memory/
+!.harness/memory/**
+!.harness/quality/
+!.harness/quality/**
+.harness/backups/
+.harness/*.db
+.harness/ci-migrate-snapshots/
 .memory-metrics.json
 insights-*.png
 .codex/memory/

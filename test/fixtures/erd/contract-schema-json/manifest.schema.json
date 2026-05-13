@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentRunManifest",
+  "type": "object",
+  "required": ["runId", "currentEvent"],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "eventId": {
+      "type": "string"
+    },
+    "currentEvent": {
+      "$ref": "#/$defs/AgentRunEvent"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/AgentRunEvent"
+      }
+    }
+  },
+  "$defs": {
+    "AgentRunEvent": {
+      "type": "object",
+      "required": ["eventId", "reviewer"],
+      "properties": {
+        "eventId": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "reviewer": {
+          "$ref": "#/$defs/Reviewer"
+        }
+      }
+    },
+    "Reviewer": {
+      "type": "object",
+      "required": ["reviewerId"],
+      "properties": {
+        "reviewerId": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
