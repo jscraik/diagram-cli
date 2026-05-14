@@ -161,6 +161,36 @@ function writeBriefArtifact({
   });
 }
 
+function writeAgentContextArtifact({
+  outDir,
+  manifest,
+  analysis,
+  prImpact,
+  warnings,
+  errors,
+  failureState,
+  manifestPathOptions = {},
+}) {
+  const agentContextPath = path.join(outDir, 'agent-context.json');
+  return writeArtifact({
+    artifact: 'agent-context',
+    write: () => writeAgentContext(agentContextPath, {
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
+      nextSafeAction: buildNextSafeAction({
+        outcome: outcomeForManifest(manifest),
+        manifest,
+        manifestPath: manifestArtifactPath(manifest, 'manifest', manifestPathOptions),
+        errors,
+      }),
+    }),
+    failureState,
+  });
+}
+
 /**
  * Produce a semicolon-separated summary of warning messages or `'none'` when there are none.
  * @param {Array<string>} warnings - Array of warning messages; any non-array or empty array is treated as no warnings.
@@ -491,6 +521,7 @@ function addScanOptions(command) {
  * @param {string} targetPath - Path to the repository or project to scan.
  * @param {Object} rawOptions - Parsed CLI options supplied by the user.
  * @param {Object} [metadata={}] - Optional invocation metadata; recognised keys include `commandName`, `delegatedCommand` and `scanEquivalent`.
+ *   `scanEquivalent` may be a string or a function that receives resolved scan options.
  */
 async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
   const options = applyDiagramRcDefaults(
@@ -605,22 +636,13 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
 
     manifest = buildManifest();
 
-    const agentContextPath = path.join(outDir, 'agent-context.json');
-    writeArtifact({
-      artifact: 'agent-context',
-      write: () => writeAgentContext(agentContextPath, {
-        manifest,
-        analysis,
-        prImpact,
-        warnings,
-        errors,
-        nextSafeAction: buildNextSafeAction({
-          outcome: outcomeForManifest(manifest),
-          manifest,
-          manifestPath: manifestArtifactPath(manifest, 'manifest'),
-          errors,
-        }),
-      }),
+    writeAgentContextArtifact({
+      outDir,
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
       failureState,
     });
 
@@ -659,26 +681,44 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
     });
     manifest = buildManifest();
 
-    const agentContextPath = path.join(outDir, 'agent-context.json');
-    writeArtifact({
-      artifact: 'agent-context',
-      write: () => writeAgentContext(agentContextPath, {
+    writeAgentContextArtifact({
+      outDir,
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
+      failureState,
+    });
+    manifest = buildManifest();
+  }
+
+  if (analysis && artifactStatuses.brief === 'written') {
+    writeBriefArtifact({
+      outDir,
+      manifest,
+      analysis,
+      prImpact,
+      warnings,
+      errors,
+      failureState,
+    });
+    manifest = buildManifest();
+
+    if (artifactStatuses['agent-context'] === 'written') {
+      writeAgentContextArtifact({
+        outDir,
         manifest,
         analysis,
         prImpact,
         warnings,
         errors,
-        nextSafeAction: buildNextSafeAction({
-          outcome: outcomeForManifest(manifest),
-          manifest,
-          manifestPath: manifestArtifactPath(manifest, 'manifest'),
-          errors,
-        }),
-      }),
-      failureState,
-    });
-    manifest = buildManifest();
+        failureState,
+      });
+      manifest = buildManifest();
+    }
   }
+
   const manifestPath = path.join(outDir, 'manifest.json');
   try {
     writeJsonFile(manifestPath, manifest);
@@ -693,41 +733,33 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
     manifest = buildManifest();
   }
 
-  if (
-    analysis
-    && artifactStatuses.manifest === 'failed'
-    && artifactStatuses['agent-context'] === 'written'
-  ) {
-    writeBriefArtifact({
-      outDir,
-      manifest,
-      analysis,
-      prImpact,
-      warnings,
-      errors,
-      failureState,
-    });
-    manifest = buildManifest();
-
-    const agentContextPath = path.join(outDir, 'agent-context.json');
-    writeArtifact({
-      artifact: 'agent-context',
-      write: () => writeAgentContext(agentContextPath, {
+  if (analysis && artifactStatuses.manifest === 'failed') {
+    if (artifactStatuses.brief === 'written') {
+      writeBriefArtifact({
+        outDir,
         manifest,
         analysis,
         prImpact,
         warnings,
         errors,
-        nextSafeAction: buildNextSafeAction({
-          outcome: outcomeForManifest(manifest),
-          manifest,
-          manifestPath: manifestArtifactPath(manifest, 'manifest', { requireWritten: true }),
-          errors,
-        }),
-      }),
-      failureState,
-    });
-    manifest = buildManifest();
+        failureState,
+      });
+      manifest = buildManifest();
+    }
+
+    if (artifactStatuses['agent-context'] === 'written') {
+      writeAgentContextArtifact({
+        outDir,
+        manifest,
+        analysis,
+        prImpact,
+        warnings,
+        errors,
+        failureState,
+        manifestPathOptions: { requireWritten: true },
+      });
+      manifest = buildManifest();
+    }
   }
 
   const outcome = outcomeForManifest(manifest);
@@ -760,7 +792,9 @@ async function runScanCommand(program, targetPath, rawOptions, metadata = {}) {
   if (formatStr === 'json') {
     const commandName = metadata.commandName || 'scan';
     const delegatedCommand = metadata.delegatedCommand || null;
-    const scanEquivalent = metadata.scanEquivalent || null;
+    const scanEquivalent = typeof metadata.scanEquivalent === 'function'
+      ? metadata.scanEquivalent(options)
+      : metadata.scanEquivalent || null;
     const payload = buildMachineEnvelope({
       schemaVersion: '1.0',
       command: commandName,

@@ -133,7 +133,10 @@ describe('scan evidence manifest', () => {
       const payload = JSON.parse(result.stdout.trim());
       expect(payload.command).to.equal('agent');
       expect(payload.data.delegatedCommand).to.equal('scan');
-      expect(payload.data.scanEquivalent).to.equal(`archscope scan ${workspace} --format json --deterministic`);
+      expect(payload.data.scanEquivalent).to.equal(
+        `archscope scan ${workspace} --exclude 'node_modules,dist,coverage,artifacts,.git,.diagram' `
+        + '--format json --deterministic'
+      );
       expect(payload.data.outcome).to.equal('success');
       expect(payload.data.manifestPath).to.equal('.diagram/manifest.json');
       expect(payload.data.agentContextPath).to.equal('.diagram/agent-context.json');
@@ -174,6 +177,38 @@ describe('scan evidence manifest', () => {
         + '--format json --deterministic'
       );
       expect(payload.data.manifestPath).to.equal('artifacts/scan/manifest.json');
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('includes .diagramrc scan scope in agent scan-equivalent metadata', () => {
+    const workspace = createWorkspace('archscope scan manifest ');
+    try {
+      fs.writeFileSync(path.join(workspace, '.diagramrc'), JSON.stringify({
+        patterns: 'src/**/*.js',
+        exclude: 'src/generated/**',
+        maxFiles: 42,
+      }));
+
+      const result = spawnSync('node', [
+        path.join(repoRoot, 'src', 'diagram.js'),
+        'agent',
+        workspace,
+        '--format',
+        'json',
+        '--deterministic',
+      ], {
+        cwd: workspace,
+        encoding: 'utf8',
+      });
+
+      expect(result.status, result.stderr).to.equal(0);
+      const payload = JSON.parse(result.stdout.trim());
+      expect(payload.data.scanEquivalent).to.equal(
+        `archscope scan '${workspace}' --patterns 'src/**/*.js' `
+        + "--exclude 'src/generated/**' --max-files 42 --format json --deterministic"
+      );
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

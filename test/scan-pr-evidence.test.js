@@ -171,7 +171,8 @@ describe('scan PR evidence composition', () => {
     expect(payload.command).to.equal('agent-pr');
     expect(payload.data.delegatedCommand).to.equal('scan');
     expect(payload.data.scanEquivalent).to.equal(
-      `archscope scan ${workspace} --base 'HEAD~1' --head HEAD --format json --deterministic`
+      `archscope scan ${workspace} --exclude 'node_modules,dist,coverage,artifacts,.git,.diagram' `
+      + "--base 'HEAD~1' --head HEAD --format json --deterministic"
     );
     expect(payload.data.pr.status).to.equal('complete');
     expect(payload.data.pr.head).to.be.a('string');

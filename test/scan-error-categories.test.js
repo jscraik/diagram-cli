@@ -54,6 +54,12 @@ describe('scan error categories', () => {
       expect(agentEntry.status).to.equal('failed');
       expect(agentEntry.errorCategory).to.equal('artifact_write_failed');
       expect(fs.existsSync(path.join(workspace, '.diagram', 'brief.md'))).to.equal(true);
+      const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
+      expect(brief).to.include('- Evidence status: failed');
+      expect(brief).to.include(
+        '- .diagram/agent-context.json: failed (writer_failed) [artifact_write_failed]'
+      );
+      expect(brief).to.not.include('- Missing artifacts: none');
       expect(fs.existsSync(path.join(workspace, '.diagram', 'architecture.mmd'))).to.equal(true);
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
@@ -123,6 +129,38 @@ describe('scan error categories', () => {
         'Manifest was not written; inspect the reported errors before consuming evidence artifacts.'
       );
       expect(brief).to.not.include('Read .diagram/manifest.json for artifact status before opening optional files.');
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps the brief aligned when multiple required artifact writes fail', () => {
+    const workspace = createWorkspace();
+    try {
+      fs.mkdirSync(path.join(workspace, '.diagram', 'agent-context.json'), { recursive: true });
+      fs.mkdirSync(path.join(workspace, '.diagram', 'manifest.json'), { recursive: true });
+      const result = spawnSync('node', [
+        path.join(repoRoot, 'src', 'diagram.js'),
+        'scan',
+        workspace,
+        '--format',
+        'json',
+        '--deterministic',
+      ], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+      });
+
+      expect(result.status, result.stdout).to.equal(1);
+      const brief = fs.readFileSync(path.join(workspace, '.diagram', 'brief.md'), 'utf8');
+      expect(brief).to.include('- Evidence status: failed');
+      expect(brief).to.include(
+        '- .diagram/manifest.json: failed (write_failure) [artifact_write_failed]'
+      );
+      expect(brief).to.include(
+        '- .diagram/agent-context.json: failed (writer_failed) [artifact_write_failed]'
+      );
+      expect(brief).to.not.include('- Missing artifacts: none');
     } finally {
       fs.rmSync(workspace, { recursive: true, force: true });
     }

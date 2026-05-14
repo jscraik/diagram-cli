@@ -33,7 +33,7 @@ function registerAgentPrCommand(program) {
       await runScanCommand(program, targetPath, options, {
         commandName: 'agent-pr',
         delegatedCommand: 'scan',
-        scanEquivalent: buildScanEquivalent('agent-pr', targetPath, options),
+        scanEquivalent: (resolvedOptions) => buildScanEquivalent('agent-pr', targetPath, resolvedOptions),
       });
     });
 }

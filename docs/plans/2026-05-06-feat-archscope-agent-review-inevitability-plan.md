@@ -17,7 +17,7 @@ linear_url: https://linear.app/jscraik/issue/JSC-280/make-archscope-inevitable-f
 linear_team: Jscraik
 linear_priority: Medium
 branch: jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers
-pr: https://github.com/jscraik/diagram-cli/pull/88
+pr: https://github.com/jscraik/diagram-cli/pull/89
 ---
 
 # feat: Archscope agent review inevitability plan
@@ -105,7 +105,8 @@ agent / agent-pr wrappers
 - Current state: Triage
 - Branch:
   `jscraik/jsc-280-make-archscope-inevitable-for-coding-agents-and-pr-reviewers`
-- PR: pending
+- PR:
+  https://github.com/jscraik/diagram-cli/pull/89
 - Handoff stage after this plan: `$he-work`
 
 ## Source Trace
@@ -151,7 +152,7 @@ agent / agent-pr wrappers
 | Docs make agent and PR review front door obvious | SA12-SA13 | P5 | AC17-AC18 | P5 diff puts `agent-pr`/`agent` first in README, getting started, CLI reference, and unknown-command help. |
 | Validation truthfulness is explicit | SA14, SA20 | P5 | AC19-AC20 | P5 diff makes `lint`, `typecheck`, and `docs:lint` emit `not_configured` JSON and documents real gates. |
 | Compatibility and bounded architecture are preserved | SA3-SA4, SA15, SA24 | P0, P1, P6 | AC21-AC24 | Compatibility tests and `migration:readiness` pass; no broad core-analysis refactor included. |
-| Linear/spec/plan/PR traceability is maintained | SA16, SA18-SA19 | P0, P6 | AC25-AC27 | Draft PR #88 was created with `diff-budget-override` label; `harness-pr-gates` simulation confirmed override makes diff-budget pass (commit range f091e22e6495b6820e3c2dc05401b5a5f94723bc → 9c019c367d55053fcd646bb383305bd05179fe18, 2026-05-06). Linear JSC-280 links the blocker/waiver evidence. Note: `gh pr list` query returned `[]` at validation time, indicating PR may have been subsequently closed/deleted or query ran under different context. |
+| Linear/spec/plan/PR traceability is maintained | SA16, SA18-SA19 | P0, P6 | AC25-AC27 | Current draft PR #89 is the active review surface. Earlier draft PR #88 was created with `diff-budget-override` label; `harness-pr-gates` simulation confirmed override makes diff-budget pass (commit range f091e22e6495b6820e3c2dc05401b5a5f94723bc -> 9c019c367d55053fcd646bb383305bd05179fe18, 2026-05-06). Linear JSC-280 links the blocker/waiver evidence. |
 
 ## Scope Boundaries
 
@@ -813,7 +814,7 @@ Validation evidence:
 
 ### P6 Traceability and Release Readiness
 
-Status: diff-budget waiver path applied; PR #88 is the active review surface for
+Status: diff-budget waiver path applied; PR #89 is the active review surface for
 this branch.
 
 Implementation evidence:
@@ -822,14 +823,14 @@ Implementation evidence:
   evidence that implemented them.
 - JSC-280 has phase comments through P5, including exact validation outcomes and
   the optional Local Memory warning.
-- Draft PR #88 was created during implementation:
-  https://github.com/jscraik/diagram-cli/pull/88
-- PR #88 had the explicit `diff-budget-override` label required by
+- Draft PR #89 is the current review surface:
+  https://github.com/jscraik/diagram-cli/pull/89
+- Earlier draft PR #88 had the explicit `diff-budget-override` label required by
   `harness.contract.json`.
 - Note: A historical validation command `gh pr list --head jscraik/jsc-280-...`
   returned `[]` because that query was unreliable for this branch/auth context.
   The canonical reproduction command is:
-  `gh pr view 88 --repo jscraik/diagram-cli --json state,number,url,isDraft,labels`.
+  `gh pr view 89 --repo jscraik/diagram-cli --json state,number,url,isDraft,labels`.
 
 Original blocker:
 
@@ -860,7 +861,7 @@ Waiver evidence:
 
 Remaining PR-readiness constraints:
 
-- PR #88 remains draft.
+- PR #89 remains draft.
 - Greptile/independent review artifacts are still pending.
 - Full CI status has not been monitored to green in this phase.
 
@@ -869,14 +870,14 @@ Review evidence:
 - `$simplify` inline review found no behavior-preserving cleanup for the P6
   traceability-only update.
 - `$he-code-review` verdict after waiver: diff-budget waiver path is explicit
-  and testable on PR #88, but merge readiness remains blocked until draft status,
+  and testable on PR #89, but merge readiness remains blocked until draft status,
   independent review, and CI gates are resolved.
 
 Validation evidence:
 
 - Command:
-  `gh pr view 88 --repo jscraik/diagram-cli --json number,title,state,url,isDraft,labels` -> pass
-  (PR #88 is the branch's review surface; the earlier `gh pr list --head ...`
+  `gh pr view 89 --repo jscraik/diagram-cli --json number,title,state,url,isDraft,labels` -> pass
+  (PR #89 is the branch's review surface; the earlier `gh pr list --head ...`
   query returned `[]` and is retained only as historical evidence of that
   query's mismatch).
 - Command: `npm run harness:check` -> fail. `preflight-gate` passed; `diff-budget`
@@ -906,10 +907,11 @@ Validation evidence:
 - P3 complete: agent context guidance validates against schema.
 - P4 complete: brief and terminal output are review-decision oriented.
 - P5 complete: docs/help/validation truthfulness updated.
-- P6 waiver path applied: draft PR #88 was created with `diff-budget-override`, and
+- P6 waiver path applied: current draft PR #89 replaces earlier draft PR #88, and
   `harness-pr-gates` simulation confirmed diff-budget passes via override (commit range
   f091e22e6495b6820e3c2dc05401b5a5f94723bc → 9c019c367d55053fcd646bb383305bd05179fe18, 2026-05-06).
-  Note: PR may have been subsequently closed/deleted (validation query returned `[]`).
+  Note: current review and CI closeout moved to PR #89 after the earlier PR #88
+  surface was superseded.
   Merge readiness still needs draft/CI/review closeout.
 
 ## First he-work Handoff

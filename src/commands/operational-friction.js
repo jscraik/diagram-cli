@@ -125,10 +125,6 @@ function buildNextSafeAction({
       category,
       retryable: true,
       humanRequired: false,
-      // Exception: manifestPath alone is sufficient for ref-fetching because the agent
-      // only needs to know where to write the updated scan results, not that the initial
-      // write already succeeded. This differs from artifact_write_failed which requires
-      // hasWrittenRequiredEvidence to confirm baseline evidence is usable.
       canUseWrittenEvidence: Boolean(manifestPath),
       message: 'Fetch the missing base/head refs, then rerun the PR evidence scan.',
       fallbackAction: 'rerun_repository_scan',
@@ -168,7 +164,7 @@ function buildNextSafeAction({
       category,
       retryable: ['network', 'timeout', 'analysis_partial'].includes(category),
       humanRequired: category === 'approval_required' || category === 'permission',
-      canUseWrittenEvidence: hasWrittenRequiredEvidence(manifest, manifestPath),
+      canUseWrittenEvidence: Boolean(manifestPath),
       artifact: signal.artifact,
       message: messageForCategory(category),
     };

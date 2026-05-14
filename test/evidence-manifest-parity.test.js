@@ -3,6 +3,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { expect } = require('chai');
+const { buildArchitectureBrief } = require('../src/artifacts/brief');
 const { actionableMissingArtifacts } = require('../src/artifacts/evidence-manifest');
 
 function createWorkspace(prefix = 'archscope-manifest-parity-') {
@@ -40,6 +41,33 @@ describe('evidence manifest parity', () => {
       'architecture',
       'manifest',
     ]);
+  });
+
+  it('preserves partial evidence status in the brief', () => {
+    const manifest = {
+      artifactReadOrder: ['.diagram/manifest.json', '.diagram/architecture.mmd'],
+      primaryAgentArtifact: '.diagram/agent-context.json',
+      primaryHumanArtifact: '.diagram/brief.md',
+      validation: { status: 'not_run' },
+      artifacts: [
+        { id: 'manifest', path: '.diagram/manifest.json', status: 'written' },
+        { id: 'brief', path: '.diagram/brief.md', status: 'written' },
+        { id: 'architecture', path: '.diagram/architecture.mmd', status: 'partial', reason: 'truncated' },
+      ],
+      warnings: [],
+    };
+
+    const brief = buildArchitectureBrief({
+      manifest,
+      analysis: {
+        components: [],
+        entryPoints: [],
+        totalFilesFound: 0,
+      },
+    });
+
+    expect(brief).to.include('- Evidence status: partial');
+    expect(brief).to.include('- .diagram/architecture.mmd: partial (truncated)');
   });
 
   it('preserves generate-all manifest semantics through the shared writer', () => {
