@@ -327,26 +327,29 @@ The deepening pass reviewed the current command and artifact implementation:
 - `NextSafeAction`
   - A machine- and human-readable recommendation for what to do after command
     completion.
-  - Required values must distinguish retry, fetch refs, continue with partial
-    evidence, stop before editing, fail the gate, and report an internal error.
+  - Required values must distinguish reading written evidence, fetching refs,
+    retrying artifact writes, stopping to repair missing artifacts, requesting
+    approval or permission repair, restoring network access, reducing scope,
+    repairing git state, restoring missing files, fixing validation failures,
+    rerunning repository analysis, and inspecting internal errors.
   - Required shape:
 
     ```json
     {
-      "action": "continue_with_written_artifacts",
-      "category": "success",
+      "action": "read_manifest",
+      "category": null,
       "retryable": false,
-      "requiresHuman": false,
-      "reason": "All required evidence artifacts were written.",
-      "commands": [],
-      "readNext": [".diagram/manifest.json", ".diagram/brief.md"]
+      "humanRequired": false,
+      "canUseWrittenEvidence": true,
+      "message": "Read .diagram/manifest.json for artifact status before opening optional files."
     }
     ```
-  - `action` must be one of `continue_with_written_artifacts`, `fetch_refs`,
-    `rerun_repository_scan`, `request_approval`, `request_permission`,
-    `retry_with_network`, `retry_narrower_scope`, `fix_git_state`,
-    `fix_validation_failure`, `regenerate_missing_file`, `stop_before_editing`,
-    `fail_gate`, or `report_internal_error`.
+  - `action` must be one of `read_manifest`, `fetch_refs`,
+    `retry_artifact_write`, `stop_and_fix_artifact_output`,
+    `request_approval`, `restore_network`, `fix_permissions`,
+    `retry_with_smaller_scope`, `repair_git_state`, `restore_missing_file`,
+    `fix_lint_failure`, `fix_test_failure`, `rerun_repository_scan`,
+    `inspect_error`, `fix_configuration`, `use_agent_pr`, or `provide_base`.
 
 - `OperationalFrictionSignal`
   - A normalized blocker hint used to turn observed or detected agent friction

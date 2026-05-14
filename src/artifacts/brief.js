@@ -55,6 +55,32 @@ function artifactStatusLines(manifest) {
   });
 }
 
+function evidenceStatus(manifest) {
+  if (manifest.artifacts.some((entry) => entry.status === 'failed')) return 'failed';
+  if (manifest.artifacts.some((entry) => entry.status === 'partial')) return 'partial';
+  return 'written';
+}
+
+function manifestWasWritten(manifest) {
+  return manifest.artifacts.some(
+    (entry) => entry.id === 'manifest' && entry.status === 'written',
+  );
+}
+
+function handoffLines(manifest) {
+  if (!manifestWasWritten(manifest)) {
+    return [
+      '- Manifest was not written; inspect the reported errors before consuming evidence artifacts.',
+    ];
+  }
+
+  return [
+    `- Read ${manifest.artifactReadOrder[0]} first for artifact status.`,
+    `- Use ${manifest.primaryAgentArtifact} as the parser-safe agent contract.`,
+    `- Open ${manifest.primaryHumanArtifact} for the concise human summary.`,
+  ];
+}
+
 /**
  * Format the manifest's artifact read order as numbered markdown lines.
  *
@@ -195,7 +221,7 @@ function buildArchitectureBrief({
     evidenceStatusHeading,
     '',
     `- Validation: ${manifest.validation.status}`,
-    `- Evidence status: ${manifest.artifacts.some((entry) => entry.status === 'failed') ? 'failed' : 'written'}`,
+    `- Evidence status: ${evidenceStatus(manifest)}`,
     ...artifactStatusLines(manifest),
     ...validationLines,
     '',
@@ -209,9 +235,7 @@ function buildArchitectureBrief({
     '',
     handoffHeading,
     '',
-    `- Read ${manifest.artifactReadOrder[0]} first for artifact status.`,
-    `- Use ${manifest.primaryAgentArtifact} as the parser-safe agent contract.`,
-    `- Open ${manifest.primaryHumanArtifact} for the concise human summary.`,
+    ...handoffLines(manifest),
     '',
     nextActionHeading,
     '',

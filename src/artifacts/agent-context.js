@@ -55,9 +55,6 @@ function buildComponentMetadata(analysis) {
  * @returns {string|null} The artifact's `path` if an entry with the given `id` exists, otherwise `null`.
  */
 function artifactPathById(manifest, id) {
-  if (!manifest || !manifest.artifacts || !Array.isArray(manifest.artifacts)) {
-    return null;
-  }
   return manifest.artifacts.find((entry) => entry.id === id)?.path || null;
 }
 
@@ -67,9 +64,6 @@ function artifactPathById(manifest, id) {
  * @return {Set<string>} A set of artifact `path` values where the artifact's `status` is `'written'`.
  */
 function writtenArtifactPaths(manifest) {
-  if (!manifest || !Array.isArray(manifest.artifacts)) {
-    return new Set();
-  }
   return new Set(manifest.artifacts
     .filter((entry) => entry.status === 'written')
     .map((entry) => entry.path));

@@ -13,7 +13,8 @@
     "readOrder",
     "warnings",
     "errors",
-    "partial"
+    "partial",
+    "agentInstructions"
   ],
   "properties": {
     "schemaVersion": { "const": "1.0" },

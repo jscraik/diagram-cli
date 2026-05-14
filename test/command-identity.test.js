@@ -63,6 +63,7 @@ describe('command identity and compatibility', () => {
 
     expect(agentPrIndex).to.be.lessThan(analyzeIndex);
     expect(agentIndex).to.be.lessThan(analyzeIndex);
+    expect(agentPrIndex).to.be.lessThan(agentIndex);
     expect(agentPrIndex).to.be.lessThan(generateIndex);
     expect(mediaHeaderIndex).to.be.lessThan(videoIndex);
     expect(generateIndex).to.be.lessThan(mediaHeaderIndex);
