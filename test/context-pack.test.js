@@ -18,6 +18,18 @@ function withTempDiagrams(prefix, run) {
   }
 }
 
+function writeContextDiagramFixture(diagramsDir, diagrams) {
+  fs.writeFileSync(path.join(diagramsDir, 'architecture.mmd'), 'graph TD\n  App --> Store\n');
+  fs.writeFileSync(path.join(diagramsDir, 'dependency.mmd'), 'graph LR\n  API --> App\n');
+  fs.writeFileSync(path.join(diagramsDir, 'erd.mmd'), 'erDiagram\n  CONTRACT_SCHEMA_ENTITY {\n    string id\n  }\n');
+  fs.writeFileSync(path.join(diagramsDir, 'manifest.json'), JSON.stringify({
+    generatedAt: '2026-01-01T00:00:00.000Z',
+    rootPath: '/tmp/example',
+    diagramDir: '.diagram',
+    diagrams,
+  }));
+}
+
 describe('context pack helpers', () => {
   it('normalizes diagrams and preserves compaction metadata in manifest', () => {
     withTempDiagrams('diagram-context-normalize-', ({ tmpRoot, diagramsDir }) => {
@@ -145,6 +157,179 @@ describe('context pack helpers', () => {
       expect(secondMeta).to.not.have.property('rootPath');
       expect(firstMeta).to.deep.equal(secondMeta);
       expect(fs.readFileSync(firstOutputPath, 'utf8')).to.equal(fs.readFileSync(secondOutputPath, 'utf8'));
+    });
+  });
+
+  it('adds unavailable ERD guidance before embedded Mermaid when manifest metadata marks ERD unavailable', () => {
+    withTempDiagrams('diagram-context-erd-unavailable-guidance-', ({ tmpRoot, diagramsDir }) => {
+      writeContextDiagramFixture(diagramsDir, [
+        { type: 'architecture', file: 'architecture.mmd', bytes: 24, lines: 2, isPlaceholder: false },
+        { type: 'dependency', file: 'dependency.mmd', bytes: 20, lines: 2, isPlaceholder: false },
+        {
+          type: 'erd',
+          file: 'erd.mmd',
+          bytes: 55,
+          lines: 4,
+          isPlaceholder: false,
+          metadata: {
+            sourceKind: 'json-schema',
+            sourceKinds: [],
+            sourceFilesByKind: {},
+            availability: 'unavailable',
+            availabilityReason: 'no_supported_schema_sources',
+          },
+        },
+      ]);
+
+      const outputPath = path.join(tmpRoot, 'diagram-context.md');
+      buildContextPack({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        contextPath: outputPath,
+        deterministic: true,
+      });
+
+      const contextText = fs.readFileSync(outputPath, 'utf8');
+      expect(contextText).to.include('## ERD Availability Guidance');
+      expect(contextText).to.include('- Status: unavailable');
+      expect(contextText).to.include('- Reason: no_supported_schema_sources');
+      expect(contextText).to.include('- Fallback evidence: .diagram/diagrams/architecture.mmd, .diagram/diagrams/dependency.mmd');
+      expect(contextText).to.not.include('.diagram/diagrams/database.mmd');
+      expect(contextText.indexOf('## ERD Availability Guidance')).to.be.lessThan(
+        contextText.indexOf('## Embedded Mermaid (Budgeted)')
+      );
+    });
+  });
+
+  it('adds degraded ERD guidance with source-kind context when manifest metadata marks ERD degraded', () => {
+    withTempDiagrams('diagram-context-erd-degraded-guidance-', ({ tmpRoot, diagramsDir }) => {
+      writeContextDiagramFixture(diagramsDir, [
+        { type: 'architecture', file: 'architecture.mmd', bytes: 24, lines: 2, isPlaceholder: false },
+        { type: 'dependency', file: 'dependency.mmd', bytes: 20, lines: 2, isPlaceholder: false },
+        {
+          type: 'erd',
+          file: 'erd.mmd',
+          bytes: 55,
+          lines: 4,
+          isPlaceholder: false,
+          metadata: {
+            sourceKind: 'json-schema',
+            sourceKinds: ['json-schema'],
+            sourceFilesByKind: { 'json-schema': ['schemas/order.schema.json'] },
+            availability: 'degraded',
+            availabilityReason: 'low_confidence_extraction',
+          },
+        },
+      ]);
+
+      const outputPath = path.join(tmpRoot, 'diagram-context.md');
+      buildContextPack({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        contextPath: outputPath,
+        deterministic: true,
+      });
+
+      const contextText = fs.readFileSync(outputPath, 'utf8');
+      expect(contextText).to.include('## ERD Availability Guidance');
+      expect(contextText).to.include('- Status: degraded');
+      expect(contextText).to.include('- Reason: low_confidence_extraction');
+      expect(contextText).to.include('- Source kinds: json-schema');
+      expect(contextText).to.include('- Source files: json-schema: schemas/order.schema.json');
+    });
+  });
+
+  it('does not add ERD guidance when manifest metadata marks ERD useful', () => {
+    withTempDiagrams('diagram-context-erd-useful-no-guidance-', ({ tmpRoot, diagramsDir }) => {
+      writeContextDiagramFixture(diagramsDir, [
+        { type: 'architecture', file: 'architecture.mmd', bytes: 24, lines: 2, isPlaceholder: false },
+        { type: 'dependency', file: 'dependency.mmd', bytes: 20, lines: 2, isPlaceholder: false },
+        {
+          type: 'erd',
+          file: 'erd.mmd',
+          bytes: 55,
+          lines: 4,
+          isPlaceholder: false,
+          metadata: {
+            sourceKind: 'json-schema',
+            sourceKinds: ['json-schema'],
+            sourceFilesByKind: { 'json-schema': ['schemas/order.schema.json'] },
+            availability: 'useful',
+            availabilityReason: 'schema_sources_detected',
+          },
+        },
+      ]);
+
+      const outputPath = path.join(tmpRoot, 'diagram-context.md');
+      buildContextPack({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        contextPath: outputPath,
+        deterministic: true,
+      });
+
+      const contextText = fs.readFileSync(outputPath, 'utf8');
+      expect(contextText).to.not.include('## ERD Availability Guidance');
+      expect(contextText).to.not.include('- Status: unavailable');
+      expect(contextText).to.not.include('- Status: degraded');
+    });
+  });
+
+  it('adds conservative ERD guidance when ERD availability metadata is missing', () => {
+    withTempDiagrams('diagram-context-erd-missing-metadata-guidance-', ({ tmpRoot, diagramsDir }) => {
+      writeContextDiagramFixture(diagramsDir, [
+        { type: 'architecture', file: 'architecture.mmd', bytes: 24, lines: 2, isPlaceholder: false },
+        { type: 'dependency', file: 'dependency.mmd', bytes: 20, lines: 2, isPlaceholder: false },
+        { type: 'erd', file: 'erd.mmd', bytes: 55, lines: 4, isPlaceholder: false },
+      ]);
+
+      const outputPath = path.join(tmpRoot, 'diagram-context.md');
+      buildContextPack({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        contextPath: outputPath,
+        deterministic: true,
+      });
+
+      const contextText = fs.readFileSync(outputPath, 'utf8');
+      expect(contextText).to.include('## ERD Availability Guidance');
+      expect(contextText).to.include('- Status: unknown');
+      expect(contextText).to.include('- Reason: availability_metadata_missing');
+      expect(contextText).to.include('- Fallback evidence: .diagram/diagrams/architecture.mmd, .diagram/diagrams/dependency.mmd');
+    });
+  });
+
+  it('adds conservative ERD guidance when ERD availability metadata is unknown', () => {
+    withTempDiagrams('diagram-context-erd-unknown-metadata-guidance-', ({ tmpRoot, diagramsDir }) => {
+      writeContextDiagramFixture(diagramsDir, [
+        { type: 'architecture', file: 'architecture.mmd', bytes: 24, lines: 2, isPlaceholder: false },
+        { type: 'dependency', file: 'dependency.mmd', bytes: 20, lines: 2, isPlaceholder: false },
+        {
+          type: 'erd',
+          file: 'erd.mmd',
+          bytes: 55,
+          lines: 4,
+          isPlaceholder: false,
+          metadata: {
+            availability: 'legacy-unclassified',
+            availabilityReason: 'legacy_reason',
+          },
+        },
+      ]);
+
+      const outputPath = path.join(tmpRoot, 'diagram-context.md');
+      buildContextPack({
+        rootDir: '/tmp/example',
+        tmpDir: tmpRoot,
+        contextPath: outputPath,
+        deterministic: true,
+      });
+
+      const contextText = fs.readFileSync(outputPath, 'utf8');
+      expect(contextText).to.include('## ERD Availability Guidance');
+      expect(contextText).to.include('- Status: unknown');
+      expect(contextText).to.include('- Reason: availability_metadata_unknown');
+      expect(contextText).to.not.include('legacy_reason');
     });
   });
 

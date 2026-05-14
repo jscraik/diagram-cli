@@ -51,6 +51,78 @@ function buildOmittedSection(omittedTypes, compact = false) {
   ].join('\n');
 }
 
+function getEntryMetadata(entry) {
+  if (entry && entry.metadata && typeof entry.metadata === 'object') {
+    return entry.metadata;
+  }
+  return entry && typeof entry === 'object' ? entry : {};
+}
+
+function formatSourceFilesByKind(sourceFilesByKind) {
+  if (!sourceFilesByKind || typeof sourceFilesByKind !== 'object') {
+    return '';
+  }
+
+  return Object.keys(sourceFilesByKind)
+    .sort()
+    .map((kind) => {
+      const files = Array.isArray(sourceFilesByKind[kind])
+        ? sourceFilesByKind[kind].filter((file) => typeof file === 'string' && file.length > 0)
+        : [];
+      return files.length > 0 ? `${kind}: ${files.join(', ')}` : '';
+    })
+    .filter(Boolean)
+    .join('; ');
+}
+
+function buildErdAvailabilityGuidance(sortedDiagrams, includedRows) {
+  const includedTypes = new Set(includedRows.map((entry) => entry.type));
+  const erdEntry = sortedDiagrams.find((entry) => entry.type === 'erd');
+  if (!erdEntry || !includedTypes.has('erd')) {
+    return '';
+  }
+
+  const metadata = getEntryMetadata(erdEntry);
+  const knownStatuses = new Set(['useful', 'unavailable', 'degraded']);
+  const rawStatus = typeof metadata.availability === 'string' ? metadata.availability : '';
+  if (rawStatus === 'useful') {
+    return '';
+  }
+
+  const status = knownStatuses.has(rawStatus) ? rawStatus : 'unknown';
+  const fallbackReason = rawStatus ? 'availability_metadata_unknown' : 'availability_metadata_missing';
+  const reason = knownStatuses.has(rawStatus)
+    && typeof metadata.availabilityReason === 'string'
+    && metadata.availabilityReason.length > 0
+    ? metadata.availabilityReason
+    : fallbackReason;
+  const fallbackEvidence = sortedDiagrams
+    .filter((entry) => entry.type !== 'erd' && typeof entry.file === 'string' && entry.file.length > 0)
+    .map((entry) => `.diagram/diagrams/${entry.file}`);
+  const sourceKinds = Array.isArray(metadata.sourceKinds)
+    ? metadata.sourceKinds.filter((kind) => typeof kind === 'string' && kind.length > 0)
+    : [];
+  const sourceFiles = formatSourceFilesByKind(metadata.sourceFilesByKind);
+  const lines = [
+    '## ERD Availability Guidance',
+    '',
+    `- Status: ${status}`,
+    `- Reason: ${reason}`,
+  ];
+
+  if (sourceKinds.length > 0) {
+    lines.push(`- Source kinds: ${sourceKinds.join(', ')}`);
+  }
+  if (sourceFiles) {
+    lines.push(`- Source files: ${sourceFiles}`);
+  }
+  if (fallbackEvidence.length > 0) {
+    lines.push(`- Fallback evidence: ${fallbackEvidence.join(', ')}`);
+  }
+
+  return `${lines.join('\n')}\n\n`;
+}
+
 function buildHeaderText({
   sortedDiagrams,
   contextMaxBytes,
@@ -73,16 +145,21 @@ function buildHeaderText({
   ];
   const staticSuffix = ['', '## Embedded Mermaid (Budgeted)', '', ''];
   const indexRows = [];
+  const includedRows = [];
 
   const buildCandidate = (rows, summaryLine = '') => {
     const summary = summaryLine ? ['', summaryLine] : [];
-    return `${staticPrefix.concat(rows, summary, staticSuffix).join('\n')}`;
+    const erdGuidance = buildErdAvailabilityGuidance(sortedDiagrams, includedRows);
+    const guidance = erdGuidance ? ['', erdGuidance.trimEnd()] : [];
+    return `${staticPrefix.concat(rows, summary, guidance, staticSuffix).join('\n')}`;
   };
 
   for (const entry of sortedDiagrams) {
     const row = `| ${entry.type} | ${entry.file} | ${entry.bytes} | ${entry.lines} | ${entry.isPlaceholder ? 'yes' : 'no'} | ${estimateTokensFromBytes(entry.bytes || 0)} |`;
+    includedRows.push(entry);
     const candidateWithRow = buildCandidate(indexRows.concat(row));
     if (Buffer.byteLength(candidateWithRow, 'utf8') > contextMaxBytes) {
+      includedRows.pop();
       break;
     }
     indexRows.push(row);

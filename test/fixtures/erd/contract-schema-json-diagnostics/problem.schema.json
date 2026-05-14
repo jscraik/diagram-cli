@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ProblemManifest",
+  "type": "object",
+  "properties": {
+    "manifestId": {
+      "type": "string"
+    },
+    "remoteThing": {
+      "$ref": "https://example.com/schema.json#/$defs/Thing"
+    },
+    "crossFileThing": {
+      "$ref": "other.schema.json#/$defs/Thing"
+    },
+    "missingThing": {
+      "$ref": "#/$defs/MissingThing"
+    },
+    "status": {
+      "$ref": "#/$defs/StatusCode"
+    },
+    "composedThing": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/Thing"
+        }
+      ]
+    },
+    "escapedRef": {
+      "$ref": "#/$defs/Path~1Token"
+    }
+  },
+  "$defs": {
+    "StatusCode": {
+      "type": "string",
+      "enum": ["open", "closed"]
+    },
+    "Thing": {
+      "type": "object",
+      "properties": {
+        "thingId": {
+          "type": "string"
+        }
+      }
+    },
+    "Path/Token": {
+      "type": "object",
+      "properties": {
+        "tokenId": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,10 +1,13 @@
 const { expect } = require('chai');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { SOURCE_PRECEDENCE, extractErdModel, __test } = require('../src/schema/erd-extractor');
 
 const {
   SCHEMA_PARSERS,
   inferRelationshipsFromForeignKeyNames,
+  parseJsonSchema,
   parsePrismaSchema,
   parseSqlSchema,
   relationshipKey,
@@ -21,6 +24,52 @@ function hasRelationship(extracted, fromEntity, toEntity, provenance = 'explicit
     && relationship.toEntity === toEntity
     && relationship.provenance === provenance
   );
+}
+
+function findRelationship(extracted, fromEntity, toEntity, cardinality, provenance = 'explicit') {
+  return extracted.model.relationships.find((relationship) =>
+    relationship.fromEntity === fromEntity
+    && relationship.toEntity === toEntity
+    && relationship.cardinality === cardinality
+    && relationship.provenance === provenance
+  );
+}
+
+function findEntity(extracted, name) {
+  return extracted.model.entities.find((entity) => entity.name === name);
+}
+
+function createMixedSourceWorkspace() {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'diagram-cli-erd-mixed-'));
+  fs.mkdirSync(path.join(workspace, 'prisma'), { recursive: true });
+  fs.mkdirSync(path.join(workspace, 'contracts'), { recursive: true });
+  fs.writeFileSync(path.join(workspace, 'prisma', 'schema.prisma'), [
+    'model User {',
+    '  id String @id',
+    '  email String @unique',
+    '}',
+    '',
+  ].join('\n'));
+  fs.writeFileSync(path.join(workspace, 'contracts', 'event.schema.json'), JSON.stringify({
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    title: 'AuditEvent',
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      user: { $ref: '#/$defs/UserRef' },
+    },
+    required: ['id', 'user'],
+    $defs: {
+      UserRef: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+        },
+        required: ['id'],
+      },
+    },
+  }, null, 2));
+  return workspace;
 }
 
 describe('erd extractor', () => {
@@ -49,8 +98,93 @@ describe('erd extractor', () => {
     const extracted = extractErdModel({ rootPath: fixturePath('no-schema') });
 
     expect(extracted.terminalClass).to.equal('failed_no_schema');
+    expect(extracted.sourceFiles).to.deep.equal([]);
+    expect(extracted.sourceFilesByKind).to.deep.equal({});
     expect(extracted.model.entities).to.have.length(0);
     expect(extracted.diagnostics[0]).to.include('no supported schema sources found');
+    expect(extracted.diagnostics[0]).to.include('.schema.json');
+  });
+
+  it('extracts entities, attributes, and explicit relationships from JSON Schema contracts', () => {
+    const extracted = extractErdModel({ rootPath: fixturePath('contract-schema-json') });
+
+    expect(extracted.terminalClass).to.equal('completed');
+    expect(extracted.sourceFiles).to.deep.equal(['manifest.schema.json']);
+    expect(extracted.sourceFilesByKind).to.deep.equal({
+      'json-schema': ['manifest.schema.json'],
+    });
+    expect(extracted.sourcePrecedence).to.deep.equal(['prisma', 'sql', 'json-schema']);
+    expect(extracted.model.entities.map((entity) => entity.name)).to.deep.equal([
+      'AGENTRUNEVENT',
+      'AGENTRUNMANIFEST',
+      'REVIEWER',
+    ]);
+
+    const manifest = findEntity(extracted, 'AGENTRUNMANIFEST');
+    expect(manifest.attributes).to.deep.include({
+      name: 'runId',
+      type: 'string',
+      nullable: false,
+      keyFlags: [],
+    });
+    expect(manifest.attributes).to.deep.include({
+      name: 'eventId',
+      type: 'string',
+      nullable: true,
+      keyFlags: [],
+    });
+    expect(manifest.attributes).to.deep.include({
+      name: 'currentEvent',
+      type: 'AgentRunEvent',
+      nullable: false,
+      keyFlags: [],
+    });
+    expect(manifest.attributes).to.deep.include({
+      name: 'events',
+      type: 'array',
+      nullable: true,
+      keyFlags: [],
+    });
+
+    expect(findRelationship(extracted, 'AGENTRUNMANIFEST', 'AGENTRUNEVENT', '}o--||')).to.include({
+      provenance: 'explicit',
+    });
+    expect(findRelationship(extracted, 'AGENTRUNMANIFEST', 'AGENTRUNEVENT', '||--o{')).to.include({
+      provenance: 'explicit',
+    });
+    expect(findRelationship(extracted, 'AGENTRUNEVENT', 'REVIEWER', '}o--||')).to.include({
+      provenance: 'explicit',
+    });
+  });
+
+  it('reports unsupported JSON Schema references without fabricating relationships', () => {
+    const extracted = extractErdModel({ rootPath: fixturePath('contract-schema-json-diagnostics') });
+
+    expect(extracted.terminalClass).to.equal('completed');
+    expect(extracted.sourceFiles).to.deep.equal(['problem.schema.json']);
+    expect(extracted.sourceFilesByKind).to.deep.equal({
+      'json-schema': ['problem.schema.json'],
+    });
+
+    const diagnostics = extracted.diagnostics.join('\n');
+    expect(diagnostics).to.include('remote_ref_unsupported');
+    expect(diagnostics).to.include('cross_file_ref_unsupported');
+    expect(diagnostics).to.include('local_ref_unresolved');
+    expect(diagnostics).to.include('non_object_definition_ignored');
+    expect(diagnostics).to.include('composition_unsupported');
+
+    const manifest = findEntity(extracted, 'PROBLEMMANIFEST');
+    expect(manifest.attributes).to.deep.include({
+      name: 'escapedRef',
+      type: 'Path_Token',
+      nullable: true,
+      keyFlags: [],
+    });
+    expect(findRelationship(extracted, 'PROBLEMMANIFEST', 'PATH_TOKEN', '}o--||')).to.include({
+      provenance: 'explicit',
+    });
+    expect(hasRelationship(extracted, 'PROBLEMMANIFEST', 'MISSINGTHING')).to.equal(false);
+    expect(hasRelationship(extracted, 'PROBLEMMANIFEST', 'THING')).to.equal(false);
   });
 
   it('honors caller-provided ignore patterns when discovering schema sources', () => {
@@ -61,6 +195,26 @@ describe('erd extractor', () => {
 
     expect(extracted.terminalClass).to.equal('failed_no_schema');
     expect(extracted.sourceFiles).to.deep.equal([]);
+    expect(extracted.sourceFilesByKind).to.deep.equal({});
+  });
+
+  it('reports mixed source-kind evidence in source precedence order', () => {
+    const workspace = createMixedSourceWorkspace();
+    try {
+      const extracted = extractErdModel({ rootPath: workspace });
+
+      expect(extracted.terminalClass).to.equal('completed');
+      expect(extracted.sourceFiles).to.deep.equal([
+        'prisma/schema.prisma',
+        'contracts/event.schema.json',
+      ]);
+      expect(extracted.sourceFilesByKind).to.deep.equal({
+        prisma: ['prisma/schema.prisma'],
+        'json-schema': ['contracts/event.schema.json'],
+      });
+    } finally {
+      fs.rmSync(workspace, { recursive: true, force: true });
+    }
   });
 
   it('infers relationships from *_id fields when explicit FK constraints are absent', () => {
@@ -163,6 +317,17 @@ describe('erd extractor helpers', () => {
     it('maps sql to parseSqlSchema', () => {
       expect(SCHEMA_PARSERS.sql).to.equal(parseSqlSchema);
     });
+
+    it('maps json-schema to parseJsonSchema', () => {
+      expect(parseJsonSchema).to.be.a('function');
+      expect(SCHEMA_PARSERS['json-schema']).to.equal(parseJsonSchema);
+    });
+  });
+
+  describe('SOURCE_PRECEDENCE', () => {
+    it('checks JSON Schema after database-native sources', () => {
+      expect(SOURCE_PRECEDENCE).to.deep.equal(['prisma', 'sql', 'json-schema']);
+    });
   });
 
   describe('splitSqlTypeAndRemainder', () => {
@@ -199,6 +364,14 @@ describe('erd extractor helpers', () => {
       ];
       const explicitRelationships = [{ fromEntity: 'ORDERS', toEntity: 'USERS', cardinality: '}o--||' }];
       const inferred = inferRelationshipsFromForeignKeyNames(entities, explicitRelationships);
+      expect(inferred).to.have.length(0);
+    });
+
+    it('does not infer self-relationships from an entity own id field', () => {
+      const entities = [
+        { name: 'reviewer', attributes: [{ name: 'reviewerId' }] },
+      ];
+      const inferred = inferRelationshipsFromForeignKeyNames(entities, []);
       expect(inferred).to.have.length(0);
     });
   });
