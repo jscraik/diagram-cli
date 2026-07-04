@@ -1,0 +1,406 @@
+version: 2.1
+
+jobs:
+  run-governance-check:
+    docker:
+      # Pinned to specific minor for reproducibility (JSC-115)
+      - image: cimg/node:26.3.0
+    resource_class: small
+    parameters:
+      check_name:
+        type: string
+      command:
+        type: string
+    steps:
+      - checkout
+      - run:
+          name: Fetch comparison base
+          command: |
+            git fetch --no-tags --depth=200 origin +main:refs/remotes/origin/main || \
+              git fetch --no-tags origin +main:refs/remotes/origin/main
+      - run:
+          name: Verify GH token wiring
+          command: |
+            if [ -n "${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ]; then
+              export GH_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN}"
+              export GITHUB_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN}"
+              echo 'export GH_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN}"' >> "$BASH_ENV"
+              echo 'export GITHUB_TOKEN="${GITHUB_PERSONAL_ACCESS_TOKEN}"' >> "$BASH_ENV"
+              echo "Promoted GITHUB_PERSONAL_ACCESS_TOKEN to GH_TOKEN/GITHUB_TOKEN for gh-backed steps."
+            elif [ -n "${GH_TOKEN:-}" ]; then
+              echo "GH_TOKEN is already available for gh-backed steps."
+            elif [ -n "${GITHUB_TOKEN:-}" ]; then
+              export GH_TOKEN="${GITHUB_TOKEN}"
+              echo 'export GH_TOKEN="${GITHUB_TOKEN}"' >> "$BASH_ENV"
+              echo "Promoted GITHUB_TOKEN to GH_TOKEN for gh-backed steps."
+            else
+              echo "GH_TOKEN/GITHUB_PERSONAL_ACCESS_TOKEN not set; gh-backed steps may fail."
+            fi
+      - run:
+          name: Ensure baseline shell tools
+          command: |
+            export GH_BIN="${HARNESS_GH_BIN:-${GH_BIN:-gh}}"
+            echo 'export GH_BIN="${HARNESS_GH_BIN:-${GH_BIN:-gh}}"' >> "$BASH_ENV"
+            packages=()
+            if [[ "$GH_BIN" == "gh" ]] && ! command -v gh >/dev/null 2>&1; then
+              packages+=("gh")
+            fi
+            if ! command -v rg >/dev/null 2>&1; then
+              packages+=("ripgrep")
+            fi
+            if ! command -v fd >/dev/null 2>&1 && ! command -v fdfind >/dev/null 2>&1; then
+              packages+=("fd-find")
+            fi
+            if ! command -v jq >/dev/null 2>&1; then
+              packages+=("jq")
+            fi
+            if ! command -v make >/dev/null 2>&1; then
+              packages+=("make")
+            fi
+            if ! command -v realpath >/dev/null 2>&1; then
+              packages+=("coreutils")
+            fi
+            if (( ${#packages[@]} > 0 )); then
+              sudo apt-get update
+              sudo apt-get install -y "${packages[@]}"
+            fi
+            "$GH_BIN" --version
+            if ! command -v fd >/dev/null 2>&1 && command -v fdfind >/dev/null 2>&1; then
+              mkdir -p "$HOME/.local/bin"
+              ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+              echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
+            rg --version
+            fd --version
+            jq --version
+            make --version
+            realpath --version
+      - run:
+          name: Ensure mise available
+          command: |
+            export MISE_VERSION="v2025.1.5"
+            echo 'export MISE_VERSION="v2025.1.5"' >> "$BASH_ENV"
+            export PATH="$HOME/.local/bin:$PATH"
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+            current_mise_version=""
+            if command -v mise >/dev/null 2>&1; then
+              current_mise_version="$(mise --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
+            fi
+            if [[ "$current_mise_version" != "${MISE_VERSION#v}" ]]; then
+              curl -fsSL https://mise.run | sh
+            fi
+            mise trust --yes .mise.toml
+            mise --version
+      - run:
+          name: Ensure pnpm available
+          command: |
+            required_pnpm_version="10.33.0"
+            current_pnpm_version=""
+            if command -v pnpm >/dev/null 2>&1; then
+              current_pnpm_version="$(pnpm --version || true)"
+            fi
+            if [[ "$current_pnpm_version" != "$required_pnpm_version" ]]; then
+              export NPM_CONFIG_PREFIX="$HOME/.local"
+              export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
+              echo 'export NPM_CONFIG_PREFIX="$HOME/.local"' >> "$BASH_ENV"
+              echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+              npm install --global --prefix "$NPM_CONFIG_PREFIX" "pnpm@${required_pnpm_version}"
+            fi
+            pnpm --version
+      - run:
+          name: Ensure uv available
+          command: |
+            retry_cmd() {
+              local max_attempts="${1:-3}"
+              shift
+              local attempt=1
+              until "$@"; do
+                if (( attempt >= max_attempts )); then
+                  return 1
+                fi
+                local sleep_seconds=$(( attempt * 5 ))
+                echo "Command failed (attempt ${attempt}/${max_attempts}): $*"
+                echo "Retrying in ${sleep_seconds}s..."
+                sleep "${sleep_seconds}"
+                attempt=$(( attempt + 1 ))
+              done
+            }
+            install_mise_without_github_tokens() {
+              (
+                unset GH_TOKEN GITHUB_TOKEN GITHUB_PERSONAL_ACCESS_TOKEN
+                mise install "$@"
+              )
+            }
+            export PATH="$HOME/.local/bin:$PATH"
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+            retry_cmd 3 install_mise_without_github_tokens uv
+            uv_path="$(mise which uv)"
+            if [[ -z "$uv_path" ]]; then
+              echo "Error: mise which uv returned nothing" >&2
+              exit 1
+            fi
+            mkdir -p "$HOME/.local/bin"
+            ln -sf "$uv_path" "$HOME/.local/bin/uv"
+            uv --version
+
+
+      - run:
+
+          name: Inject npm auth
+          command: |
+            if [[ -n "${NPM_TOKEN:-}" ]]; then
+              printf '%s\n' "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> "$HOME/.npmrc"
+            fi
+      - run:
+          name: Install dependencies
+          command: npm ci
+
+
+      - run:
+
+          name: Ensure test-results directory exists
+          when: always
+          command: |
+            mkdir -p artifacts/test-results
+      - run:
+          name: << parameters.check_name >>
+          command: << parameters.command >>
+      - store_test_results:
+          path: artifacts/test-results
+          when: always
+      - store_artifacts:
+          path: artifacts/test-results
+          when: always
+
+  snyk-dependency-scan:
+    docker:
+      # Pinned to specific minor for reproducibility (JSC-115)
+      - image: cimg/node:26.3.0
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Enable package manager
+          command: |
+            if [[ "npm" == "pnpm" ]]; then
+              export NPM_CONFIG_PREFIX="$HOME/.local"
+              export PATH="$NPM_CONFIG_PREFIX/bin:$PATH"
+              echo 'export NPM_CONFIG_PREFIX="$HOME/.local"' >> "$BASH_ENV"
+              echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+              npm install --global --prefix "$NPM_CONFIG_PREFIX" "pnpm@10.33.0"
+            fi
+            npm --version
+      - run:
+          name: Install dependencies for Snyk package graph
+          command: npm ci
+      - run:
+          name: Run report-only Snyk dependency scan
+          command: |
+            if [[ -z "${SNYK_TOKEN:-}" ]]; then
+              echo "SNYK_TOKEN is not available in this CircleCI job."
+              echo "Skipping report-only CircleCI Snyk scan; external GitHub Snyk remains the blocking PR check."
+              exit 0
+            fi
+            if ! command -v snyk >/dev/null 2>&1; then
+              npm install --global --prefix "$HOME/.local" snyk || {
+                echo "Unable to install Snyk CLI; treating CircleCI Snyk as report-only."
+                exit 0
+              }
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
+            snyk config set disableSuggestions=true || true
+            if ! snyk auth "$SNYK_TOKEN"; then
+              echo "Snyk auth failed; treating CircleCI Snyk as report-only."
+              echo "External GitHub Snyk remains the blocking PR dependency-delta check."
+              exit 0
+            fi
+            snyk test --severity-threshold=high --file=package.json --package-manager=npm || true
+
+workflows:
+  pr-pipeline:
+    jobs:
+      - run-governance-check:
+          name: pr-template
+          check_name: pr-template
+          command: |
+            pr_ref="$(HARNESS_CIRCLECI_PR_REF_CHECK_NAME=pr-template GH_BIN="$GH_BIN" bash scripts/resolve-circleci-pr-ref.sh)"
+            export PR_TEMPLATE_BODY
+            PR_TEMPLATE_BODY="$(GH_BIN="$GH_BIN" bash scripts/read-circleci-pr-metadata.sh "$pr_ref" | jq -r '.body // ""')"
+            bash scripts/run-harness-gate.sh pr-template-gate --json
+          filters:
+            tags:
+              ignore: /.*/
+
+      - run-governance-check:
+          name: linear-gate
+          check_name: linear-gate
+          requires:
+            - pr-template
+          command: |
+            export GH_BIN="${HARNESS_GH_BIN:-${GH_BIN:-gh}}"
+            pr_ref="$(HARNESS_CIRCLECI_PR_REF_CHECK_NAME=linear-gate GH_BIN="$GH_BIN" bash scripts/resolve-circleci-pr-ref.sh)"
+            pr_metadata="$(GH_BIN="$GH_BIN" bash scripts/read-circleci-pr-metadata.sh "$pr_ref")"
+            branch_name="$(printf '%s\n' "$pr_metadata" | jq -r '.headRefName // ""')"
+            pr_title="$(printf '%s\n' "$pr_metadata" | jq -r '.title // ""')"
+            pr_body="$(printf '%s\n' "$pr_metadata" | jq -r '.body // ""')"
+            bash scripts/run-harness-gate.sh linear-gate \
+              --branch "$branch_name" \
+              --pr-title "$pr_title" \
+              --pr-body "$pr_body" \
+              --json
+          filters:
+            tags:
+              ignore: /.*/
+
+      - run-governance-check:
+          name: risk-policy-gate
+          check_name: risk-policy-gate
+          requires:
+            - pr-template
+            - linear-gate
+
+          command: bash scripts/run-harness-gate.sh policy-gate --max-tier medium --json
+
+          filters:
+            tags:
+              ignore: /.*/
+      - run-governance-check:
+          name: dependency-scan
+          check_name: dependency-scan
+          command: npm run audit:strict
+          filters:
+            tags:
+              ignore: /.*/
+      - run-governance-check:
+          name: orb-pinning
+          check_name: orb-pinning
+          command: |
+            retry_cmd() {
+              local max_attempts="${1:-3}"
+              shift
+              local attempt=1
+              until "$@"; do
+                if (( attempt >= max_attempts )); then
+                  return 1
+                fi
+                local sleep_seconds=$(( attempt * 5 ))
+                echo "Command failed (attempt ${attempt}/${max_attempts}): $*"
+                echo "Retrying in ${sleep_seconds}s..."
+                sleep "${sleep_seconds}"
+                attempt=$(( attempt + 1 ))
+              done
+            }
+            install_mise_without_github_tokens() {
+              (
+                unset GH_TOKEN GITHUB_TOKEN GITHUB_PERSONAL_ACCESS_TOKEN
+                mise install "$@"
+              )
+            }
+            packages=()
+            if ! dpkg -s python3-venv >/dev/null 2>&1; then
+              packages+=("python3-venv")
+            fi
+            if ! dpkg -s python3-pip >/dev/null 2>&1; then
+              packages+=("python3-pip")
+            fi
+            if (( ${#packages[@]} > 0 )); then
+              retry_cmd 3 sudo apt-get update
+              retry_cmd 3 sudo apt-get install -y "${packages[@]}"
+            fi
+            mkdir -p "$HOME/.local/bin" "$HOME/.local/share"
+            export PATH="$HOME/.local/bin:$PATH"
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+            retry_cmd 3 install_mise_without_github_tokens rust@stable
+            if [[ -f "$HOME/.cargo/env" ]]; then
+              # rustup does not update the current shell PATH for non-interactive jobs.
+              . "$HOME/.cargo/env"
+            fi
+            SEMGREP_VERSION="1.153.1"
+            SEMGREP_VENV="$HOME/.local/share/semgrep-venv-${SEMGREP_VERSION}"
+            if [[ ! -x "$SEMGREP_VENV/bin/semgrep" ]]; then
+              python3 -m venv "$SEMGREP_VENV"
+              retry_cmd 3 "$SEMGREP_VENV/bin/python" -m pip install --quiet --upgrade pip "semgrep==${SEMGREP_VERSION}"
+            fi
+            ln -sf "$SEMGREP_VENV/bin/semgrep" "$HOME/.local/bin/semgrep"
+            export MISE_CARGO_BINSTALL=false
+            export MISE_NODE_VERIFY=false
+            retry_cmd 3 install_mise_without_github_tokens \
+              node pnpm python uv cargo:prek \
+              npm:@brainwav/diagram npm:@argos-ci/cli cosign cloudflared npm:vitest \
+              ruff npm:eslint npm:agent-browser npm:agentation npm:agentation-mcp \
+              npm:@mermaid-js/mermaid-cli npm:@brainwav/rsearch npm:@brainwav/wsearch-cli \
+              npm:beautiful-mermaid npm:markdownlint-cli2 npm:semver npm:wrangler \
+              trivy vale
+            semgrep --version
+            bash scripts/check-environment.sh
+          filters:
+            tags:
+              ignore: /.*/
+      - run-governance-check:
+          name: docs-gate
+          check_name: docs-gate
+          command: bash scripts/run-harness-gate.sh docs-gate --mode required --json
+          filters:
+            tags:
+              ignore: /.*/
+      - run-governance-check:
+          name: lint
+          check_name: lint
+          command: npm run lint
+          filters:
+            tags:
+              ignore: /.*/
+      - run-governance-check:
+          name: typecheck
+          check_name: typecheck
+          command: npm run typecheck
+          filters:
+            tags:
+              ignore: /.*/
+      - run-governance-check:
+          name: test
+          check_name: test
+          command: npm run test:ci
+          filters:
+            tags:
+              ignore: /.*/
+      - run-governance-check:
+          name: audit
+          check_name: audit
+          command: npm run audit
+          filters:
+            tags:
+              ignore: /.*/
+      - run-governance-check:
+          name: check
+          check_name: check
+          command: npm run check
+          filters:
+            tags:
+              ignore: /.*/
+      - run-governance-check:
+          name: memory
+          check_name: memory
+          command: test -f memory.json && jq -e '.meta.version == "1.0" and (.preamble.bootstrap | type == "boolean") and (.preamble.search | type == "boolean") and (.entries | type == "array")' memory.json >/dev/null
+          filters:
+            tags:
+              ignore: /.*/
+
+  security-scan:
+    jobs:
+      - run-governance-check:
+          name: security-scan
+          check_name: security-scan
+          command: |
+            if [ -f .gitleaks.toml ]; then gitleaks detect --source . --config .gitleaks.toml --redact --no-banner; else gitleaks detect --source . --redact --no-banner; fi
+            trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 .
+            bash scripts/check-semgrep-full.sh
+          filters:
+            tags:
+              ignore: /.*/
+      - snyk-dependency-scan:
+          name: snyk-dependency-scan
+          filters:
+            tags:
+              ignore: /.*/
