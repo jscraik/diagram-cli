@@ -4,6 +4,32 @@
 
 set -euo pipefail
 
+prepend_standard_tool_paths() {
+	local candidate
+	for candidate in \
+		"$HOME/.local/share/mise/shims" \
+		"$HOME/.local/bin" \
+		"/opt/homebrew/bin" \
+		"/opt/homebrew/sbin" \
+		"/usr/local/bin" \
+		"/usr/sbin" \
+		"/sbin"; do
+		if [[ -d "$candidate" && ":$PATH:" != *":$candidate:"* ]]; then
+			PATH="$candidate:$PATH"
+		fi
+	done
+	export PATH
+}
+
+prepend_standard_tool_paths
+
+if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 && -z "${CHECK_ENVIRONMENT_REEXECED:-}" ]]; then
+	if [[ -x "/opt/homebrew/bin/bash" ]]; then
+		export CHECK_ENVIRONMENT_REEXECED=1
+		exec "/opt/homebrew/bin/bash" "$0" "$@"
+	fi
+fi
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 CONTRACT_PATH="$REPO_ROOT/harness.contract.json"
@@ -484,33 +510,40 @@ run_check_environment_with_runner() {
 	return 0
 }
 
-if ! command -v npm >/dev/null 2>&1; then
-	echo "Error: npm is required to validate global harness installation."
-	exit 1
-fi
+if [[ -x "$REPO_ROOT/scripts/harness-cli.sh" ]]; then
+	if ! run_check_environment_with_runner "repo wrapper (bash scripts/harness-cli.sh)" bash "$REPO_ROOT/scripts/harness-cli.sh"; then
+		echo "Error: repo wrapper failed to run check-environment successfully."
+		exit 1
+	fi
+else
+	if ! command -v npm >/dev/null 2>&1; then
+		echo "Error: npm is required to validate global harness installation."
+		exit 1
+	fi
 
-if ! npm ls -g --depth=0 @brainwav/coding-harness >/dev/null 2>&1; then
-	echo "Error: @brainwav/coding-harness is not installed globally via npm."
-	echo "Install globally and retry:"
-	echo "  npm i -g @brainwav/coding-harness"
-	echo "Private registry auth is required:"
-	echo "  - Local shell: export NPM_TOKEN=<token>"
-	echo "  - CI (CircleCI): set NPM_TOKEN as a project environment variable in CircleCI project settings"
-	exit 1
-fi
+	if ! npm ls -g --depth=0 @brainwav/coding-harness >/dev/null 2>&1; then
+		echo "Error: @brainwav/coding-harness is not installed globally via npm."
+		echo "Install globally and retry:"
+		echo "  npm i -g @brainwav/coding-harness"
+		echo "Private registry auth is required:"
+		echo "  - Local shell: export NPM_TOKEN=<token>"
+		echo "  - CI (CircleCI): set NPM_TOKEN as a project environment variable in CircleCI project settings"
+		exit 1
+	fi
 
-if ! command -v harness >/dev/null 2>&1; then
-	echo "Error: global harness binary is not on PATH after npm installation."
-	echo "Fix: ensure npm global bin directory is on PATH, then retry."
-	exit 1
-fi
+	if ! command -v harness >/dev/null 2>&1; then
+		echo "Error: global harness binary is not on PATH after npm installation."
+		echo "Fix: ensure npm global bin directory is on PATH, then retry."
+		exit 1
+	fi
 
-if ! run_check_environment_with_runner "global npm harness ($(command -v harness))" harness; then
-	echo "Error: global npm harness failed to run check-environment successfully."
-	echo "Reinstall and retry:"
-	echo "  npm i -g @brainwav/coding-harness"
-	echo "If this is CI (CircleCI), confirm NPM_TOKEN is set as a project environment variable."
-	exit 1
+	if ! run_check_environment_with_runner "global npm harness ($(command -v harness))" harness; then
+		echo "Error: global npm harness failed to run check-environment successfully."
+		echo "Reinstall and retry:"
+		echo "  npm i -g @brainwav/coding-harness"
+		echo "If this is CI (CircleCI), confirm NPM_TOKEN is set as a project environment variable."
+		exit 1
+	fi
 fi
 
 jq -e '.passed == true' "$ATTESTATION_PATH" >/dev/null

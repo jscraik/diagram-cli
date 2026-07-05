@@ -424,6 +424,39 @@ function pushJsonSchemaRefDiagnostic(diagnostics, context, pointer, ref, entityI
   }
 }
 
+function pushJsonSchemaRelationshipForRef({
+  relationships,
+  diagnostics,
+  context,
+  pointer,
+  ref,
+  fromEntity,
+  cardinality,
+  entityIndex,
+  nonObjectPointers,
+}) {
+  const classified = classifyJsonSchemaRef(ref);
+  const target = classified.kind === 'local' ? entityIndex.get(classified.pointer) : null;
+  if (target) {
+    relationships.push({
+      fromEntity,
+      toEntity: target.entityName,
+      cardinality,
+      provenance: 'explicit',
+    });
+    return;
+  }
+
+  pushJsonSchemaRefDiagnostic(
+    diagnostics,
+    context,
+    pointer,
+    ref,
+    entityIndex,
+    nonObjectPointers
+  );
+}
+
 function parseJsonSchema(fileContent, context = {}) {
   const schema = JSON.parse(fileContent);
   const entities = [];
@@ -487,48 +520,32 @@ function parseJsonSchema(fileContent, context = {}) {
       }
 
       if (typeof propertySchema.$ref === 'string') {
-        const classified = classifyJsonSchemaRef(propertySchema.$ref);
-        const target = classified.kind === 'local' ? entityIndex.get(classified.pointer) : null;
-        if (target) {
-          relationships.push({
-            fromEntity: indexed.entityName,
-            toEntity: target.entityName,
-            cardinality: '}o--||',
-            provenance: 'explicit',
-          });
-        } else {
-          pushJsonSchemaRefDiagnostic(
-            diagnostics,
-            context,
-            propertyPointer,
-            propertySchema.$ref,
-            entityIndex,
-            nonObjectPointers
-          );
-        }
+        pushJsonSchemaRelationshipForRef({
+          relationships,
+          diagnostics,
+          context,
+          pointer: propertyPointer,
+          ref: propertySchema.$ref,
+          fromEntity: indexed.entityName,
+          cardinality: '}o--||',
+          entityIndex,
+          nonObjectPointers,
+        });
       }
 
       const items = propertySchema.items;
       if (propertySchema.type === 'array' && typeof items?.$ref === 'string') {
-        const classified = classifyJsonSchemaRef(items.$ref);
-        const target = classified.kind === 'local' ? entityIndex.get(classified.pointer) : null;
-        if (target) {
-          relationships.push({
-            fromEntity: indexed.entityName,
-            toEntity: target.entityName,
-            cardinality: '||--o{',
-            provenance: 'explicit',
-          });
-        } else {
-          pushJsonSchemaRefDiagnostic(
-            diagnostics,
-            context,
-            `${propertyPointer}/items`,
-            items.$ref,
-            entityIndex,
-            nonObjectPointers
-          );
-        }
+        pushJsonSchemaRelationshipForRef({
+          relationships,
+          diagnostics,
+          context,
+          pointer: `${propertyPointer}/items`,
+          ref: items.$ref,
+          fromEntity: indexed.entityName,
+          cardinality: '||--o{',
+          entityIndex,
+          nonObjectPointers,
+        });
       }
     }
 
