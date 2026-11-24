@@ -1,6 +1,47 @@
 # archscope
 
-Architecture evidence for humans and AI coding agents.
+Scan a repository into an architecture report, a Mermaid diagram, and context for AI coding agents.
+
+This repository is named **diagram-cli** and the npm package is **`@brainwav/diagram`**. Use **`archscope`** for new commands; the **`diagram`** command remains a compatibility alias.
+
+## Quick Start
+
+Use Git, **Node.js 24**, and npm. Node 24 is the version used by the main CI workflows; `.mise.toml` pins 24.13.1. The package's older `node >=18` declaration does not reflect the current dependency requirements, so use the Node 24 route below.
+
+From the directory where you keep source checkouts:
+
+```bash
+git clone https://github.com/jscraik/diagram-cli.git
+cd diagram-cli
+npm ci
+node src/diagram.js scan . --exclude '**/node_modules/**,**/.git/**,**/.diagram/**'
+```
+
+This first scan analyses the **diagram-cli checkout**, excludes installed dependencies, and writes `.diagram/`. The default limit is 100 files; the command reports when that limit is reached. Increase `--max-files` if you need a broader scan.
+
+Example terminal summary from this checkout on Node 24.22.3 (2026-11-24; 100 of 142 matching files analysed):
+
+```text
+Architecture evidence pack initialized
+  Pack status: success
+  Components detected: 100
+  Manifest: .diagram/manifest.json
+  Human artifact: .diagram/report.html
+  Agent artifact: .diagram/agent-context.json
+  Warnings: none
+```
+
+Open `.diagram/report.html` in your browser, or read `.diagram/brief.md` in your editor. The architecture diagram is `.diagram/architecture.mmd`; read `.diagram/manifest.json` for each artefact's status. A successful scan creates the evidence pack; policy validation is a separate command covered in [Validation Truthfulness](#validation-truthfulness).
+
+To scan one of your own repositories, install the local command once, then change to that repository. Replace the example path with your project's path:
+
+```bash
+npm link
+cd /path/to/your-project
+archscope scan .
+```
+
+The output now belongs to your project. See [Architecture Evidence Pack](#architecture-evidence-pack) for the other files and [Human Workflows](#human-workflows) for PR-specific scans.
 
 ## Table of Contents
 
@@ -40,18 +81,6 @@ Default resolution precedence for scan parameters is explicit:
 3. command built-ins
 
 This applies to `patterns`, `exclude`, `maxFiles`, and `theme` where relevant.
-
-## Quick Start
-
-```bash
-git clone https://github.com/jscraik/diagram-cli.git
-cd diagram-cli
-npm install
-npm link
-```
-
-After `npm link`, use `archscope ...` for new workflows. Without `npm link`, run
-commands with `node src/diagram.js ...`.
 
 ## Architecture Evidence Pack
 
